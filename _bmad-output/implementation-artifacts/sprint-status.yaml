@@ -46,11 +46,11 @@ development_status:
   # ─────────────────────────────────────────
   # EPIC 1 — Socle Technique
   # ─────────────────────────────────────────
-  epic-1: backlog
-  1-1-infrastructure-docker-compose: backlog
-  1-2-bootstrap-backend-fastapi-base-de-donnees: backlog
-  1-3-bootstrap-frontend-react-typescript: backlog
-  1-4-cicd-github-actions: backlog
+  epic-1: in-progress
+  1-1-infrastructure-docker-compose: ready-for-dev
+  1-2-bootstrap-backend-fastapi-base-de-donnees: ready-for-dev
+  1-3-bootstrap-frontend-react-typescript: ready-for-dev
+  1-4-cicd-github-actions: ready-for-dev
   epic-1-retrospective: optional
 
   # ─────────────────────────────────────────
