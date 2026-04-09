@@ -1,0 +1,98 @@
+# generated: 2026-04-09
+# last_updated: 2026-04-09
+# project: Annotation
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: ./_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-04-09
+last_updated: 2026-04-09
+project: Annotation
+project_key: NOKEY
+tracking_system: file-system
+story_location: ./_bmad-output/implementation-artifacts
+
+development_status:
+
+  # ─────────────────────────────────────────
+  # EPIC 1 — Socle Technique
+  # ─────────────────────────────────────────
+  epic-1: backlog
+  1-1-infrastructure-docker-compose: backlog
+  1-2-bootstrap-backend-fastapi-base-de-donnees: backlog
+  1-3-bootstrap-frontend-react-typescript: backlog
+  1-4-cicd-github-actions: backlog
+  epic-1-retrospective: optional
+
+  # ─────────────────────────────────────────
+  # EPIC 2 — Gestion de Projets
+  # ─────────────────────────────────────────
+  epic-2: backlog
+  2-1-crud-projets-backend: backlog
+  2-2-upload-video-metadonnees-ffmpeg: backlog
+  2-3-streaming-video-range-requests: backlog
+  2-4-page-projets-frontend: backlog
+  2-5-page-detail-projet-upload-video: backlog
+  epic-2-retrospective: optional
+
+  # ─────────────────────────────────────────
+  # EPIC 3 — Annotation Vidéo
+  # ─────────────────────────────────────────
+  epic-3: backlog
+  3-1-crud-annotations-backend: backlog
+  3-2-bulk-placement-decalage-global: backlog
+  3-3-lecteur-video-frame-precis: backlog
+  3-4-bindings-clavier: backlog
+  3-5-timeline-canvas-annotations: backlog
+  3-6-mode-verification-sonore: backlog
+  3-7-formulaire-placement-automatique-equidistant: backlog
+  3-8-page-annotation-complete: backlog
+  epic-3-retrospective: optional
+
+  # ─────────────────────────────────────────
+  # EPIC 4 — Statistiques Rythmiques
+  # ─────────────────────────────────────────
+  epic-4: backlog
+  4-1-service-calcul-bpm: backlog
+  4-2-endpoints-statistiques: backlog
+  4-3-dashboard-metriques-bpm: backlog
+  4-4-histogramme-intervalles-ajustement-vitesse: backlog
+  epic-4-retrospective: optional
+
+  # ─────────────────────────────────────────
+  # EPIC 5 — Exports
+  # ─────────────────────────────────────────
+  epic-5: backlog
+  5-1-export-json-csv: backlog
+  5-2-export-clip-video-ffmpeg: backlog
+  5-3-ui-exports: backlog
+  epic-5-retrospective: optional

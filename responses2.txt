@@ -1,0 +1,53 @@
+1. Les utilisateurs cibles sont tous les professionnels ou chercheurs ayant besoin d'annoter des vidéos de manière rythmée : monteurs vidéo, chercheurs, chorégraphes, ou tout utilisateur ayant besoin d'une annotation temporelle précise. L'application n'est pas limitée au domaine musical.
+2. C'est un outil solo pour le moment.
+3. Chaque utilisateur travaille de manière indépendante sur ses propres projets, sans collaboration.
+4. Une annotation est caractérisée par deux informations : le numéro de frame ET le temps exact dans la vidéo (ex. frame 40 — 00:01:23.456).
+5. Pour le moment une annotation est une simple étiquette textuelle (ex. "le joueur saute"). On prévoit la possibilité d'organiser les annotations par catégories dans une version future.
+6. Oui exactement — si toutes mes annotations ont 200ms de retard, je veux les décaler toutes simultanément d'une durée donnée en une seule action.
+7. C'est un mode optionnel de vérification. Quand il est activé, un bip est émis à chaque annotation pendant la relecture. L'utilisateur active ou désactive ce mode librement.
+8. Oui, chaque annotation représente un beat.
+9. Modifier le BPM implique de modifier la vitesse de lecture de la vidéo — plus lent si le BPM diminue, plus rapide si le BPM augmente.
+10. Les métriques utiles : BPM global, BPM moyen et médian, variation du BPM, intervalles entre annotations, écart-type des intervalles, distribution des intervalles, segments rythmiques, pics d'activité, densité d'annotations.
+11. Les vidéos sont importées depuis le PC de l'utilisateur, avec possibilité future d'import depuis le cloud. La taille est très variable, de 10 secondes à 10 minutes.
+12. Local uniquement pour le moment, avec évolution vers un déploiement web dans le futur.
+13. Aucune contrainte sur les formats vidéo.
+14. Les outils existants (CVAT, Labelbox, VIA) sont trop complexes, payants ou orientés dataset IA. L'objectif est un outil généraliste centré sur l'annotation rythmée, plus simple et adapté à des usages variés.
+15. Pas de contrainte de confidentialité, mais le code et les données doivent rester sécurisés.
+16. Architecture Docker Compose avec API REST entre frontend et backend. TDD, CI/CD et tests automatisés obligatoires dès le début. Le choix des technologies frontend et backend est laissé à l'agent Architect.
+
+
+------------------------------------------------------------------------------
+A. L'utilisateur part d'un BPM calculé automatiquement à partir de ses annotations. Il peut ensuite saisir un BPM cible et l'application recalcule automatiquement la vitesse de lecture de la vidéo pour s'aligner sur ce rythme cible. Les deux approches sont combinées.
+B.
+Export annotations : au choix de l'utilisateur — JSON et CSV minimum, XML si possible.
+Export vidéo : juste l'extraite qui a ete annoté et pas de modification sur la video juste on extrait la partie qui a ete annoté
+
+ilisateur récupère sa vidéo complète avec les beats marqués dessus.
+
+C. Les deux — navigation clavier ET timeline cliquable à la souris. Le placement d'une annotation sur la frame courante se fait au clavier avec la touche Espace (comme mentionné dans le besoin initial). Les flèches permettent la navigation frame par frame, avec des raccourcis supplémentaires (Ctrl+flèche, Shift+flèche) pour des sauts plus rapides.
+
+-----------------------------------------------------------------------------------ARCHITECT------------------------------------------
+
+Lis _bmad-output/product-brief.md et propose
+l'architecture technique complète du projet.
+Choisis les technologies les plus adaptées et
+justifie tes choix avant de produire le document final.
+
+
+-----------------------Designer--------------------------------------------------------------
+
+Lis _bmad-output/product-brief.md et _bmad-output/architecture.md
+puis conçois les wireframes et l'expérience utilisateur
+pour l'application d'annotation vidéo.
+
+Concentre-toi particulièrement sur :
+1. L'interface d'annotation vidéo — c'est le cœur de l'app
+   (timeline, navigation clavier, placement des annotations,
+   barre de progression, mode bip sonore)
+2. La page de gestion de projets
+3. La page de statistiques et ajustement BPM
+
+Propose une interface simple, orientée productivité clavier,
+sans complexité inutile.
+
+

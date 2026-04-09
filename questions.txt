@@ -1,0 +1,136 @@
+Excellent projet, Ghilas ! Je sens qu'il y a une belle complexité à déballer ici — une
+  application d'annotation vidéo rythmée, c'est un territoire très spécifique. Laissez-moi
+  enfiler ma casquette de détective et fouiller les détails qui feront toute la différence.
+
+  ---
+  Bloc 1 — Les utilisateurs et leur contexte
+
+  1. Qui sont précisément les utilisateurs cibles ? Des chercheurs en musicologie, des
+  analystes de contenu, des chorégraphes, des professeurs de musique... ? Avez-vous déjà un
+  groupe d'utilisateurs identifié ?
+
+  2. Combien d'utilisateurs sont attendus ? Est-ce un outil solo, en équipe, ou
+  potentiellement multi-organisations ?
+
+  3. Les utilisateurs travaillent-ils ensemble sur les mêmes vidéos (collaboration en temps
+  réel ou asynchrone), ou chacun travaille-t-il sur ses propres projets de façon
+  indépendante ?
+
+  ---
+  Bloc 2 — Le cœur du métier : les annotations
+
+  4. Quand vous dites "annoter frame par frame" — à quelle précision pensez-vous ? Est-ce
+  que chaque annotation correspond à un temps exact (ex: 00:01:23.456), ou à une frame
+  numérotée, ou les deux ?
+
+  5. Les annotations sont-elles uniquement textuelles ? Ou envisagez-vous d'autres types :
+  étiquettes/tags prédéfinis, catégories, niveaux d'intensité, formes graphiques sur l'image
+   ?
+
+  6. Le "décalage global" des annotations — pouvez-vous m'expliquer le cas d'usage concret ?
+   Par exemple : "J'ai annoté tout un morceau mais je réalise que toutes mes annotations ont
+   200ms de retard — je veux les décaler toutes d'un coup" ?
+
+  7. Le signal sonore lors de la réécoute : quel est son rôle précis ? Vérification que
+  l'annotation est bien placée sur le bon temps musical ?
+
+  ---
+  Bloc 3 — Les statistiques et le BPM
+
+  8. Le BPM (Beats Per Minute) — les annotations représentent-elles des battements musicaux
+  ? Autrement dit, chaque annotation = un beat ?
+
+  9. "Modifier le BPM" après coup — qu'est-ce que cela implique ? Recalculer les positions
+  des annotations ? Ou juste une métadonnée du projet ?
+
+  10. Quelles autres métriques vous sembleraient utiles au-delà de BPM, moyenne et médiane ?
+   Variance, irrégularité, patterns de rythme... ?
+
+  ---
+  Bloc 4 — Les contraintes techniques
+
+  11. Les vidéos sont-elles stockées localement (sur l'ordinateur de l'utilisateur) ou dans
+  le cloud ? Quelle est la taille typique des fichiers vidéo traités ?
+
+  12. L'application doit-elle fonctionner hors ligne ou uniquement en ligne ?
+
+  13. Avez-vous une contrainte sur les formats vidéo à supporter (MP4, AVI, MOV, etc.) ?
+
+  14. Existe-t-il des outils actuels que les utilisateurs utilisent pour faire ce travail ?
+  Pourquoi ne conviennent-ils pas ?
+
+  ---
+  Bloc 5 — Le projet lui-même
+
+  15. Est-ce un projet de recherche académique avec des contraintes de confidentialité des
+  données ? Ou une application destinée à être distribuée/commercialisée ?
+
+  16. Avez-vous une stack technique préférée ou des contraintes existantes (ex: déjà du code
+   Python, préférence pour React, etc.) ?
+
+  ---
+  Prenez le temps de répondre aux questions qui vous semblent les plus importantes — pas
+  besoin d'être exhaustif d'un coup. On affine ensemble au fur et à mesure !
+
+
+-----------------------------------------------------------------------------
+
+Parfait Ghilas, voilà exactement le genre de réponses précises qui me font frémir
+  d'excitation analytique ! Tout est clair, cohérent, et j'ai maintenant une image très
+  nette du produit.
+
+  Avant de passer au Product Brief, laissez-moi vous soumettre 3 points de clarification
+  rapides qui vont impacter directement la conception :
+
+  ---
+  A. Sur la modification du BPM (réponse 9)
+
+  Vous dites que modifier le BPM = modifier la vitesse de lecture. Est-ce que cela signifie
+  que l'utilisateur part d'un BPM calculé automatiquement à partir de ses annotations, puis
+  peut ajuster cette vitesse pour "aligner" la vidéo sur un rythme cible ? Ou s'agit-il
+  plutôt de saisir manuellement un BPM cible et laisser l'app recalculer les positions des
+  frames ?
+
+  B. Sur l'export (réponses non détaillées)
+
+  Vous avez mentionné deux types d'export :
+  - Export des annotations : quel format ? JSON, CSV, XML, ou au choix de l'utilisateur ?
+  - Export de l'extrait vidéo : s'agit-il d'un extrait découpé autour d'une annotation
+  spécifique, ou de la vidéo entière avec les annotations incrustées visuellement ?
+
+  C. Sur la navigation frame par frame
+
+  La navigation doit-elle se faire uniquement via des touches clavier (ex: flèches), via une
+   timeline cliquable, ou les deux ? Et est-ce que le placement d'une annotation sur la
+  frame courante se fait également au clavier (ex: touche Entrée) ?
+
+  ---
+  Répondez à ces trois points et je produis un Product Brief complet et solide immédiatement
+   !
+
+-----------------------------------------------------------------------------------ARCHITECT------------------------------------------
+
+● Bonjour Ghilas !
+
+  Je suis Winston, votre architecte système. Pas de project-context.md trouvé — je pars du
+  contexte du projet tel qu'il existe.
+
+  Voici ce que je peux faire pour vous :
+
+  ┌──────┬─────────────────────────────────────────┬─────────────────────────────────────┐
+  │ Code │               Description               │                Skill                │
+  ├──────┼─────────────────────────────────────────┼─────────────────────────────────────┤
+  │      │ Workflow guidé pour documenter les      │                                     │
+  │ CA   │ décisions techniques et garder          │ bmad-create-architecture            │
+  │      │ l'implémentation sur les rails          │                                     │
+  ├──────┼─────────────────────────────────────────┼─────────────────────────────────────┤
+  │      │ Vérifier l'alignement entre le PRD,     │                                     │
+  │ IR   │ l'UX, l'Architecture et les             │ bmad-check-implementation-readiness │
+  │      │ Epics/Stories                           │                                     │
+  └──────┴─────────────────────────────────────────┴─────────────────────────────────────┘
+
+  ▎ Vous pouvez invoquer le skill bmad-help à tout moment pour des conseils.
+
+  Qu'est-ce que je peux faire pour vous ?
+
+---------------------------------------------------------------------------------------------------------------

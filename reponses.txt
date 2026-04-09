@@ -1,0 +1,25 @@
+bloc 1 :
+    1. les utilisateurs cible sont toutes les personne qui s'interesse au annotation video pas forcement pour la musique ca peut etre des monteure video pour adapter le rythme de la video au bpm dela musique comme ca peut etre une charcheur qui veut annoter une video pour faire une autre analyse quelquonque
+    2.pour le moment je veux juste un outils solo
+    3.chaqu'un travaille sur son projet de maniere indep
+bloc 2 :
+    4. une annotation est caracteriser par deux le numero de la frame ainsi que le temp exacte sur la video
+    5.pour le moment ca va juste etre une etiquette genre une annotation sur la frame 40 : le joueurs saute . mais on peut mettre ca  sous forme de categorieds
+    6. oui c'est exactement ca on decale tout d'un coup d'une durée ex 200ms
+    7. le signale sonore sert juste a verifier nos annotation pour chaque annotation on entend un bip simplement mais faut que cette option soit selection si l'utilisateur veut pas activer se mode il est libre
+bloc 3 :
+    8. une annotation est un beat
+    9. modifier le bpm impliquer de modifier la vitesse de la video plus lent si on veut un bpm petit plus rapide si on veut un bpm grand
+    10. pour les metrique qui pourrais etre interressante : bpm bpm moyen/median , variation du bpm , intervalles entre annotation, ecart type des intervalles, distribution des intervalles, segments rythmique, pics d'activité, densité d'annotation ...
+bloc 4 :
+    11.les video importer par l'utilisateur sont importer a partir de son pc mais s'il veut il peut importer des video a partir du cloud, pour la taille ca varie on peut avoir une video de 10s comme on poeut avoir une autre qui a 10 min c'est tres varier
+    12. pour le moment on ne pas deployer cette application ca va juste etre un truc local mais dans le futur je veux bien que se soit genre un site web
+    13. pas de contrainte pour le format de la video
+    14. si il y a des outils tel que :
+        *CVAT, default : interface complexe.
+        *labelbox, default : payant, depend du cloud, pas orienté video fine, workflow complexe pour inporter des videos
+        *VIA, default : tres basique, pas de gestions avance de projet
+        en generale ils sont fait pour ia detection d'objet dataset training sauf que moi je veux faire un truc generale qui englobe beaucoup de trucs en meme temp
+bloc 5 :
+    15.non y a pas de contrainte de confidentialité mais je veux garder mon  code securisé et les donnée aussi
+    16. pour le stack technnique : deja je veux que tout soit dans un docker composite avec entre le backend ainsi que le front un api rest, puis je veux des testes tout le temps ci/cd ainsi que tdd pour ne pas detruire le projet, pour lereste jete laisse choisir les tech pour le backend ainsi que le front bien sur tu me propose ce qui te semble le plus logique et le plus adapter et je te valide ca
