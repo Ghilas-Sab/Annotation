@@ -74,3 +74,36 @@ def delete_project(project_id: str) -> bool:
         _save(data)
         return True
     return False
+
+
+def add_video_to_project(project_id: str, video_data: dict) -> dict | None:
+    """Ajoute une vidéo dans le projet. Retourne la vidéo ou None si projet absent."""
+    data = _load()
+    for project in data["projects"]:
+        if project["id"] == project_id:
+            project.setdefault("videos", []).append(video_data)
+            _save(data)
+            return video_data
+    return None
+
+
+def get_video(video_id: str) -> dict | None:
+    """Cherche une vidéo dans tous les projets."""
+    for project in get_projects():
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                return video
+    return None
+
+
+def delete_video(video_id: str) -> bool:
+    """Supprime une vidéo (+ ses annotations) d'un projet."""
+    data = _load()
+    for project in data["projects"]:
+        videos = project.get("videos", [])
+        for i, video in enumerate(videos):
+            if video["id"] == video_id:
+                del videos[i]
+                _save(data)
+                return True
+    return False
