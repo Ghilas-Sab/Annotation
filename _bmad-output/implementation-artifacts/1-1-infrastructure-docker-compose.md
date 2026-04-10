@@ -1,6 +1,6 @@
 # Story 1.1: Infrastructure Docker Compose
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -19,26 +19,26 @@ so that je puisse démarrer l'environnement complet avec `docker compose up`.
 
 ## Tasks / Subtasks
 
-- [ ] Créer la structure de dossiers racine (AC: 1)
-  - [ ] `mkdir -p backend frontend .github/workflows`
-- [ ] Créer `docker-compose.yml` avec les 2 services + volumes (AC: 1, 3, 4)
-  - [ ] Service `backend` : image Python 3.11, port 8000, volumes videos_data + db_data
-  - [ ] Service `frontend` : image Node/Nginx, port 3000, depends_on backend
-  - [ ] Déclarer les volumes nommés `videos_data` et `db_data`
-- [ ] Créer `backend/Dockerfile` multi-stage (base + production + test) (AC: 1)
-  - [ ] Stage `base` : python:3.11-slim + apt install ffmpeg + pip install requirements
-  - [ ] Stage `production` : COPY app/ + CMD uvicorn
-  - [ ] Stage `test` : COPY . + CMD pytest
-- [ ] Créer `frontend/Dockerfile` multi-stage (builder + production) (AC: 1)
-  - [ ] Stage `builder` : node:20-alpine + npm ci + npm run build
-  - [ ] Stage `production` : nginx:1.25-alpine + COPY dist + COPY nginx.conf
-- [ ] Créer `frontend/nginx.conf` avec SPA fallback + proxy /api/ (AC: 3)
-- [ ] Créer `backend/app/main.py` avec health check + CORS (AC: 2)
-  - [ ] `GET /api/v1/health` → `{"status": "ok"}`
-  - [ ] CORS avec `ALLOWED_ORIGINS` depuis env
-- [ ] Créer `.env.example` avec toutes les variables (AC: 5)
-- [ ] Créer `.gitignore` complet (AC: 6)
-- [ ] Écrire et faire passer le test health check (AC: 2)
+- [x] Créer la structure de dossiers racine (AC: 1)
+  - [x] `mkdir -p backend frontend .github/workflows`
+- [x] Créer `docker-compose.yml` avec les 2 services + volumes (AC: 1, 3, 4)
+  - [x] Service `backend` : image Python 3.11, port 8000, volumes videos_data + db_data
+  - [x] Service `frontend` : image Node/Nginx, port 3000, depends_on backend
+  - [x] Déclarer les volumes nommés `videos_data` et `db_data`
+- [x] Créer `backend/Dockerfile` multi-stage (base + production + test) (AC: 1)
+  - [x] Stage `base` : python:3.11-slim + apt install ffmpeg + pip install requirements
+  - [x] Stage `production` : COPY app/ + CMD uvicorn
+  - [x] Stage `test` : COPY . + CMD pytest
+- [x] Créer `frontend/Dockerfile` multi-stage (builder + production) (AC: 1)
+  - [x] Stage `builder` : node:20-alpine + npm ci + npm run build
+  - [x] Stage `production` : nginx:1.25-alpine + COPY dist + COPY nginx.conf
+- [x] Créer `frontend/nginx.conf` avec SPA fallback + proxy /api/ (AC: 3)
+- [x] Créer `backend/app/main.py` avec health check + CORS (AC: 2)
+  - [x] `GET /api/v1/health` → `{"status": "ok"}`
+  - [x] CORS avec `ALLOWED_ORIGINS` depuis env
+- [x] Créer `.env.example` avec toutes les variables (AC: 5)
+- [x] Créer `.gitignore` complet (AC: 6)
+- [x] Écrire et faire passer le test health check (AC: 2)
 
 ## Dev Notes
 
@@ -187,10 +187,31 @@ async def test_health_check_returns_ok():
 
 ### Agent Model Used
 
-_à remplir par le dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
 
+Aucun blocage.
+
 ### Completion Notes List
 
+- Test TDD écrit en premier (`backend/tests/test_health.py`) — 1/1 PASSED
+- CORS via `os.getenv("ALLOWED_ORIGINS")` — aucune valeur hardcodée
+- `pytest.ini` avec `asyncio_mode = auto` pour pytest-asyncio 0.23+
+- `requirements.txt` inclut dépendances de test (pytest, pytest-asyncio, httpx)
+
 ### File List
+
+- `docker-compose.yml`
+- `.env.example`
+- `.gitignore`
+- `backend/Dockerfile`
+- `backend/requirements.txt`
+- `backend/pytest.ini`
+- `backend/app/__init__.py`
+- `backend/app/main.py`
+- `backend/tests/__init__.py`
+- `backend/tests/test_health.py`
+- `frontend/Dockerfile`
+- `frontend/nginx.conf`
+- `.github/workflows/` (vide — Story 1.4)

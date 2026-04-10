@@ -1,0 +1,28 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATA_DIR=/data
+      - VIDEOS_DIR=/videos
+      - ALLOWED_ORIGINS=http://localhost:3000
+    volumes:
+      - videos_data:/videos
+      - json_data:/data
+
+volumes:
+  videos_data:
+  json_data:

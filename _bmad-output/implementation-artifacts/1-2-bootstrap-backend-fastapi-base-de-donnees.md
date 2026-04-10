@@ -1,204 +1,185 @@
-# Story 1.2: Bootstrap Backend FastAPI + Base de Données
+# Story 1.2: Bootstrap Backend FastAPI + Stockage JSON
 
 Status: ready-for-dev
 
 ## Story
 
 As a développeur,
-I want un backend FastAPI avec SQLAlchemy, Alembic et les modèles initiaux,
-so that je dispose d'une base de données versionnée et d'une fondation API testable dès le premier commit.
+I want un backend FastAPI avec un stockage JSON et les modèles Pydantic initiaux,
+so that je dispose d'une fondation API testable sans base de données ni ORM.
 
 ## Acceptance Criteria
 
-1. `alembic upgrade head` crée les tables `projects`, `videos`, `annotations` sans erreur
-2. Les modèles SQLAlchemy correspondent exactement au schéma de données défini en architecture
+1. `DATA_DIR` contient un fichier `projects.json` créé automatiquement au premier accès
+2. Les modèles Pydantic correspondent exactement au schéma de données défini en architecture
 3. Les schémas Pydantic sont définis pour Project, Video, Annotation (Create + Read)
-4. `pytest` passe avec les fixtures `db_session` et `client` opérationnelles
-5. `get_db` injecte correctement une session SQLAlchemy dans les routes via `Depends`
+4. `pytest` passe avec la fixture `data_dir` (dossier temporaire via `tmp_path`) opérationnelle
+5. `json_store.py` lit et écrit les données de façon atomique (pas de corruption)
 6. `backend/app/config.py` lit toutes les variables depuis les variables d'environnement
 
 ## Tasks / Subtasks
 
 - [ ] Créer `backend/app/config.py` (AC: 6)
-  - [ ] Lire `DATABASE_URL`, `VIDEOS_DIR`, `ALLOWED_ORIGINS`, `MAX_VIDEO_SIZE_MB`, `TEMP_DIR` depuis `os.getenv`
-- [ ] Créer `backend/app/database.py` (AC: 1, 4, 5)
-  - [ ] `create_engine` avec `DATABASE_URL`
-  - [ ] `SessionLocal` via `sessionmaker`
-  - [ ] `Base = declarative_base()`
-  - [ ] `get_db()` générateur pour injection via `Depends`
-- [ ] Créer les modèles SQLAlchemy (AC: 2)
-  - [ ] `backend/app/models/project.py` : Project (id UUID, name, description, created_at)
-  - [ ] `backend/app/models/video.py` : Video (id UUID, project_id FK, filename, original_name, filepath, duration_seconds, fps, total_frames, width, height, codec, uploaded_at)
-  - [ ] `backend/app/models/annotation.py` : Annotation (id UUID, video_id FK, frame_number, timestamp_ms, label, created_at, updated_at)
-- [ ] Créer les schémas Pydantic (AC: 3)
+  - [ ] Lire `DATA_DIR`, `VIDEOS_DIR`, `ALLOWED_ORIGINS`, `MAX_VIDEO_SIZE_MB`, `TEMP_DIR` depuis `os.getenv`
+- [ ] Créer `backend/app/storage/json_store.py` (AC: 1, 4, 5)
+  - [ ] `_projects_file()` : retourne le chemin `DATA_DIR/projects.json`, crée le dossier si absent
+  - [ ] `_load()` : lit `projects.json`, retourne `{"projects": []}` si le fichier n'existe pas
+  - [ ] `_save(data)` : écriture atomique via fichier `.tmp` + `os.replace`
+  - [ ] `get_projects()` → liste de tous les projets
+  - [ ] `get_project(project_id)` → projet ou `None`
+  - [ ] `create_project(name, description)` → projet créé (UUID auto)
+  - [ ] `update_project(project_id, **kwargs)` → projet modifié ou `None`
+  - [ ] `delete_project(project_id)` → `True` si supprimé, `False` si absent
+- [ ] Créer les schémas Pydantic (AC: 2, 3)
   - [ ] `backend/app/schemas/project.py` : ProjectCreate, ProjectRead
-  - [ ] `backend/app/schemas/video.py` : VideoRead
+  - [ ] `backend/app/schemas/video.py` : VideoCreate, VideoRead
   - [ ] `backend/app/schemas/annotation.py` : AnnotationCreate, AnnotationRead
-- [ ] Configurer Alembic (AC: 1)
-  - [ ] `alembic init alembic` dans `backend/`
-  - [ ] Modifier `alembic/env.py` pour importer `Base` et utiliser `DATABASE_URL`
-  - [ ] Créer migration initiale `001_initial.py` (autogenerate ou manuel)
-- [ ] Écrire et faire passer les tests (AC: 4)
-  - [ ] `tests/conftest.py` : fixtures `db_session` et `client` (SQLite en mémoire)
-  - [ ] `tests/test_db.py` : vérifier les 3 tables + insérer un Project
+- [ ] Écrire et faire passer les tests (AC: 4, 5)
+  - [ ] `tests/conftest.py` : fixture `data_dir` via `tmp_path` + `monkeypatch.setenv("DATA_DIR", ...)`
+  - [ ] `tests/test_storage.py` : CRUD complet via `json_store` + test atomicité
 
 ## Dev Notes
 
 ### Schéma de données EXACT (ne pas dévier)
 
+Même modèle qu'en architecture, stocké en JSON :
+
 ```
 Project
-├── id: String (UUID, primary key)
-├── name: String (not null)
-├── description: String (nullable)
-└── created_at: DateTime (default=now)
+├── id: str (UUID)
+├── name: str
+├── description: str (défaut "")
+├── created_at: str (ISO 8601)
+└── videos: list[Video]  ← imbriqué dans le fichier projet
 
 Video
-├── id: String (UUID, primary key)
-├── project_id: String (FK → projects.id, CASCADE DELETE)
-├── filename: String
-├── original_name: String
-├── filepath: String
-├── duration_seconds: Float
-├── fps: Float
-├── total_frames: Integer
-├── width: Integer
-├── height: Integer
-├── codec: String
-└── uploaded_at: DateTime (default=now)
+├── id: str (UUID)
+├── project_id: str
+├── filename: str
+├── original_name: str
+├── filepath: str
+├── duration_seconds: float
+├── fps: float
+├── total_frames: int
+├── width: int
+├── height: int
+├── codec: str
+├── uploaded_at: str (ISO 8601)
+└── annotations: list[Annotation]  ← imbriqué dans la vidéo
 
 Annotation
-├── id: String (UUID, primary key)
-├── video_id: String (FK → videos.id, CASCADE DELETE)
-├── frame_number: Integer (not null, >= 0)
-├── timestamp_ms: Float (calculé: frame_number / fps * 1000)
-├── label: String (default="")
-├── created_at: DateTime (default=now)
-└── updated_at: DateTime (default=now, onupdate=now)
+├── id: str (UUID)
+├── video_id: str
+├── frame_number: int (>= 0)
+├── timestamp_ms: float
+├── label: str (défaut "")
+├── created_at: str (ISO 8601)
+└── updated_at: str (ISO 8601)
 ```
 
-### Pattern database.py obligatoire
+### Pattern json_store.py obligatoire
 
 ```python
-# backend/app/database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.config import settings
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # SQLite only
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-```
-
-### Fixtures conftest.py obligatoires
-
-```python
-# backend/tests/conftest.py
-import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.database import Base, get_db
-
-TEST_DATABASE_URL = "sqlite:///./test.db"
-
-@pytest.fixture(scope="function")
-def db_session():
-    engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
-
-@pytest.fixture
-async def client(db_session):
-    app.dependency_overrides[get_db] = lambda: db_session
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c
-    app.dependency_overrides.clear()
-```
-
-### Tests à écrire EN PREMIER (TDD strict)
-
-```python
-# backend/tests/test_db.py
-import pytest
+# backend/app/storage/json_store.py
+import json
+import os
 import uuid
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
 
-def test_tables_created(db_session):
-    from sqlalchemy import inspect
-    inspector = inspect(db_session.bind)
-    tables = inspector.get_table_names()
-    assert "projects" in tables
-    assert "videos" in tables
-    assert "annotations" in tables
 
-def test_project_model_insert(db_session):
-    from app.models.project import Project
-    p = Project(id=str(uuid.uuid4()), name="Test Project", description="desc")
-    db_session.add(p)
-    db_session.commit()
-    assert db_session.query(Project).count() == 1
+def _data_dir() -> Path:
+    return Path(os.getenv("DATA_DIR", "/data"))
 
-def test_cascade_delete(db_session):
-    """Supprimer un projet supprime ses vidéos et annotations."""
-    from app.models.project import Project
-    from app.models.video import Video
-    from app.models.annotation import Annotation
-    project_id = str(uuid.uuid4())
-    video_id = str(uuid.uuid4())
-    annotation_id = str(uuid.uuid4())
-    p = Project(id=project_id, name="P")
-    v = Video(id=video_id, project_id=project_id, filename="f.mp4",
-              original_name="f.mp4", filepath="/videos/f.mp4",
-              fps=25.0, duration_seconds=10.0, total_frames=250,
-              width=1920, height=1080, codec="h264")
-    a = Annotation(id=annotation_id, video_id=video_id, frame_number=10,
-                   timestamp_ms=400.0, label="beat")
-    db_session.add_all([p, v, a])
-    db_session.commit()
-    db_session.delete(p)
-    db_session.commit()
-    assert db_session.query(Video).count() == 0
-    assert db_session.query(Annotation).count() == 0
+
+def _projects_file() -> Path:
+    d = _data_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "projects.json"
+
+
+def _load() -> dict:
+    f = _projects_file()
+    if not f.exists():
+        return {"projects": []}
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+def _save(data: dict) -> None:
+    f = _projects_file()
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, f)  # atomique sur tous les OS
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def get_projects() -> list[dict]:
+    return _load()["projects"]
+
+
+def get_project(project_id: str) -> dict | None:
+    return next((p for p in get_projects() if p["id"] == project_id), None)
+
+
+def create_project(name: str, description: str = "") -> dict:
+    data = _load()
+    project = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "description": description,
+        "created_at": _now(),
+        "videos": [],
+    }
+    data["projects"].append(project)
+    _save(data)
+    return project
+
+
+def update_project(project_id: str, **kwargs) -> dict | None:
+    data = _load()
+    for p in data["projects"]:
+        if p["id"] == project_id:
+            p.update({k: v for k, v in kwargs.items() if k in ("name", "description")})
+            _save(data)
+            return p
+    return None
+
+
+def delete_project(project_id: str) -> bool:
+    data = _load()
+    before = len(data["projects"])
+    data["projects"] = [p for p in data["projects"] if p["id"] != project_id]
+    if len(data["projects"]) < before:
+        _save(data)
+        return True
+    return False
 ```
 
-### requirements.txt minimal pour cette story
+### Pattern config.py obligatoire
 
-```
-fastapi==0.110.0
-uvicorn==0.29.0
-sqlalchemy==2.0.29
-alembic==1.13.1
-pydantic==2.6.4
-pytest==8.1.1
-httpx==0.27.0
-pytest-asyncio==0.23.6
-aiosqlite==0.20.0
+```python
+# backend/app/config.py
+import os
+
+class Settings:
+    DATA_DIR: str = os.getenv("DATA_DIR", "/data")
+    VIDEOS_DIR: str = os.getenv("VIDEOS_DIR", "/videos")
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    MAX_VIDEO_SIZE_MB: int = int(os.getenv("MAX_VIDEO_SIZE_MB", "2000"))
+    TEMP_DIR: str = os.getenv("TEMP_DIR", "/tmp/annotations_exports")
+
+settings = Settings()
 ```
 
-### Configuration Pydantic v2 obligatoire
+### Schémas Pydantic obligatoires
 
 ```python
 # backend/app/schemas/project.py
 from pydantic import BaseModel
-from datetime import datetime
 
 class ProjectCreate(BaseModel):
     name: str
@@ -208,17 +189,126 @@ class ProjectRead(BaseModel):
     id: str
     name: str
     description: str
-    created_at: datetime
-
-    model_config = {"from_attributes": True}  # Pydantic v2 (pas orm_mode)
+    created_at: str
 ```
 
-### alembic/env.py : pattern obligatoire
+```python
+# backend/app/schemas/annotation.py
+from pydantic import BaseModel
+
+class AnnotationCreate(BaseModel):
+    frame_number: int
+    timestamp_ms: float
+    label: str = ""
+
+class AnnotationRead(BaseModel):
+    id: str
+    video_id: str
+    frame_number: int
+    timestamp_ms: float
+    label: str
+    created_at: str
+    updated_at: str
+```
+
+### Fixture conftest.py obligatoire
 
 ```python
-from app.database import Base
-from app.models import project, video, annotation  # importer tous les modèles
-target_metadata = Base.metadata
+# backend/tests/conftest.py
+import pytest
+from httpx import AsyncClient, ASGITransport
+from app.main import app
+
+
+@pytest.fixture
+def data_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
+async def client(data_dir):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+```
+
+### Tests à écrire EN PREMIER (TDD strict)
+
+```python
+# backend/tests/test_storage.py
+import pytest
+from app.storage import json_store
+
+
+def test_load_empty_returns_default(data_dir):
+    data = json_store._load()
+    assert data == {"projects": []}
+
+
+def test_create_project(data_dir):
+    p = json_store.create_project("Mon projet", "description")
+    assert p["name"] == "Mon projet"
+    assert "id" in p
+    assert "created_at" in p
+
+
+def test_get_projects(data_dir):
+    json_store.create_project("P1")
+    json_store.create_project("P2")
+    projects = json_store.get_projects()
+    assert len(projects) == 2
+
+
+def test_get_project(data_dir):
+    p = json_store.create_project("Projet")
+    found = json_store.get_project(p["id"])
+    assert found is not None
+    assert found["id"] == p["id"]
+
+
+def test_get_project_not_found(data_dir):
+    assert json_store.get_project("inexistant") is None
+
+
+def test_update_project(data_dir):
+    p = json_store.create_project("Ancien nom")
+    updated = json_store.update_project(p["id"], name="Nouveau nom")
+    assert updated["name"] == "Nouveau nom"
+
+
+def test_delete_project(data_dir):
+    p = json_store.create_project("A supprimer")
+    result = json_store.delete_project(p["id"])
+    assert result is True
+    assert json_store.get_project(p["id"]) is None
+
+
+def test_delete_project_not_found(data_dir):
+    assert json_store.delete_project("inexistant") is False
+
+
+def test_save_is_atomic(data_dir):
+    """Le fichier .tmp ne doit pas subsister après une écriture."""
+    json_store.create_project("Test atomicité")
+    tmp = data_dir / "projects.tmp"
+    assert not tmp.exists()
+```
+
+### requirements.txt pour cette story
+
+```
+fastapi==0.110.3
+uvicorn==0.29.0
+pydantic==2.6.4
+python-multipart==0.0.9
+aiofiles==23.2.1
+ffmpeg-python==0.2.0
+numpy==1.26.4
+scipy==1.12.0
+pytest==8.2.0
+pytest-cov==4.1.0
+pytest-asyncio==0.23.7
+httpx==0.27.0
 ```
 
 ### Project Structure Notes
@@ -226,42 +316,32 @@ target_metadata = Base.metadata
 ```
 backend/
 ├── app/
-│   ├── main.py              ← déjà créé en S1.1, ajouter l'import des routers
+│   ├── main.py              ← déjà créé en S1.1, pas de modification
 │   ├── config.py            ← créer
-│   ├── database.py          ← créer
-│   ├── models/
+│   ├── storage/
 │   │   ├── __init__.py      ← créer (vide)
-│   │   ├── project.py       ← créer
-│   │   ├── video.py         ← créer
-│   │   └── annotation.py    ← créer
+│   │   └── json_store.py    ← créer
 │   └── schemas/
 │       ├── __init__.py      ← créer (vide)
 │       ├── project.py       ← créer
 │       ├── video.py         ← créer
 │       └── annotation.py    ← créer
-├── alembic/
-│   ├── env.py               ← modifier après alembic init
-│   └── versions/
-│       └── 001_initial.py   ← créer (autogenerate)
-├── alembic.ini              ← créer via alembic init
 └── tests/
     ├── conftest.py          ← créer
-    └── test_db.py           ← créer
+    └── test_storage.py      ← créer
 ```
 
 ### Anti-patterns à éviter
 
-- Ne PAS utiliser `orm_mode = True` (Pydantic v1) — utiliser `model_config = {"from_attributes": True}` (Pydantic v2)
-- Ne PAS hardcoder `DATABASE_URL` — lire depuis `settings`
-- L'argument `check_same_thread: False` est **obligatoire** pour SQLite avec FastAPI async
-- Ne PAS importer les modèles dans `database.py` — les importer dans `alembic/env.py` uniquement
-- Les IDs sont des `String` (UUID sous forme de chaîne), pas de type `UUID` SQLAlchemy natif (compatibilité SQLite)
+- Ne PAS importer SQLAlchemy, Alembic ou tout ORM
+- Ne PAS utiliser `json.dump` directement sur le fichier final — passer par `.tmp` + `os.replace`
+- Ne PAS hardcoder `DATA_DIR` — toujours via `os.getenv`
+- Ne PAS mettre les vidéos et annotations dans un fichier séparé par entité — tout dans `projects.json` imbriqué
 
 ### References
 
 - Modèle de données : [Source: planning-artifacts/architecture.md#42-modele-de-donnees]
-- Pattern conftest : [Source: planning-artifacts/architecture.md#61-backend-fixtures-et-pattern]
-- Stack backend : [Source: planning-artifacts/architecture.md#22-backend]
+- Variables d'env : [Source: planning-artifacts/architecture.md#7-variables-denvironnement]
 
 ## Dev Agent Record
 

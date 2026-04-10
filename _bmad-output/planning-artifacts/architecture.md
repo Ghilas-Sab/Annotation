@@ -72,9 +72,8 @@ Application web locale déployée via Docker Compose, structurée en architectur
 | Python | 3.11 | Runtime | Écosystème vidéo/stats inégalé (NumPy, FFmpeg, SciPy) |
 | FastAPI | 0.110+ | Framework API REST | Async natif, Pydantic v2, OpenAPI auto, DX excellent |
 | Uvicorn | 0.29+ | Serveur ASGI | Performant, compatible async |
-| SQLAlchemy | 2.x | ORM | Abstraction DB, migration transparente SQLite→PostgreSQL |
-| Alembic | 1.x | Migrations DB | Versionning du schéma, safe upgrades |
 | Pydantic | v2 | Validation / Sérialisation | Intégré FastAPI, validation stricte des entrées |
+| json (stdlib) | — | Stockage données | Zéro dépendance, lisible, suffisant pour prototype |
 | ffmpeg-python | 0.2+ | Wrapper FFmpeg | Découpe vidéo, extraction métadonnées, tous formats |
 | NumPy | 1.26+ | Calculs numériques | Statistiques BPM, intervalles, distributions |
 | SciPy | 1.12+ | Statistiques avancées | Médiane, écart-type, segmentation par densité |
@@ -256,11 +255,9 @@ const playBeep = (context: AudioContext, frequency = 880, duration = 0.05) => {
 backend/
 ├── app/
 │   ├── main.py               # Point d'entrée FastAPI, CORS, routers
-│   ├── database.py           # SQLAlchemy engine + SessionLocal
-│   ├── models/               # Modèles SQLAlchemy (ORM)
-│   │   ├── project.py
-│   │   ├── video.py
-│   │   └── annotation.py
+│   ├── config.py             # Paramètres (paths, env vars)
+│   ├── storage/
+│   │   └── json_store.py     # Lecture/écriture JSON atomique (DATA_DIR/projects.json)
 │   ├── schemas/              # Schémas Pydantic (validation I/O)
 │   │   ├── project.py
 │   │   ├── video.py
@@ -273,39 +270,37 @@ backend/
 │   │   ├── annotations.py    # CRUD + bulk + décalage global
 │   │   ├── statistics.py     # Calcul BPM + métriques
 │   │   └── exports.py        # Export JSON/CSV/vidéo
-│   ├── services/             # Logique métier
-│   │   ├── video_service.py  # FFmpeg : métadonnées, découpe
-│   │   ├── stats_service.py  # NumPy/SciPy : BPM, distributions
-│   │   └── export_service.py # Génération fichiers export
-│   └── config.py             # Paramètres (paths, env vars)
+│   └── services/             # Logique métier
+│       ├── video_service.py  # FFmpeg : métadonnées, découpe
+│       ├── stats_service.py  # NumPy/SciPy : BPM, distributions
+│       └── export_service.py # Génération fichiers export
 ├── tests/
-│   ├── conftest.py           # Fixtures pytest (DB test, client HTTP)
+│   ├── conftest.py           # Fixtures pytest (data_dir tmp_path, client HTTP)
+│   ├── test_storage.py
 │   ├── test_projects.py
 │   ├── test_videos.py
 │   ├── test_annotations.py
 │   ├── test_statistics.py
 │   └── test_exports.py
-├── alembic/                  # Migrations DB
-│   ├── env.py
-│   └── versions/
-├── alembic.ini
 ├── Dockerfile
 └── requirements.txt
 ```
 
 ### 4.2 Modèle de Données
 
-```
-Project
-├── id: UUID
-├── name: str
-├── description: str
-├── created_at: datetime
-└── videos: [Video]
+Stocké dans `DATA_DIR/projects.json` — structure imbriquée :
 
-Video
-├── id: UUID
-├── project_id: UUID (FK)
+```
+Project (objet JSON)
+├── id: str (UUID)
+├── name: str
+├── description: str (défaut "")
+├── created_at: str (ISO 8601)
+└── videos: list[Video]        ← imbriqué
+
+Video (objet JSON imbriqué dans Project)
+├── id: str (UUID)
+├── project_id: str
 ├── filename: str
 ├── original_name: str
 ├── filepath: str              # Chemin relatif dans /videos/
@@ -315,17 +310,40 @@ Video
 ├── width: int
 ├── height: int
 ├── codec: str
-├── uploaded_at: datetime
-└── annotations: [Annotation]
+├── uploaded_at: str (ISO 8601)
+└── annotations: list[Annotation]  ← imbriqué
 
-Annotation
-├── id: UUID
-├── video_id: UUID (FK)
-├── frame_number: int
-├── timestamp_ms: float        # Calculé : frame_number / fps * 1000
-├── label: str
-├── created_at: datetime
-└── updated_at: datetime
+Annotation (objet JSON imbriqué dans Video)
+├── id: str (UUID)
+├── video_id: str
+├── frame_number: int (>= 0)
+├── timestamp_ms: float        # frame_number / fps * 1000
+├── label: str (défaut "")
+├── created_at: str (ISO 8601)
+└── updated_at: str (ISO 8601)
+```
+
+Exemple de fichier `projects.json` :
+```json
+{
+  "projects": [
+    {
+      "id": "uuid-1",
+      "name": "Mon projet",
+      "description": "",
+      "created_at": "2026-04-10T10:00:00+00:00",
+      "videos": [
+        {
+          "id": "uuid-2",
+          "project_id": "uuid-1",
+          "filename": "video.mp4",
+          "fps": 25.0,
+          "annotations": []
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ### 4.3 API REST — Endpoints
@@ -545,31 +563,20 @@ server {
 # tests/conftest.py
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from app.main import app
-from app.database import Base, get_db
 
-TEST_DATABASE_URL = "sqlite:///./test.db"
-
-@pytest.fixture(scope="function")
-def db_session():
-    engine = create_engine(TEST_DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
-async def client(db_session):
-    app.dependency_overrides[get_db] = lambda: db_session
+def data_dir(tmp_path, monkeypatch):
+    """Redirige DATA_DIR vers un dossier temporaire isolé par test."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
+async def client(data_dir):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
-    app.dependency_overrides.clear()
 ```
 
 ### 6.2 Ordre TDD par Module
@@ -650,7 +657,7 @@ Toutes les valeurs sensibles et configurables sont dans `.env` (jamais en dur).
 # .env (exemple — ne pas committer, utiliser .env.example)
 
 # Backend
-DATABASE_URL=sqlite:////data/db.sqlite3
+DATA_DIR=/data
 VIDEOS_DIR=/videos
 ALLOWED_ORIGINS=http://localhost:3000
 MAX_VIDEO_SIZE_MB=2000
@@ -662,7 +669,7 @@ VITE_API_URL=http://localhost:8000/api/v1
 
 ```bash
 # .env.example (à committer)
-DATABASE_URL=sqlite:////data/db.sqlite3
+DATA_DIR=/data
 VIDEOS_DIR=/videos
 ALLOWED_ORIGINS=http://localhost:3000
 MAX_VIDEO_SIZE_MB=2000
@@ -674,11 +681,11 @@ VITE_API_URL=http://localhost:8000/api/v1
 
 ## 8. Décisions Architecturales (ADR)
 
-### ADR-001 : SQLite en v1 au lieu de PostgreSQL
+### ADR-001 : Stockage JSON au lieu de SQLite (prototype)
 
-**Contexte :** App locale, solo, pas de concurrence d'écriture.  
-**Décision :** SQLite avec SQLAlchemy.  
-**Conséquence :** Migration PostgreSQL = changement de `DATABASE_URL` uniquement. Alembic gère le schéma dans les deux cas.
+**Contexte :** Application locale, mono-utilisateur, volumes modestes (< 5000 annotations/vidéo). Prototype — pas de multi-utilisateurs, pas de concurrence d'écriture.  
+**Décision :** Fichier JSON unique (`DATA_DIR/projects.json`) avec écriture atomique via `os.replace`. Zéro dépendance ORM.  
+**Conséquence :** Migration vers SQLite/PostgreSQL en v2 = réécriture de `json_store.py` uniquement. Les schémas Pydantic et les routers restent identiques.
 
 ### ADR-002 : Rendu vidéo côté navigateur (HTML5 + Canvas)
 
@@ -724,7 +731,7 @@ VITE_API_URL=http://localhost:8000/api/v1
 ### Phase 1 — Socle (Docker + API de base)
 - [ ] `docker-compose.yml` avec services frontend/backend + volumes
 - [ ] FastAPI avec health check + CORS configuré
-- [ ] SQLAlchemy + Alembic : migration initiale (Project, Video, Annotation)
+- [ ] Stockage JSON : `json_store.py` + schémas Pydantic (Project, Video, Annotation)
 - [ ] Vite + React + TypeScript bootstrappé
 - [ ] GitHub Actions CI (lint + tests)
 

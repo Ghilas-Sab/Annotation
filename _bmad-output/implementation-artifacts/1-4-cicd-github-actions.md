@@ -63,7 +63,7 @@ jobs:
       - name: Run tests
         run: pytest backend/tests/ --cov=backend/app --cov-report=xml
         env:
-          DATABASE_URL: sqlite:///./test.db
+          DATA_DIR: /tmp/test_data
           VIDEOS_DIR: /tmp/test_videos
           ALLOWED_ORIGINS: http://localhost:3000
 
@@ -117,19 +117,17 @@ jobs:
 ### requirements.txt backend final (vérifier présence de ces packages)
 
 ```
-fastapi==0.110.0
+fastapi==0.110.3
 uvicorn==0.29.0
-sqlalchemy==2.0.29
-alembic==1.13.1
 pydantic==2.6.4
 python-multipart==0.0.9
 aiofiles==23.2.1
 ffmpeg-python==0.2.0
 numpy==1.26.4
 scipy==1.12.0
-pytest==8.1.1
+pytest==8.2.0
 pytest-cov==4.1.0
-pytest-asyncio==0.23.6
+pytest-asyncio==0.23.7
 httpx==0.27.0
 ```
 
@@ -137,7 +135,7 @@ httpx==0.27.0
 
 Les tests pytest ont besoin de ces variables dans l'environnement CI :
 ```
-DATABASE_URL=sqlite:///./test.db
+DATA_DIR=/tmp/test_data
 VIDEOS_DIR=/tmp/test_videos
 ALLOWED_ORIGINS=http://localhost:3000
 ```
