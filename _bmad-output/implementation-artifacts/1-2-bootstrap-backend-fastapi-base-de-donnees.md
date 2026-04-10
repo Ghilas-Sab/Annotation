@@ -1,6 +1,6 @@
 # Story 1.2: Bootstrap Backend FastAPI + Stockage JSON
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -19,24 +19,24 @@ so that je dispose d'une fondation API testable sans base de données ni ORM.
 
 ## Tasks / Subtasks
 
-- [ ] Créer `backend/app/config.py` (AC: 6)
-  - [ ] Lire `DATA_DIR`, `VIDEOS_DIR`, `ALLOWED_ORIGINS`, `MAX_VIDEO_SIZE_MB`, `TEMP_DIR` depuis `os.getenv`
-- [ ] Créer `backend/app/storage/json_store.py` (AC: 1, 4, 5)
-  - [ ] `_projects_file()` : retourne le chemin `DATA_DIR/projects.json`, crée le dossier si absent
-  - [ ] `_load()` : lit `projects.json`, retourne `{"projects": []}` si le fichier n'existe pas
-  - [ ] `_save(data)` : écriture atomique via fichier `.tmp` + `os.replace`
-  - [ ] `get_projects()` → liste de tous les projets
-  - [ ] `get_project(project_id)` → projet ou `None`
-  - [ ] `create_project(name, description)` → projet créé (UUID auto)
-  - [ ] `update_project(project_id, **kwargs)` → projet modifié ou `None`
-  - [ ] `delete_project(project_id)` → `True` si supprimé, `False` si absent
-- [ ] Créer les schémas Pydantic (AC: 2, 3)
-  - [ ] `backend/app/schemas/project.py` : ProjectCreate, ProjectRead
-  - [ ] `backend/app/schemas/video.py` : VideoCreate, VideoRead
-  - [ ] `backend/app/schemas/annotation.py` : AnnotationCreate, AnnotationRead
-- [ ] Écrire et faire passer les tests (AC: 4, 5)
-  - [ ] `tests/conftest.py` : fixture `data_dir` via `tmp_path` + `monkeypatch.setenv("DATA_DIR", ...)`
-  - [ ] `tests/test_storage.py` : CRUD complet via `json_store` + test atomicité
+- [x] Créer `backend/app/config.py` (AC: 6)
+  - [x] Lire `DATA_DIR`, `VIDEOS_DIR`, `ALLOWED_ORIGINS`, `MAX_VIDEO_SIZE_MB`, `TEMP_DIR` depuis `os.getenv`
+- [x] Créer `backend/app/storage/json_store.py` (AC: 1, 4, 5)
+  - [x] `_projects_file()` : retourne le chemin `DATA_DIR/projects.json`, crée le dossier si absent
+  - [x] `_load()` : lit `projects.json`, retourne `{"projects": []}` si le fichier n'existe pas
+  - [x] `_save(data)` : écriture atomique via fichier `.tmp` + `os.replace`
+  - [x] `get_projects()` → liste de tous les projets
+  - [x] `get_project(project_id)` → projet ou `None`
+  - [x] `create_project(name, description)` → projet créé (UUID auto)
+  - [x] `update_project(project_id, **kwargs)` → projet modifié ou `None`
+  - [x] `delete_project(project_id)` → `True` si supprimé, `False` si absent
+- [x] Créer les schémas Pydantic (AC: 2, 3)
+  - [x] `backend/app/schemas/project.py` : ProjectCreate, ProjectRead
+  - [x] `backend/app/schemas/video.py` : VideoCreate, VideoRead
+  - [x] `backend/app/schemas/annotation.py` : AnnotationCreate, AnnotationRead
+- [x] Écrire et faire passer les tests (AC: 4, 5)
+  - [x] `tests/conftest.py` : fixture `data_dir` via `tmp_path` + `monkeypatch.setenv("DATA_DIR", ...)`
+  - [x] `tests/test_storage.py` : CRUD complet via `json_store` + test atomicité
 
 ## Dev Notes
 
@@ -347,10 +347,29 @@ backend/
 
 ### Agent Model Used
 
-_à remplir par le dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
 
+Aucun — implémentation directe sans blocage.
+
 ### Completion Notes List
 
+- TDD strict respecté : tests écrits en premier (RED), puis implémentation (GREEN)
+- 10/10 tests passent (test_health + 9 tests storage)
+- Écriture atomique via `.tmp` + `os.replace` validée par `test_save_is_atomic`
+- `DATA_DIR` lu depuis `os.getenv` dans `json_store._data_dir()` — monkeypatching fonctionnel via fixture `data_dir`
+- `requirements.txt` complété avec pydantic, python-multipart, aiofiles, ffmpeg-python, numpy, scipy, pytest-cov
+
 ### File List
+
+- `backend/requirements.txt` (modifié)
+- `backend/app/config.py` (créé)
+- `backend/app/storage/__init__.py` (créé)
+- `backend/app/storage/json_store.py` (créé)
+- `backend/app/schemas/__init__.py` (créé)
+- `backend/app/schemas/project.py` (créé)
+- `backend/app/schemas/video.py` (créé)
+- `backend/app/schemas/annotation.py` (créé)
+- `backend/tests/conftest.py` (créé)
+- `backend/tests/test_storage.py` (créé)

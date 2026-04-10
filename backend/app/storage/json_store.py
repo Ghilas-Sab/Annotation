@@ -1,0 +1,76 @@
+import json
+import os
+import uuid
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+def _data_dir() -> Path:
+    return Path(os.getenv("DATA_DIR", "/data"))
+
+
+def _projects_file() -> Path:
+    d = _data_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "projects.json"
+
+
+def _load() -> dict:
+    f = _projects_file()
+    if not f.exists():
+        return {"projects": []}
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+def _save(data: dict) -> None:
+    f = _projects_file()
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, f)  # atomique sur tous les OS
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def get_projects() -> list[dict]:
+    return _load()["projects"]
+
+
+def get_project(project_id: str) -> dict | None:
+    return next((p for p in get_projects() if p["id"] == project_id), None)
+
+
+def create_project(name: str, description: str = "") -> dict:
+    data = _load()
+    project = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "description": description,
+        "created_at": _now(),
+        "videos": [],
+    }
+    data["projects"].append(project)
+    _save(data)
+    return project
+
+
+def update_project(project_id: str, **kwargs) -> dict | None:
+    data = _load()
+    for p in data["projects"]:
+        if p["id"] == project_id:
+            p.update({k: v for k, v in kwargs.items() if k in ("name", "description")})
+            _save(data)
+            return p
+    return None
+
+
+def delete_project(project_id: str) -> bool:
+    data = _load()
+    before = len(data["projects"])
+    data["projects"] = [p for p in data["projects"] if p["id"] != project_id]
+    if len(data["projects"]) < before:
+        _save(data)
+        return True
+    return False
