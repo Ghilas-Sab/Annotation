@@ -1,10 +1,12 @@
+import mimetypes
 import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi.responses import StreamingResponse
 
 from app.storage import json_store
 from app.services.video_service import get_video_metadata
@@ -71,6 +73,63 @@ async def get_video(video_id: str):
     if not video:
         raise HTTPException(status_code=404, detail="Vidéo introuvable")
     return video
+
+
+@router.get("/videos/{video_id}/stream")
+async def stream_video(video_id: str, request: Request):
+    video = json_store.get_video(video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Vidéo introuvable")
+
+    filepath = video.get("filepath", "")
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Fichier vidéo introuvable")
+
+    file_size = os.path.getsize(filepath)
+    mime_type, _ = mimetypes.guess_type(filepath)
+    if not mime_type or not mime_type.startswith("video/"):
+        mime_type = "video/mp4"
+
+    range_header = request.headers.get("Range")
+
+    if range_header:
+        range_spec = range_header.replace("bytes=", "")
+        start_str, end_str = range_spec.split("-")
+        start = int(start_str)
+        end = int(end_str) if end_str else file_size - 1
+        end = min(end, file_size - 1)
+        chunk_size = end - start + 1
+
+        def iter_range():
+            with open(filepath, "rb") as f:
+                f.seek(start)
+                remaining = chunk_size
+                while remaining > 0:
+                    data = f.read(min(65536, remaining))
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+        }
+        return StreamingResponse(iter_range(), status_code=206,
+                                 media_type=mime_type, headers=headers)
+    else:
+        def iter_full():
+            with open(filepath, "rb") as f:
+                while chunk := f.read(65536):
+                    yield chunk
+
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+        }
+        return StreamingResponse(iter_full(), status_code=200,
+                                 media_type=mime_type, headers=headers)
 
 
 @router.delete("/videos/{video_id}", status_code=204)
