@@ -1,4 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import ProjectsPage from './pages/ProjectsPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,9 +15,13 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div>
-        <h1>AnnotaRythm</h1>
-      </div>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
+          <Route path="*" element={<Navigate to="/projects" replace />} />
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }

@@ -3,22 +3,30 @@ export interface Project {
   name: string
   description: string
   created_at: string
-  updated_at: string
-  videos?: Video[]
+  updated_at?: string
+  videos: Video[]
 }
 
 export interface Video {
   id: string
   project_id: string
   filename: string
-  original_filename: string
+  original_name: string
   fps: number
   duration_seconds: number
   total_frames: number
   width: number
   height: number
   codec: string
-  created_at: string
+  uploaded_at: string
+  annotations: Annotation[]
+}
+
+export interface Annotation {
+  id: string
+  frame: number
+  label: string
+  data?: Record<string, unknown>
 }
 
 export interface CreateProjectRequest {
