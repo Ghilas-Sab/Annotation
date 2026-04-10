@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import ProjectsPage from './pages/ProjectsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,8 +13,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div>
-        <h1>AnnotaRythm</h1>
+      <div className="App">
+        <ProjectsPage />
       </div>
     </QueryClientProvider>
   )

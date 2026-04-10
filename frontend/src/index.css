@@ -1,0 +1,83 @@
+:root {
+  --color-bg:        #1a1a2e;  /* fond principal */
+  --color-panel:     #16213e;  /* fond panneau */
+  --color-surface:   #0f3460;  /* cartes, panneaux */
+  --color-accent:    #e94560;  /* rouge — actions primaires */
+  --color-accent2:   #f5a623;  /* orange — métriques */
+  --color-text:      #eaeaea;  /* texte principal */
+  --color-text-muted:#8892b0;  /* texte secondaire */
+  --color-success:   #64ffda;  /* confirmations */
+  --color-danger:    #ff6b6b;  /* suppression */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: white;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--color-panel);
+  border: 1px solid var(--color-surface);
+  color: var(--color-text);
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+input:focus, textarea:focus {
+  outline: 2px solid var(--color-accent);
+  border-color: transparent;
+}
