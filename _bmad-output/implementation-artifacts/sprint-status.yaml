@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-09
+last_updated: 2026-04-10T00:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -56,12 +56,12 @@ development_status:
   # ─────────────────────────────────────────
   # EPIC 2 — Gestion de Projets
   # ─────────────────────────────────────────
-  epic-2: backlog
-  2-1-crud-projets-backend: backlog
-  2-2-upload-video-metadonnees-ffmpeg: backlog
-  2-3-streaming-video-range-requests: backlog
-  2-4-page-projets-frontend: backlog
-  2-5-page-detail-projet-upload-video: backlog
+  epic-2: in-progress
+  2-1-crud-projets-backend: review
+  2-2-upload-video-metadonnees-ffmpeg: ready-for-dev
+  2-3-streaming-video-range-requests: ready-for-dev
+  2-4-page-projets-frontend: ready-for-dev
+  2-5-page-detail-projet-upload-video: ready-for-dev
   epic-2-retrospective: optional
 
   # ─────────────────────────────────────────
