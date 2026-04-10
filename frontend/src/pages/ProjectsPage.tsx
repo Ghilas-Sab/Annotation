@@ -54,8 +54,8 @@ const ProjectsPage: React.FC = () => {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ color: 'var(--color-text)', margin: 0 }}>Gestion des Projets</h1>
         {!showForm && (
-          <button 
-            className="btn-primary" 
+          <button
+            className="btn-primary"
             onClick={() => setShowForm(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
@@ -65,12 +65,12 @@ const ProjectsPage: React.FC = () => {
       </header>
 
       {showForm && (
-        <div 
-          className="inline-form" 
-          style={{ 
-            backgroundColor: 'var(--color-panel)', 
-            padding: '1.5rem', 
-            borderRadius: '8px', 
+        <div
+          className="inline-form"
+          style={{
+            backgroundColor: 'var(--color-panel)',
+            padding: '1.5rem',
+            borderRadius: '8px',
             marginBottom: '2rem',
             border: '1px solid var(--color-accent)'
           }}
@@ -99,8 +99,8 @@ const ProjectsPage: React.FC = () => {
               />
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-              <button 
-                className="btn-secondary" 
+              <button
+                className="btn-secondary"
                 onClick={() => setShowForm(false)}
               >
                 Annuler

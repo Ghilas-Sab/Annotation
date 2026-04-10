@@ -1,3 +1,5 @@
+import { Annotation } from './annotation'
+
 export interface Project {
   id: string
   name: string
@@ -20,13 +22,6 @@ export interface Video {
   codec: string
   uploaded_at: string
   annotations: Annotation[]
-}
-
-export interface Annotation {
-  id: string
-  frame: number
-  label: string
-  data?: Record<string, unknown>
 }
 
 export interface CreateProjectRequest {

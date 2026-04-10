@@ -31,12 +31,12 @@ const renderWithQuery = (ui: React.ReactElement) => {
 describe('ProjectsPage', () => {
   it('displays project list', async () => {
     server.use(http.get('*/api/v1/projects', () =>
-      HttpResponse.json([{ 
-        id: '1', 
-        name: 'Mon Projet', 
-        description: '', 
-        created_at: new Date().toISOString(), 
-        videos: [] 
+      HttpResponse.json([{
+        id: '1',
+        name: 'Mon Projet',
+        description: '',
+        created_at: new Date().toISOString(),
+        videos: []
       }])
     ))
     renderWithQuery(<ProjectsPage />)
