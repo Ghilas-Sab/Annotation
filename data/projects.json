@@ -1,11 +1,27 @@
 {
   "projects": [
     {
-      "id": "53b68994-23d8-47ff-a47c-4267144126b3",
-      "name": "Test",
-      "description": "lord ipsum .....",
-      "created_at": "2026-04-10T10:54:57.562140+00:00",
-      "videos": []
+      "id": "81247d4b-82a4-4745-8a6d-2d5102072423",
+      "name": "test",
+      "description": "test 1",
+      "created_at": "2026-04-10T12:00:13.474482+00:00",
+      "videos": [
+        {
+          "id": "e048f117-c318-4418-be76-934b0ab053e3",
+          "project_id": "81247d4b-82a4-4745-8a6d-2d5102072423",
+          "filename": "7538c074-7bd3-4e83-a46d-26526e2bd832.mp4",
+          "original_name": "AZ13RNvMhuhhifb_zjN_pQ-AZ13RNvMj22dZoIlIbnuuw.mp4",
+          "filepath": "/home/etud/Bureau/Annotation/videos/7538c074-7bd3-4e83-a46d-26526e2bd832.mp4",
+          "duration_seconds": 5.875,
+          "fps": 24.0,
+          "total_frames": 141,
+          "width": 1366,
+          "height": 768,
+          "codec": "h264",
+          "uploaded_at": "2026-04-10T12:05:03.137949+00:00",
+          "annotations": []
+        }
+      ]
     }
   ]
 }

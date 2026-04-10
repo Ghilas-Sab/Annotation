@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useProjects, useCreateProject, useDeleteProject } from '../api/projects'
 import ProjectList from '../components/projects/ProjectList'
 
 const ProjectsPage: React.FC = () => {
+  const navigate = useNavigate()
   const { data: projects = [], isLoading, error } = useProjects()
   const createMutation = useCreateProject()
   const deleteMutation = useDeleteProject()
@@ -31,11 +33,6 @@ const ProjectsPage: React.FC = () => {
     }
   }
 
-  const handleProjectClick = (id: string) => {
-    // Navigation à implémenter plus tard (S2.5)
-    console.log('Navigate to project', id)
-  }
-
   if (isLoading) {
     return (
       <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -57,8 +54,8 @@ const ProjectsPage: React.FC = () => {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ color: 'var(--color-text)', margin: 0 }}>Gestion des Projets</h1>
         {!showForm && (
-          <button 
-            className="btn-primary" 
+          <button
+            className="btn-primary"
             onClick={() => setShowForm(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
@@ -68,12 +65,12 @@ const ProjectsPage: React.FC = () => {
       </header>
 
       {showForm && (
-        <div 
-          className="inline-form" 
-          style={{ 
-            backgroundColor: 'var(--color-panel)', 
-            padding: '1.5rem', 
-            borderRadius: '8px', 
+        <div
+          className="inline-form"
+          style={{
+            backgroundColor: 'var(--color-panel)',
+            padding: '1.5rem',
+            borderRadius: '8px',
             marginBottom: '2rem',
             border: '1px solid var(--color-accent)'
           }}
@@ -102,8 +99,8 @@ const ProjectsPage: React.FC = () => {
               />
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-              <button 
-                className="btn-secondary" 
+              <button
+                className="btn-secondary"
                 onClick={() => setShowForm(false)}
               >
                 Annuler
@@ -120,10 +117,10 @@ const ProjectsPage: React.FC = () => {
         </div>
       )}
 
-      <ProjectList 
-        projects={projects} 
+      <ProjectList
+        projects={projects}
         onDelete={handleDelete}
-        onProjectClick={handleProjectClick}
+        onProjectClick={(id) => navigate(`/projects/${id}`)}
       />
     </div>
   )
