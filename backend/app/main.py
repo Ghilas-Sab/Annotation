@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from app.routers.projects import router as projects_router
+from app.routers.videos import router as videos_router
 
 app = FastAPI()
 
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(projects_router, prefix="/api/v1")
+app.include_router(videos_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

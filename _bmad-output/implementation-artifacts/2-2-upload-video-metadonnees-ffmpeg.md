@@ -1,6 +1,6 @@
 # Story 2.2: Upload Vidéo + Métadonnées FFmpeg (Backend)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -20,28 +20,28 @@ so that je connaisse la durée, le FPS et le nombre total de frames.
 
 ## Tasks / Subtasks
 
-- [ ] Créer la fixture `tmp_video_file` dans `conftest.py` (vidéo synthétique 5s via FFmpeg)
-- [ ] Créer la fixture `project_id` dans `conftest.py` (crée un projet via l'API)
-- [ ] Créer la fixture `uploaded_video_id` dans `conftest.py` (upload via l'API)
-- [ ] Écrire les tests en premier — `backend/tests/test_videos.py` (AC: 1–7)
-  - [ ] `test_upload_video` : POST multipart → 201, fps > 0, total_frames > 0
-  - [ ] `test_video_metadata_stored` : GET /videos/{id} → fps, duration_seconds présents
-  - [ ] `test_list_project_videos` : GET /projects/{id}/videos → liste avec 1 élément
-  - [ ] `test_delete_video` : DELETE → 204, GET → 404
-  - [ ] `test_upload_project_not_found` : POST sur projet inexistant → 404
-- [ ] Créer `backend/app/services/video_service.py` (AC: 2)
-  - [ ] `get_video_metadata(filepath)` → dict avec fps, duration_seconds, total_frames, width, height, codec
-  - [ ] Utiliser `ffmpeg.probe()` exactement selon le pattern architecture
-- [ ] Ajouter les fonctions vidéo dans `json_store.py` (AC: 1, 4, 5, 6)
-  - [ ] `add_video_to_project(project_id, video_dict)` → video dict
-  - [ ] `get_video(video_id)` → dict | None (cherche dans tous les projets)
-  - [ ] `delete_video(video_id)` → bool
-- [ ] Créer `backend/app/routers/videos.py` (AC: 1, 4, 5, 6, 7)
-  - [ ] `POST /api/v1/projects/{project_id}/videos` — upload + metadata + save
-  - [ ] `GET /api/v1/projects/{project_id}/videos` — liste vidéos du projet
-  - [ ] `GET /api/v1/videos/{video_id}` — métadonnées complètes
-  - [ ] `DELETE /api/v1/videos/{video_id}` — fichier + JSON
-- [ ] Modifier `backend/app/main.py` — inclure le router videos
+- [x] Créer la fixture `tmp_video_file` dans `conftest.py` (vidéo synthétique 5s via FFmpeg)
+- [x] Créer la fixture `project_id` dans `conftest.py` (crée un projet via l'API)
+- [x] Créer la fixture `uploaded_video_id` dans `conftest.py` (upload via l'API)
+- [x] Écrire les tests en premier — `backend/tests/test_videos.py` (AC: 1–7)
+  - [x] `test_upload_video` : POST multipart → 201, fps > 0, total_frames > 0
+  - [x] `test_video_metadata_stored` : GET /videos/{id} → fps, duration_seconds présents
+  - [x] `test_list_project_videos` : GET /projects/{id}/videos → liste avec 1 élément
+  - [x] `test_delete_video` : DELETE → 204, GET → 404
+  - [x] `test_upload_project_not_found` : POST sur projet inexistant → 404
+- [x] Créer `backend/app/services/video_service.py` (AC: 2)
+  - [x] `get_video_metadata(filepath)` → dict avec fps, duration_seconds, total_frames, width, height, codec
+  - [x] Utiliser `ffmpeg.probe()` exactement selon le pattern architecture
+- [x] Ajouter les fonctions vidéo dans `json_store.py` (AC: 1, 4, 5, 6)
+  - [x] `add_video_to_project(project_id, video_dict)` → video dict
+  - [x] `get_video(video_id)` → dict | None (cherche dans tous les projets)
+  - [x] `delete_video(video_id)` → bool
+- [x] Créer `backend/app/routers/videos.py` (AC: 1, 4, 5, 6, 7)
+  - [x] `POST /api/v1/projects/{project_id}/videos` — upload + metadata + save
+  - [x] `GET /api/v1/projects/{project_id}/videos` — liste vidéos du projet
+  - [x] `GET /api/v1/videos/{video_id}` — métadonnées complètes
+  - [x] `DELETE /api/v1/videos/{video_id}` — fichier + JSON
+- [x] Modifier `backend/app/main.py` — inclure le router videos
 
 ## Dev Notes
 
@@ -365,6 +365,26 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- `aiofiles` non installé globalement → installé via `pip3 --break-system-packages` (dépendance déjà dans requirements.txt)
+- `settings.VIDEOS_DIR` est une classe attr évaluée à l'import → router lit `os.getenv("VIDEOS_DIR", "/videos")` dynamiquement (cohérent avec pattern `json_store._data_dir()`)
+
 ### Completion Notes List
 
+- Fixtures ajoutées dans `conftest.py` : `videos_dir`, `tmp_video_file`, `project_id`, `uploaded_video_id`
+- Fixture `client` modifiée pour accepter `videos_dir` (patch `VIDEOS_DIR`)
+- 5 tests TDD écrits en RED avant implémentation, tous verts après
+- `video_service.py` créé avec `get_video_metadata()` via `ffmpeg.probe()` pattern exact architecture
+- `json_store.py` enrichi : `add_video_to_project`, `get_video`, `delete_video`
+- `videos.py` router créé : 4 endpoints CRUD, rollback fichier si FFmpeg échoue
+- `main.py` mis à jour : `include_router(videos_router)`
+- 23/23 tests passent, 0 régression
+
 ### File List
+
+- backend/tests/conftest.py
+- backend/tests/test_videos.py
+- backend/app/services/__init__.py
+- backend/app/services/video_service.py
+- backend/app/storage/json_store.py
+- backend/app/routers/videos.py
+- backend/app/main.py

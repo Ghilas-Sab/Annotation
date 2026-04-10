@@ -58,7 +58,7 @@ development_status:
   # ─────────────────────────────────────────
   epic-2: in-progress
   2-1-crud-projets-backend: review
-  2-2-upload-video-metadonnees-ffmpeg: ready-for-dev
+  2-2-upload-video-metadonnees-ffmpeg: review
   2-3-streaming-video-range-requests: ready-for-dev
   2-4-page-projets-frontend: ready-for-dev
   2-5-page-detail-projet-upload-video: ready-for-dev
