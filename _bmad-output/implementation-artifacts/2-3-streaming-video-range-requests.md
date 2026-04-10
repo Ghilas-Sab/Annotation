@@ -19,15 +19,15 @@ so that j'aie une lecture fluide et un seek rapide sans télécharger toute la v
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier — ajouter à `backend/tests/test_videos.py` (AC: 1–6)
-  - [ ] `test_video_stream_full` : GET /stream sans Range → 200, content-type vidéo, accept-ranges: bytes
-  - [ ] `test_video_stream_range` : GET /stream avec Range: bytes=0-1023 → 206, accept-ranges: bytes
-  - [ ] `test_video_stream_not_found` : GET /stream sur id inconnu → 404
-- [ ] Ajouter l'endpoint `/stream` dans `backend/app/routers/videos.py` (AC: 1–6)
-  - [ ] Récupérer la vidéo via `json_store.get_video(video_id)`
-  - [ ] Implémenter le streaming avec Range support via `FileResponse` ou `StreamingResponse`
-  - [ ] Détecter le MIME type depuis l'extension du fichier
-  - [ ] Gérer les Range headers manuellement si `FileResponse` ne suffit pas
+- [x] Écrire les tests en premier — ajouter à `backend/tests/test_videos.py` (AC: 1–6)
+  - [x] `test_video_stream_full` : GET /stream sans Range → 200, content-type vidéo, accept-ranges: bytes
+  - [x] `test_video_stream_range` : GET /stream avec Range: bytes=0-1023 → 206, accept-ranges: bytes
+  - [x] `test_video_stream_not_found` : GET /stream sur id inconnu → 404
+- [x] Ajouter l'endpoint `/stream` dans `backend/app/routers/videos.py` (AC: 1–6)
+  - [x] Récupérer la vidéo via `json_store.get_video(video_id)`
+  - [x] Implémenter le streaming avec Range support via `FileResponse` ou `StreamingResponse`
+  - [x] Détecter le MIME type depuis l'extension du fichier
+  - [x] Gérer les Range headers manuellement si `FileResponse` ne suffit pas
 
 ## Dev Notes
 

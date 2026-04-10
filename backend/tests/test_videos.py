@@ -49,3 +49,28 @@ async def test_upload_project_not_found(client, tmp_video_file, videos_dir):
             files={"file": ("test.mp4", f, "video/mp4")}
         )
     assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_video_stream_full(client, uploaded_video_id):
+    res = await client.get(f"/api/v1/videos/{uploaded_video_id}/stream")
+    assert res.status_code == 200
+    assert "video" in res.headers.get("content-type", "")
+    assert res.headers.get("accept-ranges") == "bytes"
+
+
+@pytest.mark.asyncio
+async def test_video_stream_range(client, uploaded_video_id):
+    res = await client.get(
+        f"/api/v1/videos/{uploaded_video_id}/stream",
+        headers={"Range": "bytes=0-1023"}
+    )
+    assert res.status_code == 206
+    assert res.headers.get("accept-ranges") == "bytes"
+    assert "content-range" in res.headers
+
+
+@pytest.mark.asyncio
+async def test_video_stream_not_found(client):
+    res = await client.get("/api/v1/videos/00000000-0000-0000-0000-000000000000/stream")
+    assert res.status_code == 404
