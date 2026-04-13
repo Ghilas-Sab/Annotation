@@ -69,7 +69,7 @@ development_status:
   # ─────────────────────────────────────────
   epic-3: backlog
   3-1-crud-annotations-backend: backlog
-  3-2-bulk-placement-decalage-global: backlog
+  3-2-bulk-placement-decalage-global: review
   3-3-lecteur-video-frame-precis: backlog
   3-4-bindings-clavier: backlog
   3-5-timeline-canvas-annotations: backlog

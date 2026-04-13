@@ -164,3 +164,34 @@ def delete_all_annotations(video_id: str) -> bool:
                 _save(data)
                 return True
     return False
+
+
+def bulk_add_annotations(video_id: str, annotations_data: list[dict]) -> list[dict] | None:
+    """Ajoute plusieurs annotations en une seule écriture atomique."""
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                video.setdefault("annotations", []).extend(annotations_data)
+                _save(data)
+                return annotations_data
+    return None
+
+
+def shift_video_annotations(video_id: str, offset_frames: int) -> list[dict] | None:
+    """Décale toutes les annotations d'une vidéo (offset_frames déjà calculé).
+    Retourne la liste mise à jour, ou None si vidéo introuvable."""
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                fps = video["fps"]
+                annotations = video.get("annotations", [])
+                for ann in annotations:
+                    new_frame = ann["frame_number"] + offset_frames
+                    ann["frame_number"] = new_frame
+                    ann["timestamp_ms"] = new_frame / fps * 1000
+                    ann["updated_at"] = _now()
+                _save(data)
+                return annotations
+    return None

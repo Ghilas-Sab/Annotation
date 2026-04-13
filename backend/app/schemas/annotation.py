@@ -14,3 +14,14 @@ class AnnotationRead(BaseModel):
     label: str
     created_at: str
     updated_at: str
+
+
+class BulkCreate(BaseModel):
+    start_frame: int
+    end_frame: int
+    count: int
+    prefix: str = ""
+
+
+class ShiftRequest(BaseModel):
+    offset_ms: float
