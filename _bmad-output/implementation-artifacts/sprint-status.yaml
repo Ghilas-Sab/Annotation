@@ -67,25 +67,25 @@ development_status:
   # ─────────────────────────────────────────
   # EPIC 3 — Annotation Vidéo
   # ─────────────────────────────────────────
-  epic-3: backlog
-  3-1-crud-annotations-backend: backlog
-  3-2-bulk-placement-decalage-global: review
-  3-3-lecteur-video-frame-precis: review
-  3-4-bindings-clavier: review
-  3-5-timeline-canvas-annotations: review
-  3-6-mode-verification-sonore: review
-  3-7-formulaire-placement-automatique-equidistant: backlog
-  3-8-page-annotation-complete: review
+  epic-3: done
+  3-1-crud-annotations-backend: done
+  3-2-bulk-placement-decalage-global: done
+  3-3-lecteur-video-frame-precis: done
+  3-4-bindings-clavier: done
+  3-5-timeline-canvas-annotations: done
+  3-6-mode-verification-sonore: done
+  3-7-formulaire-placement-automatique-equidistant: done
+  3-8-page-annotation-complete: done
   epic-3-retrospective: optional
 
   # ─────────────────────────────────────────
   # EPIC 4 — Statistiques Rythmiques
   # ─────────────────────────────────────────
-  epic-4: backlog
-  4-1-service-calcul-bpm: backlog
-  4-2-endpoints-statistiques: backlog
-  4-3-dashboard-metriques-bpm: backlog
-  4-4-histogramme-intervalles-ajustement-vitesse: backlog
+  epic-4: in-progress
+  4-1-service-calcul-bpm: in-progress
+  4-2-endpoints-statistiques: ready-for-dev
+  4-3-dashboard-metriques-bpm: ready-for-dev
+  4-4-histogramme-intervalles-ajustement-vitesse: ready-for-dev
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────

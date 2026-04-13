@@ -21,5 +21,5 @@ app.include_router(annotations_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")
-def health_check():
+async def health_check():
     return {"status": "ok"}

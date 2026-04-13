@@ -1,6 +1,6 @@
 # Story 3.1: CRUD Annotations (Backend)
 
-Status: approved
+Status: done
 
 ## Story
 
@@ -252,20 +252,29 @@ backend/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+- Vérification 2026-04-13 : endpoints CRUD annotations validés directement contre l'app FastAPI locale.
 
 ### Completion Notes List
 
-_À compléter_
+- `POST /api/v1/videos/{id}/annotations` implémenté avec validation bornes `frame_number` et calcul `timestamp_ms`
+- `GET /api/v1/videos/{id}/annotations` retourne la liste triée ASC
+- `PUT /api/v1/annotations/{id}` recalcule `timestamp_ms` après modification
+- `DELETE /api/v1/annotations/{id}` et `DELETE /api/v1/videos/{id}/annotations` implémentés
+- Les schémas `AnnotationCreate` et `AnnotationRead` sont présents dans `backend/app/schemas/annotation.py`
+- La vérification fonctionnelle directe de l'API Epic 3 backend retourne `201/200` attendus
 
 ### File List
 
-_À compléter_
+- backend/app/routers/annotations.py
+- backend/app/schemas/annotation.py
+- backend/app/storage/json_store.py
+- backend/tests/test_annotations.py
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation backend confirmée et story marquée done
