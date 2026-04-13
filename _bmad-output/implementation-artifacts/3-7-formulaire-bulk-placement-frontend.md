@@ -1,6 +1,6 @@
 # Story 3.7: Formulaire Placement Automatique Équidistant (Frontend)
 
-Status: approved
+Status: done
 
 ## Story
 
@@ -204,20 +204,27 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+- Vérification 2026-04-13 : composant et tests présents, mutation bulk branchée sur `useCreateBulkAnnotations(videoId)`.
 
 ### Completion Notes List
 
-_À compléter_
+- `BulkPlacementForm.tsx` implémenté avec saisie début/fin/nombre/préfixe
+- Aperçu d'intervalle affiché en frames et secondes
+- Validation UI présente: `startFrame >= 0`, `endFrame > startFrame`, `endFrame <= totalFrames`, `count >= 2`
+- Mutation bulk branchée sur `frontend/src/api/annotations.ts`
+- Les tests frontend de l'Epic 3 passent dans la suite Vitest locale
 
 ### File List
 
-_À compléter_
+- frontend/src/components/annotations/BulkPlacementForm.tsx
+- frontend/src/components/annotations/BulkPlacementForm.test.tsx
+- frontend/src/api/annotations.ts
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation frontend confirmée et story marquée done

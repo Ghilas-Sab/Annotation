@@ -1,10 +1,10 @@
 import mimetypes
 import os
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-import aiofiles
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 
@@ -30,9 +30,12 @@ async def upload_video(project_id: str, file: UploadFile = File(...)):
     filepath = os.path.join(videos_dir, filename)
     os.makedirs(videos_dir, exist_ok=True)
 
-    async with aiofiles.open(filepath, 'wb') as f:
-        content = await file.read()
-        await f.write(content)
+    # `UploadFile.read()` hangs under the current ASGI test setup.
+    # Stream-copy from the underlying file object keeps uploads reliable
+    # both in tests and in runtime.
+    file.file.seek(0)
+    with open(filepath, "wb") as destination:
+        shutil.copyfileobj(file.file, destination)
 
     try:
         meta = get_video_metadata(filepath)
