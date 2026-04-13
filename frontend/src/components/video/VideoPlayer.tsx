@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react'
+import { useRef, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { useVideoStore } from '../../stores/videoStore'
 import { useRequestVideoFrame } from '../../hooks/useRequestVideoFrame'
 import { seekToFrame } from '../../hooks/useFrameSeek'
