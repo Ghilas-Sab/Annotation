@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 class AnnotationCreate(BaseModel):
     frame_number: int
-    timestamp_ms: float
     label: str = ""
 
 

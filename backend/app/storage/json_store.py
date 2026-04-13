@@ -107,3 +107,60 @@ def delete_video(video_id: str) -> bool:
                 _save(data)
                 return True
     return False
+
+
+# --- Annotations ---
+
+def add_annotation(video_id: str, annotation_data: dict) -> dict | None:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                video.setdefault("annotations", []).append(annotation_data)
+                _save(data)
+                return annotation_data
+    return None
+
+
+def get_annotations(video_id: str) -> list[dict] | None:
+    video = get_video(video_id)
+    if video is None:
+        return None
+    return video.get("annotations", [])
+
+
+def update_annotation(annotation_id: str, **kwargs) -> dict | None:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            for ann in video.get("annotations", []):
+                if ann["id"] == annotation_id:
+                    ann.update({k: v for k, v in kwargs.items() if k in ("frame_number", "timestamp_ms", "label")})
+                    ann["updated_at"] = _now()
+                    _save(data)
+                    return ann
+    return None
+
+
+def delete_annotation(annotation_id: str) -> bool:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            annotations = video.get("annotations", [])
+            for i, ann in enumerate(annotations):
+                if ann["id"] == annotation_id:
+                    del annotations[i]
+                    _save(data)
+                    return True
+    return False
+
+
+def delete_all_annotations(video_id: str) -> bool:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                video["annotations"] = []
+                _save(data)
+                return True
+    return False
