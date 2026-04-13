@@ -56,3 +56,9 @@ async def uploaded_video_id(client, project_id, tmp_video_file, videos_dir):
         )
     assert res.status_code == 201
     return res.json()["id"]
+
+
+@pytest.fixture
+async def video_id(uploaded_video_id):
+    """Alias pour uploaded_video_id utilisé dans les tests d'annotations."""
+    return uploaded_video_id
