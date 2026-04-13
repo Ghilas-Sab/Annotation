@@ -88,6 +88,18 @@ export function useUploadVideo(projectId: string, onProgress?: (pct: number) => 
   })
 }
 
+export function useVideo(videoId: string) {
+  return useQuery({
+    queryKey: ['video', videoId],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/videos/${videoId}`)
+      if (!res.ok) throw new Error('Erreur chargement vidéo')
+      return res.json() as Promise<Video>
+    },
+    enabled: !!videoId,
+  })
+}
+
 export function useDeleteVideo(projectId: string) {
   const qc = useQueryClient()
   return useMutation({

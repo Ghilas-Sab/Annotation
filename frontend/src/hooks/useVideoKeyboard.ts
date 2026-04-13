@@ -8,17 +8,18 @@ interface UseVideoKeyboardOptions {
   seek: (frame: number) => void
   annotations: Annotation[]
   createAnnotation?: (frame: number) => void
+  startFrame?: number
 }
 
 export const useVideoKeyboard = (opts: UseVideoKeyboardOptions) => {
-  const { currentFrame, totalFrames, fps, seek, annotations, createAnnotation } = opts
+  const { currentFrame, totalFrames, fps, seek, annotations, createAnnotation, startFrame = 0 } = opts
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
 
-      const clamp = (f: number) => Math.max(0, Math.min(totalFrames, f))
+      const clamp = (f: number) => Math.max(startFrame, Math.min(totalFrames, f))
 
       if (e.key === 'ArrowRight' && !e.shiftKey && !e.ctrlKey) {
         e.preventDefault(); seek(clamp(currentFrame + 1))
@@ -43,5 +44,5 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions) => {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFrame, totalFrames, fps, seek, annotations, createAnnotation])
+  }, [currentFrame, totalFrames, fps, seek, annotations, createAnnotation, startFrame])
 }

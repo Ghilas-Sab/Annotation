@@ -27,7 +27,7 @@ describe('VideoTimeline', () => {
     const onSeek = vi.fn()
     const { container } = render(<VideoTimeline {...defaultProps} onSeek={onSeek} />)
     const canvas = container.querySelector('canvas')!
-    fireEvent.click(canvas, { clientX: 100 })
+    fireEvent.mouseDown(canvas, { clientX: 100 })
     expect(onSeek).toHaveBeenCalled()
   })
 
@@ -37,7 +37,7 @@ describe('VideoTimeline', () => {
       <VideoTimeline {...defaultProps} onSeek={onSeek} totalFrames={1000} />
     )
     const canvas = container.querySelector('canvas')!
-    fireEvent.click(canvas, { clientX: 50 })
+    fireEvent.mouseDown(canvas, { clientX: 50 })
     const calledWith = onSeek.mock.calls[0][0]
     expect(calledWith).toBeGreaterThanOrEqual(0)
   })
@@ -48,7 +48,7 @@ describe('VideoTimeline', () => {
       <VideoTimeline {...defaultProps} onSeek={onSeek} totalFrames={1000} />
     )
     const canvas = container.querySelector('canvas')!
-    fireEvent.click(canvas, { clientX: 50 })
+    fireEvent.mouseDown(canvas, { clientX: 50 })
     const calledWith = onSeek.mock.calls[0][0]
     expect(calledWith).toBeLessThanOrEqual(1000)
   })
