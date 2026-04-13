@@ -1,6 +1,6 @@
 # Story 3.5: Timeline Canvas avec Annotations (Frontend)
 
-Status: approved
+Status: review
 
 ## Story
 
@@ -19,14 +19,14 @@ so that je visualise la distribution des annotations dans le temps.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 1–5)
-  - [ ] `frontend/src/components/video/VideoTimeline.test.tsx` — tester rendu canvas, clic, redraw
-- [ ] Créer `frontend/src/components/video/VideoTimeline.tsx` (AC: 1–6)
-  - [ ] Rendu canvas avec `useRef` et `useEffect`
-  - [ ] Dessin curseur frame courante
-  - [ ] Dessin marqueurs annotations
-  - [ ] Gestionnaire clic → calcul frame → appel `onSeek`
-  - [ ] Gestionnaire mousemove → tooltip label + timestamp
+- [x] Écrire les tests en premier (AC: 1–5)
+  - [x] `frontend/src/components/video/VideoTimeline.test.tsx` — tester rendu canvas, clic, redraw
+- [x] Créer `frontend/src/components/video/VideoTimeline.tsx` (AC: 1–6)
+  - [x] Rendu canvas avec `useRef` et `useEffect`
+  - [x] Dessin curseur frame courante
+  - [x] Dessin marqueurs annotations
+  - [x] Gestionnaire clic → calcul frame → appel `onSeek`
+  - [x] Gestionnaire mousemove → tooltip label + timestamp
 
 ## Dev Notes
 
@@ -179,20 +179,27 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+Fix jsdom : `getContext('2d')` retourne null en environnement test — guard `if (!ctx) return` ajouté.
 
 ### Completion Notes List
 
-_À compléter_
+- TDD strict : tests écrits et vérifiés RED avant implémentation
+- `VideoTimeline.tsx` : canvas 800×60, draw via useCallback+useEffect, clamp frame 0↔totalFrames
+- Guard `ctx` null pour compatibilité jsdom
+- 8 tests couvrant rendu, clic, frame bounds, cursor style, re-render
+- Suite complète : 40/40 tests passent, aucune régression
 
 ### File List
 
-_À compléter_
+- frontend/src/components/video/VideoTimeline.tsx (créé)
+- frontend/src/components/video/VideoTimeline.test.tsx (créé)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (mis à jour)
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation TDD complète par Amelia (claude-sonnet-4-6) — 2 fichiers créés, 40/40 tests passent
