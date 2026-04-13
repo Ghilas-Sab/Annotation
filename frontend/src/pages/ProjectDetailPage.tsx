@@ -1,13 +1,16 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject, useDeleteVideo } from '../api/projects'
 import VideoUpload from '../components/projects/VideoUpload'
+import VideoTrimModal from '../components/video/VideoTrimModal'
+import type { Video } from '../types/project'
 
 const ProjectDetailPage: React.FC = () => {
   const { id: projectId = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: project, isLoading, error } = useProject(projectId)
   const deleteMutation = useDeleteVideo(projectId)
+  const [trimVideo, setTrimVideo] = useState<Video | null>(null)
 
   const handleDeleteVideo = async (videoId: string, filename: string) => {
     if (window.confirm(`Supprimer la vidéo "${filename}" ?`)) {
@@ -36,7 +39,24 @@ const ProjectDetailPage: React.FC = () => {
     )
   }
 
+  const handleTrimConfirm = (start: number, end: number) => {
+    if (!trimVideo) return
+    const params = start === 0 && end === trimVideo.total_frames
+      ? ''
+      : `?start=${start}&end=${end}`
+    navigate(`/annotation/${trimVideo.id}${params}`)
+    setTrimVideo(null)
+  }
+
   return (
+    <>
+    {trimVideo && (
+      <VideoTrimModal
+        video={trimVideo}
+        onConfirm={handleTrimConfirm}
+        onCancel={() => setTrimVideo(null)}
+      />
+    )}
     <div className="container">
       <nav style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
         <span
@@ -90,7 +110,7 @@ const ProjectDetailPage: React.FC = () => {
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
                     className="btn-primary"
-                    onClick={() => navigate(`/annotation/${video.id}`)}
+                    onClick={() => setTrimVideo(video)}
                     style={{ fontSize: '0.85rem' }}
                   >
                     Annoter →
@@ -126,6 +146,7 @@ const ProjectDetailPage: React.FC = () => {
         )}
       </section>
     </div>
+    </>
   )
 }
 

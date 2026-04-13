@@ -7,15 +7,15 @@ export const playBeep = (context: AudioContext): void => {
   oscillator.connect(gain)
   gain.connect(context.destination)
 
-  oscillator.frequency.value = 880
-  oscillator.type = 'sine'
+  oscillator.frequency.value = 1000
+  oscillator.type = 'square'
 
   const now = context.currentTime
-  gain.gain.setValueAtTime(0.3, now)
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05)
+  gain.gain.setValueAtTime(1.0, now)
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
 
   oscillator.start(now)
-  oscillator.stop(now + 0.05)
+  oscillator.stop(now + 0.12)
 }
 
 export const useAudioBeep = () => {

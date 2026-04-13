@@ -33,10 +33,10 @@ describe('playBeep', () => {
     expect(mockContext.createGain).toHaveBeenCalledOnce()
   })
 
-  test('sets oscillator frequency to 880 Hz', () => {
+  test('sets oscillator frequency to 1000 Hz', () => {
     const { mockContext, mockOscillator } = makeMockContext()
     playBeep(mockContext as unknown as AudioContext)
-    expect(mockOscillator.frequency.value).toBe(880)
+    expect(mockOscillator.frequency.value).toBe(1000)
   })
 
   test('starts and stops the oscillator', () => {

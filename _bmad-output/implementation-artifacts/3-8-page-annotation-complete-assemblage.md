@@ -1,6 +1,6 @@
 # Story 3.8: Page Annotation Complète (Assemblage)
 
-Status: approved
+Status: review
 
 ## Story
 
@@ -20,29 +20,29 @@ so that j'ai un espace de travail d'annotation complet.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 1–7)
-  - [ ] `frontend/src/pages/AnnotationPage.test.tsx`
-    - [ ] `loads and displays annotations` : mock API → annotations affichées
-    - [ ] `clicking annotation seeks to frame` : clic → seek appelé
-    - [ ] `delete button calls API` : clic corbeille → mutation DELETE appelée
-- [ ] Créer `frontend/src/components/annotations/AnnotationItem.tsx` (AC: 4–6)
-  - [ ] Affiche `frame_number` + `label` + `timestamp_ms`
-  - [ ] Cliquable → appel `onSeek(frame_number)`
-  - [ ] Double-clic label → input inline éditable
-  - [ ] Icône corbeille → appel `onDelete(id)`
-- [ ] Créer `frontend/src/components/annotations/AnnotationList.tsx` (AC: 3–6)
-  - [ ] Liste scrollable triée par `frame_number` ASC
-  - [ ] Utilise `AnnotationItem` pour chaque entrée
-- [ ] Compléter `frontend/src/api/annotations.ts` — ajouter mutations manquantes (AC: 4–6)
-  - [ ] `useUpdateAnnotation(videoId)` → PUT
-  - [ ] `useDeleteAnnotation(videoId)` → DELETE
-- [ ] Créer `frontend/src/pages/AnnotationPage.tsx` (AC: 1–7)
-  - [ ] Récupère `videoId` depuis les params de route
-  - [ ] Charge les métadonnées vidéo → initialise `videoStore`
-  - [ ] Charge les annotations via `useAnnotations`
-  - [ ] Assemble : `VideoPlayer` + `VideoTimeline` + `AnnotationList` + `BulkPlacementForm`
-  - [ ] Passe `seekToFrame` comme callback aux composants enfants
-  - [ ] Active `useVideoKeyboard` avec `createAnnotation` lié à la mutation POST
+- [x] Écrire les tests en premier (AC: 1–7)
+  - [x] `frontend/src/pages/AnnotationPage.test.tsx`
+    - [x] `loads and displays annotations` : mock API → annotations affichées
+    - [x] `clicking annotation seeks to frame` : clic → seek appelé
+    - [x] `delete button calls API` : clic corbeille → mutation DELETE appelée
+- [x] Créer `frontend/src/components/annotations/AnnotationItem.tsx` (AC: 4–6)
+  - [x] Affiche `frame_number` + `label` + `timestamp_ms`
+  - [x] Cliquable → appel `onSeek(frame_number)`
+  - [x] Double-clic label → input inline éditable
+  - [x] Icône corbeille → appel `onDelete(id)`
+- [x] Créer `frontend/src/components/annotations/AnnotationList.tsx` (AC: 3–6)
+  - [x] Liste scrollable triée par `frame_number` ASC
+  - [x] Utilise `AnnotationItem` pour chaque entrée
+- [x] Compléter `frontend/src/api/annotations.ts` — ajouter mutations manquantes (AC: 4–6)
+  - [x] `useUpdateAnnotation(videoId)` → PUT
+  - [x] `useDeleteAnnotation(videoId)` → DELETE
+- [x] Créer `frontend/src/pages/AnnotationPage.tsx` (AC: 1–7)
+  - [x] Récupère `videoId` depuis les params de route
+  - [x] Charge les métadonnées vidéo → initialise `videoStore`
+  - [x] Charge les annotations via `useAnnotations`
+  - [x] Assemble : `VideoPlayer` + `VideoTimeline` + `AnnotationList` + `BulkPlacementForm`
+  - [x] Passe `seekToFrame` comme callback aux composants enfants
+  - [x] Active `useVideoKeyboard` avec `createAnnotation` lié à la mutation POST
 
 ## Dev Notes
 
@@ -181,20 +181,35 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+- `VideoTimeline` avait une interface locale `Annotation` avec `timestamp_ms` — remplacée par import du vrai type (`timestamp_seconds`)
+- Import `seekToFrame` supprimé de `AnnotationPage` (non utilisé, VideoPlayer expose son propre handle)
 
 ### Completion Notes List
 
-_À compléter_
+- TDD strict : tests RED vérifiés avant implémentation
+- `useCreateAnnotation`, `useUpdateAnnotation`, `useDeleteAnnotation` ajoutés à `api/annotations.ts`
+- `useVideo(videoId)` ajouté à `api/projects.ts`
+- `AnnotationItem` : clic → seek, double-clic → édition inline, bouton supprimer
+- `AnnotationList` : liste scrollable triée ASC par frame_number
+- `AnnotationPage` : layout 70/30, VideoPlayer + VideoTimeline + AnnotationList + BulkPlacementForm
+- 5 tests AnnotationPage — 55/55 total, build TS OK
 
 ### File List
 
-_À compléter_
+- frontend/src/pages/AnnotationPage.tsx (créé)
+- frontend/src/pages/AnnotationPage.test.tsx (créé)
+- frontend/src/components/annotations/AnnotationItem.tsx (créé)
+- frontend/src/components/annotations/AnnotationList.tsx (créé)
+- frontend/src/api/annotations.ts (modifié — ajout useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation)
+- frontend/src/api/projects.ts (modifié — ajout useVideo)
+- frontend/src/components/video/VideoTimeline.tsx (modifié — import type Annotation réel)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (mis à jour)
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation TDD complète par Amelia (claude-sonnet-4-6) — 55/55 tests, build OK
