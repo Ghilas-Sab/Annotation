@@ -1,6 +1,6 @@
 # Story 3.6: Mode Vérification Sonore (Frontend)
 
-Status: approved
+Status: review
 
 ## Story
 
@@ -18,15 +18,15 @@ so that je valide la précision rythmique de mes annotations à l'oreille.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 2–3)
-  - [ ] `frontend/src/hooks/useAudioBeep.test.ts` — tester `playBeep` avec mock AudioContext
-- [ ] Créer `frontend/src/hooks/useAudioBeep.ts` (AC: 2–4)
-  - [ ] Fonction `playBeep(context: AudioContext)` — oscillateur 880Hz, 50ms, gain fade-out
-  - [ ] Hook `useAudioBeep()` — crée et gère l'AudioContext
-- [ ] Compléter `frontend/src/stores/audioStore.ts` (AC: 1, 5)
-  - [ ] State : `enabled: boolean`
-  - [ ] Action : `toggle()`
-- [ ] Intégrer dans `useRequestVideoFrame` — appeler `playBeep` si mode ON et frame annotée
+- [x] Écrire les tests en premier (AC: 2–3)
+  - [x] `frontend/src/hooks/useAudioBeep.test.ts` — tester `playBeep` avec mock AudioContext
+- [x] Créer `frontend/src/hooks/useAudioBeep.ts` (AC: 2–4)
+  - [x] Fonction `playBeep(context: AudioContext)` — oscillateur 880Hz, 50ms, gain fade-out
+  - [x] Hook `useAudioBeep()` — crée et gère l'AudioContext
+- [x] Compléter `frontend/src/stores/audioStore.ts` (AC: 1, 5)
+  - [x] State : `enabled: boolean`
+  - [x] Action : `toggle()`
+- [x] Intégrer dans `useRequestVideoFrame` — appeler `playBeep` si mode ON et frame annotée
 
 ## Dev Notes
 
@@ -165,20 +165,31 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+`audioStore.ts` existait déjà avec d'autres champs — `enabled` et `toggle` ajoutés sans casser l'existant.
 
 ### Completion Notes List
 
-_À compléter_
+- TDD strict : tests RED vérifiés avant implémentation
+- `useAudioBeep.ts` : `playBeep` (oscillateur 880Hz/50ms/fade-out) + hook avec `AudioContext` réutilisé via `useRef`
+- `audioStore.ts` : ajout `enabled: false` + `toggle()` aux champs existants
+- `useRequestVideoFrame.ts` : intégration bip conditionnel (audioEnabled + frame annotée)
+- 5 tests `useAudioBeep` + 3 tests `audioStore` = 8 nouveaux tests
+- Suite complète : 48/48 tests passent, build TS OK
 
 ### File List
 
-_À compléter_
+- frontend/src/hooks/useAudioBeep.ts (créé)
+- frontend/src/hooks/useAudioBeep.test.ts (créé)
+- frontend/src/stores/audioStore.ts (modifié — ajout enabled + toggle)
+- frontend/src/stores/audioStore.test.ts (créé)
+- frontend/src/hooks/useRequestVideoFrame.ts (modifié — intégration bip)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (mis à jour)
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation TDD complète par Amelia (claude-sonnet-4-6) — 48/48 tests, build OK
