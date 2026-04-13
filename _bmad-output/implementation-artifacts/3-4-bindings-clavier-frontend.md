@@ -1,6 +1,6 @@
 # Story 3.4: Bindings Clavier (Frontend)
 
-Status: approved
+Status: review
 
 ## Story
 
@@ -22,15 +22,15 @@ so that j'annote sans interrompre mon flux de travail.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 1–9)
-  - [ ] `frontend/src/hooks/useVideoKeyboard.test.ts` — tester tous les keybindings
-  - [ ] `frontend/src/utils/bpmUtils.test.ts` — tester `getInterAnnotationStep`
-- [ ] Créer `frontend/src/utils/bpmUtils.ts` (AC: 5–6)
-  - [ ] Fonction `getInterAnnotationStep(currentFrame, annotations)` → nombre de frames
-- [ ] Créer `frontend/src/hooks/useVideoKeyboard.ts` (AC: 1–9)
-  - [ ] Écouter `keydown` sur `window`
-  - [ ] Ignorer si le focus est sur `INPUT`, `TEXTAREA`, `SELECT`
-  - [ ] Dispatcher les actions selon la touche
+- [x] Écrire les tests en premier (AC: 1–9)
+  - [x] `frontend/src/hooks/useVideoKeyboard.test.ts` — tester tous les keybindings
+  - [x] `frontend/src/utils/bpmUtils.test.ts` — tester `getInterAnnotationStep`
+- [x] Créer `frontend/src/utils/bpmUtils.ts` (AC: 5–6)
+  - [x] Fonction `getInterAnnotationStep(currentFrame, annotations)` → nombre de frames
+- [x] Créer `frontend/src/hooks/useVideoKeyboard.ts` (AC: 1–9)
+  - [x] Écouter `keydown` sur `window`
+  - [x] Ignorer si le focus est sur `INPUT`, `TEXTAREA`, `SELECT`
+  - [x] Dispatcher les actions selon la touche
 
 ## Dev Notes
 
@@ -232,20 +232,29 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+Aucun blocage — implémentation directe depuis les specs Dev Notes.
 
 ### Completion Notes List
 
-_À compléter_
+- TDD strict respecté : tests écrits et vérifiés RED avant implémentation
+- `bpmUtils.ts` : `getInterAnnotationStep` avec fallback=10, tri et filtrage gauche
+- `useVideoKeyboard.ts` : hook React avec listener `keydown` sur `window`, clamp 0↔totalFrames, ignore INPUT/TEXTAREA/SELECT
+- 13 tests `useVideoKeyboard` + 3 tests `bpmUtils` = 16 nouveaux tests
+- Suite complète : 32/32 tests passent, aucune régression
 
 ### File List
 
-_À compléter_
+- frontend/src/utils/bpmUtils.ts (créé)
+- frontend/src/utils/bpmUtils.test.ts (créé)
+- frontend/src/hooks/useVideoKeyboard.ts (créé)
+- frontend/src/hooks/useVideoKeyboard.test.ts (créé)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (mis à jour)
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation TDD complète par Amelia (claude-sonnet-4-6) — 4 fichiers créés, 32/32 tests passent
