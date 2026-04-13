@@ -15,7 +15,7 @@ interface VideoTimelineProps {
 }
 
 export const VideoTimeline: React.FC<VideoTimelineProps> = ({
-  currentFrame, totalFrames, fps, annotations, onSeek
+  currentFrame, totalFrames, fps: _fps, annotations, onSeek
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
