@@ -1,6 +1,6 @@
 # Story 3.3: Lecteur Vidéo Frame-Précis (Frontend)
 
-Status: approved
+Status: review
 
 ## Story
 
@@ -19,26 +19,26 @@ so that je peux naviguer à la frame exacte sans latence.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 2–3)
-  - [ ] `frontend/src/utils/frameUtils.test.ts` — tester `frameToTimestamp`
-  - [ ] `frontend/src/hooks/useFrameSeek.test.ts` — tester `seekToFrame`
-- [ ] Créer `frontend/src/utils/frameUtils.ts` (AC: 2, 6)
-  - [ ] Fonction `frameToTimestamp(frame, fps): string` → format `HH:MM:SS.mmm`
-- [ ] Créer `frontend/src/hooks/useFrameSeek.ts` (AC: 3)
-  - [ ] Fonction `seekToFrame(videoEl, frame, fps)` → `currentTime = (frame + 0.001) / fps`
-- [ ] Créer `frontend/src/hooks/useRequestVideoFrame.ts` (AC: 4)
-  - [ ] Hook qui boucle sur `requestVideoFrameCallback` et met à jour `videoStore.currentFrame`
-- [ ] Compléter `frontend/src/stores/videoStore.ts` (AC: 4–5)
-  - [ ] State : `currentFrame`, `fps`, `totalFrames`, `duration`, `videoId`
-  - [ ] Actions : `setCurrentFrame`, `setVideoMetadata`
-- [ ] Créer `frontend/src/components/video/VideoPlayer.tsx` (AC: 1–5)
-  - [ ] Charge la vidéo depuis `/api/v1/videos/{id}/stream`
-  - [ ] Initialise `requestVideoFrameCallback` au mount
-  - [ ] Expose `seekToFrame` via ref ou callback
-- [ ] Créer `frontend/src/components/video/FrameCounter.tsx` (AC: 2, 6)
-  - [ ] Affiche `Frame {current} / {total} — {timestamp}`
-- [ ] Créer `frontend/src/components/video/PlaybackControls.tsx` (AC: 1–5)
-  - [ ] Boutons play/pause, vitesse (0.5x, 1x, 2x)
+- [x] Écrire les tests en premier (AC: 2–3)
+  - [x] `frontend/src/utils/frameUtils.test.ts` — tester `frameToTimestamp`
+  - [x] `frontend/src/hooks/useFrameSeek.test.ts` — tester `seekToFrame`
+- [x] Créer `frontend/src/utils/frameUtils.ts` (AC: 2, 6)
+  - [x] Fonction `frameToTimestamp(frame, fps): string` → format `HH:MM:SS.mmm`
+- [x] Créer `frontend/src/hooks/useFrameSeek.ts` (AC: 3)
+  - [x] Fonction `seekToFrame(videoEl, frame, fps)` → `currentTime = (frame + 0.001) / fps`
+- [x] Créer `frontend/src/hooks/useRequestVideoFrame.ts` (AC: 4)
+  - [x] Hook qui boucle sur `requestVideoFrameCallback` et met à jour `videoStore.currentFrame`
+- [x] Compléter `frontend/src/stores/videoStore.ts` (AC: 4–5)
+  - [x] State : `currentFrame`, `fps`, `totalFrames`, `duration`, `videoId`
+  - [x] Actions : `setCurrentFrame`, `setVideoMetadata`
+- [x] Créer `frontend/src/components/video/VideoPlayer.tsx` (AC: 1–5)
+  - [x] Charge la vidéo depuis `/api/v1/videos/{id}/stream`
+  - [x] Initialise `requestVideoFrameCallback` au mount
+  - [x] Expose `seekToFrame` via ref ou callback
+- [x] Créer `frontend/src/components/video/FrameCounter.tsx` (AC: 2, 6)
+  - [x] Affiche `Frame {current} / {total} — {timestamp}`
+- [x] Créer `frontend/src/components/video/PlaybackControls.tsx` (AC: 1–5)
+  - [x] Boutons play/pause, vitesse (0.5x, 1x, 2x)
 
 ## Dev Notes
 
@@ -205,20 +205,36 @@ frontend/src/
 
 ### Agent Model Used
 
-_À compléter lors de l'implémentation_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_À compléter_
+- `videoStore.ts` étendu (pas remplacé) pour préserver l'état `currentVideo`/`isPlaying` utilisé par les pages existantes.
 
 ### Completion Notes List
 
-_À compléter_
+- `frameUtils.ts` : `frameToTimestamp` avec format HH:MM:SS.mmm, 5 tests unitaires.
+- `useFrameSeek.ts` : `seekToFrame` avec offset +0.001 anti-drift, 3 tests unitaires.
+- `useRequestVideoFrame.ts` : hook `requestVideoFrameCallback` avec cleanup.
+- `videoStore.ts` : state `fps`, `totalFrames`, `duration`, `videoId`, `setVideoMetadata` ajoutés.
+- `VideoPlayer.tsx` : composant `forwardRef` avec `seekToFrame` exposé, stream backend, `requestVideoFrameCallback` au mount.
+- `FrameCounter.tsx` : affiche `Frame N / total — HH:MM:SS.mmm`.
+- `PlaybackControls.tsx` : play/pause + vitesses 0.5x/1x/2x.
+- 16/16 tests passent (8 nouveaux + 8 existants), aucune régression.
 
 ### File List
 
-_À compléter_
+- frontend/src/utils/frameUtils.ts
+- frontend/src/utils/frameUtils.test.ts
+- frontend/src/hooks/useFrameSeek.ts
+- frontend/src/hooks/useFrameSeek.test.ts
+- frontend/src/hooks/useRequestVideoFrame.ts
+- frontend/src/stores/videoStore.ts
+- frontend/src/components/video/VideoPlayer.tsx
+- frontend/src/components/video/FrameCounter.tsx
+- frontend/src/components/video/PlaybackControls.tsx
 
 ## Change Log
 
 - 2026-04-10 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-13 : Implémentation TDD complète par Amelia (claude-sonnet-4-6) — 16/16 tests passent
