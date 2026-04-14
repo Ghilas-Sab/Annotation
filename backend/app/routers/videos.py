@@ -5,8 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Response
 
 from app.storage import json_store
 from app.services.video_service import get_video_metadata
@@ -103,36 +102,25 @@ async def stream_video(video_id: str, request: Request):
         end = min(end, file_size - 1)
         chunk_size = end - start + 1
 
-        def iter_range():
-            with open(filepath, "rb") as f:
-                f.seek(start)
-                remaining = chunk_size
-                while remaining > 0:
-                    data = f.read(min(65536, remaining))
-                    if not data:
-                        break
-                    remaining -= len(data)
-                    yield data
+        with open(filepath, "rb") as f:
+            f.seek(start)
+            payload = f.read(chunk_size)
 
         headers = {
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Accept-Ranges": "bytes",
-            "Content-Length": str(chunk_size),
+            "Content-Length": str(len(payload)),
         }
-        return StreamingResponse(iter_range(), status_code=206,
-                                 media_type=mime_type, headers=headers)
+        return Response(content=payload, status_code=206, media_type=mime_type, headers=headers)
     else:
-        def iter_full():
-            with open(filepath, "rb") as f:
-                while chunk := f.read(65536):
-                    yield chunk
+        with open(filepath, "rb") as f:
+            payload = f.read()
 
         headers = {
             "Accept-Ranges": "bytes",
-            "Content-Length": str(file_size),
+            "Content-Length": str(len(payload)),
         }
-        return StreamingResponse(iter_full(), status_code=200,
-                                 media_type=mime_type, headers=headers)
+        return Response(content=payload, status_code=200, media_type=mime_type, headers=headers)
 
 
 @router.delete("/videos/{video_id}", status_code=204)

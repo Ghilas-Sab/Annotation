@@ -82,7 +82,7 @@ development_status:
   # EPIC 4 — Statistiques Rythmiques
   # ─────────────────────────────────────────
   epic-4: in-progress
-  4-1-service-calcul-bpm: in-progress
+  4-1-service-calcul-bpm: review
   4-2-endpoints-statistiques: ready-for-dev
   4-3-dashboard-metriques-bpm: ready-for-dev
   4-4-histogramme-intervalles-ajustement-vitesse: ready-for-dev
