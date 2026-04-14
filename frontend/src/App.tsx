@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import { AnnotationPage } from './pages/AnnotationPage'
+import StatisticsPage from './pages/StatisticsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/annotation/:videoId" element={<AnnotationPageRoute />} />
+          <Route path="/statistics/:videoId" element={<StatisticsPage />} />
           <Route path="*" element={<Navigate to="/projects" replace />} />
         </Routes>
       </BrowserRouter>

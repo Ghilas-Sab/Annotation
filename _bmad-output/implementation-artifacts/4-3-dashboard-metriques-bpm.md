@@ -1,6 +1,6 @@
 # Story 4.3: Dashboard Métriques BPM (Frontend)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -19,23 +19,23 @@ so that je peux analyser rapidement la régularité rythmique.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests en premier (AC: 1–5)
-  - [ ] `frontend/src/components/statistics/BpmMetrics.test.tsx`
-  - [ ] `frontend/src/pages/StatisticsPage.test.tsx`
-- [ ] Créer `frontend/src/api/statistics.ts` (AC: 4–5)
-  - [ ] `useVideoStatistics(videoId)`
-  - [ ] Query key dédiée `['statistics', videoId]`
-  - [ ] Invalider `['statistics', videoId]` dans les hooks de mutation d'annotations (AC: 5)
-- [ ] Mettre à jour `frontend/src/types/statistics.ts` (AC: 1–3)
-  - [ ] Ajouter les types BPM/API Epic 4 sans casser les types globaux existants
-- [ ] Créer `frontend/src/components/statistics/BpmMetrics.tsx` (AC: 1–3)
-  - [ ] Afficher les cartes métriques
-  - [ ] Gérer état loading / error métier
-- [ ] Créer `frontend/src/pages/StatisticsPage.tsx` (AC: 1–6)
-  - [ ] Charger la vidéo et les statistiques
-  - [ ] Afficher breadcrumb et titre vidéo
-  - [ ] Préparer l'assemblage avec histogramme et ajusteur pour 4.4
-- [ ] Modifier `frontend/src/App.tsx` pour ajouter la route Statistiques (AC: 6)
+- [x] Écrire les tests en premier (AC: 1–5)
+  - [x] `frontend/src/components/statistics/BpmMetrics.test.tsx`
+  - [x] `frontend/src/pages/StatisticsPage.test.tsx`
+- [x] Créer `frontend/src/api/statistics.ts` (AC: 4–5)
+  - [x] `useVideoStatistics(videoId)`
+  - [x] Query key dédiée `['statistics', videoId]`
+  - [x] Invalider `['statistics', videoId]` dans les hooks de mutation d'annotations (AC: 5)
+- [x] Mettre à jour `frontend/src/types/statistics.ts` (AC: 1–3)
+  - [x] Ajouter les types BPM/API Epic 4 sans casser les types globaux existants
+- [x] Créer `frontend/src/components/statistics/BpmMetrics.tsx` (AC: 1–3)
+  - [x] Afficher les cartes métriques
+  - [x] Gérer état loading / error métier
+- [x] Créer `frontend/src/pages/StatisticsPage.tsx` (AC: 1–6)
+  - [x] Charger la vidéo et les statistiques
+  - [x] Afficher breadcrumb et titre vidéo
+  - [x] Préparer l'assemblage avec histogramme et ajusteur pour 4.4
+- [x] Modifier `frontend/src/App.tsx` pour ajouter la route Statistiques (AC: 6)
 
 ## Dev Notes
 
@@ -139,18 +139,34 @@ gpt-5
 
 ### Debug Log References
 
-- Préparation story uniquement. Pas d'implémentation.
+- RED initial : modules manquants (BpmMetrics, StatisticsPage) → import error ✅
+- `vitest run BpmMetrics.test.tsx StatisticsPage.test.tsx` → 8 passed ✅
+- Non-régression frontend : `vitest run` → 63 passed ✅
+- Build TypeScript : `npm run build` → OK ✅
 
 ### Completion Notes List
 
-- Route frontend manquante intégrée au périmètre
-- Typage Epic 4 séparé des anciens agrégats statistiques
-- Invalidation TanStack Query explicitée
+- Tests TDD écrits en premier : 5 tests BpmMetrics + 3 tests StatisticsPage
+- `frontend/src/types/statistics.ts` étendu : `BpmStatisticsResponse`, `RhythmicSegment` ajoutés sans casser les types existants
+- `frontend/src/api/statistics.ts` créé : `useVideoStatistics(videoId)` avec query key `['statistics', videoId]`
+- Invalidation `['statistics', videoId]` ajoutée dans tous les hooks de mutation d'annotations (create, update, delete, bulk, shift, deleteAll)
+- `frontend/src/components/statistics/BpmMetrics.tsx` : 6 cartes métriques (bpm_global, bpm_mean, bpm_median, bpm_variation, interval_std_seconds, annotation_density_per_minute), gestion loading/error/erreur métier
+- `frontend/src/pages/StatisticsPage.tsx` : breadcrumb, titre vidéo, BpmMetrics, panneaux réservés pour 4.4
+- Route `/statistics/:videoId` ajoutée dans `App.tsx`
 
 ### File List
 
 - _bmad-output/implementation-artifacts/4-3-dashboard-metriques-bpm.md
+- frontend/src/types/statistics.ts
+- frontend/src/api/statistics.ts
+- frontend/src/components/statistics/BpmMetrics.tsx
+- frontend/src/components/statistics/BpmMetrics.test.tsx
+- frontend/src/pages/StatisticsPage.tsx
+- frontend/src/pages/StatisticsPage.test.tsx
+- frontend/src/App.tsx
+- frontend/src/api/annotations.ts
 
 ## Change Log
 
 - 2026-04-13 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-14 : Implémentation 4.3 — 8 nouveaux tests, 63 tests non-régression OK, build OK — statut passé à review
