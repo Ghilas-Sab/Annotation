@@ -1,6 +1,6 @@
 # Story 4.2: Endpoints Statistiques (Backend)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -19,22 +19,22 @@ so that le frontend puisse afficher les statistiques et ajuster la lecture.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests API en premier dans `backend/tests/test_statistics.py` (AC: 1–5)
-  - [ ] `test_get_statistics`
-  - [ ] `test_get_statistics_video_not_found`
-  - [ ] `test_get_statistics_with_insufficient_annotations`
-  - [ ] `test_post_playback_speed`
-  - [ ] `test_post_playback_speed_invalid_target_bpm`
-- [ ] Créer `backend/app/routers/statistics.py` (AC: 1–6)
-  - [ ] Charger la vidéo via `json_store.get_video(video_id)`
-  - [ ] Lire `video["annotations"]` et `video["fps"]`
-  - [ ] Appeler `compute_bpm_metrics`
-  - [ ] Appeler `compute_playback_speed` pour le POST
-- [ ] Créer ou compléter `backend/app/schemas/statistics.py` (AC: 1, 4, 5)
-  - [ ] Schéma requête `PlaybackSpeedRequest`
-  - [ ] Schéma réponse `PlaybackSpeedResponse`
-  - [ ] Schémas réponse statistiques sérialisables
-- [ ] Modifier `backend/app/main.py` pour inclure le router (AC: 6)
+- [x] Écrire les tests API en premier dans `backend/tests/test_statistics.py` (AC: 1–5)
+  - [x] `test_get_statistics`
+  - [x] `test_get_statistics_video_not_found`
+  - [x] `test_get_statistics_with_insufficient_annotations`
+  - [x] `test_post_playback_speed`
+  - [x] `test_post_playback_speed_invalid_target_bpm`
+- [x] Créer `backend/app/routers/statistics.py` (AC: 1–6)
+  - [x] Charger la vidéo via `json_store.get_video(video_id)`
+  - [x] Lire `video["annotations"]` et `video["fps"]`
+  - [x] Appeler `compute_bpm_metrics`
+  - [x] Appeler `compute_playback_speed` pour le POST
+- [x] Créer ou compléter `backend/app/schemas/statistics.py` (AC: 1, 4, 5)
+  - [x] Schéma requête `PlaybackSpeedRequest`
+  - [x] Schéma réponse `PlaybackSpeedResponse`
+  - [x] Schémas réponse statistiques sérialisables
+- [x] Modifier `backend/app/main.py` pour inclure le router (AC: 6)
 
 ## Dev Notes
 
@@ -126,18 +126,31 @@ gpt-5
 
 ### Debug Log References
 
-- Préparation story uniquement. Pas d'implémentation.
+- RED initial : `test_get_statistics` → 404 (router non branché) ✅
+- `pytest backend/tests/test_statistics.py -q` → 13 passed ✅
+- Non-régression full suite : `pytest backend/tests/ -q` → 50 passed ✅
 
 ### Completion Notes List
 
-- Router cadré sur le backend FastAPI existant
-- Validation `target_bpm` explicitée
-- Contrat GET/POST stabilisé pour le frontend
+- Tests API écrits en TDD strict avant implémentation (6 nouveaux tests API)
+- `backend/app/schemas/statistics.py` créé : `PlaybackSpeedRequest` (validator > 0), `PlaybackSpeedResponse`, `BpmStatisticsResponse`
+- `backend/app/routers/statistics.py` créé : `GET /videos/{id}/statistics` et `POST /videos/{id}/statistics/playback-speed`
+- Validation `target_bpm <= 0` retourne 422 via Pydantic validator
+- Vidéo inexistante retourne 404
+- Cas "moins de 2 annotations" : 200 + objet `{"error": ...}` (pas de crash)
+- `current_bpm` recalculé depuis les annotations, jamais fourni par le client
+- Router inclus dans `main.py` avec préfixe `/api/v1`
+- Sortie 100% compatible avec le contrat attendu par story 4.3
 
 ### File List
 
 - _bmad-output/implementation-artifacts/4-2-endpoints-statistiques.md
+- backend/app/schemas/statistics.py
+- backend/app/routers/statistics.py
+- backend/app/main.py
+- backend/tests/test_statistics.py
 
 ## Change Log
 
 - 2026-04-13 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-14 : Implémentation 4.2 — 13 tests passent, 50 tests non-régression OK — statut passé à review

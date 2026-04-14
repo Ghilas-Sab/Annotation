@@ -115,6 +115,10 @@ frontend/src/
     └── VideoPlayer.tsx                ← vérifier / modifier si besoin
 ```
 
+### Vigilance non-régression Epic 3
+
+- `PlaybackControls.tsx` et `videoStore.ts` sont utilisés par `AnnotationPage` (Epic 3, done). Toute modification de ces fichiers doit être suivie d'une vérification complète : `npm run test` ne doit signaler aucune régression sur les tests d'annotation.
+
 ### Anti-patterns à éviter
 
 - Ne PAS garder un `speed` local dans `PlaybackControls` sans synchronisation store
