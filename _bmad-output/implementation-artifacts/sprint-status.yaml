@@ -84,7 +84,7 @@ development_status:
   epic-4: in-progress
   4-1-service-calcul-bpm: review
   4-2-endpoints-statistiques: review
-  4-3-dashboard-metriques-bpm: ready-for-dev
+  4-3-dashboard-metriques-bpm: review
   4-4-histogramme-intervalles-ajustement-vitesse: ready-for-dev
   epic-4-retrospective: optional
 

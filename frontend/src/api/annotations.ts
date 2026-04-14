@@ -29,7 +29,8 @@ export function useCreateBulkAnnotations(videoId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
-      qc.invalidateQueries({ queryKey: ['project'] }) // Pour mettre à jour les compteurs dans les autres pages
+      qc.invalidateQueries({ queryKey: ['project'] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
@@ -48,6 +49,7 @@ export function useCreateAnnotation(videoId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
@@ -66,6 +68,7 @@ export function useUpdateAnnotation(videoId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
@@ -81,6 +84,7 @@ export function useDeleteAnnotation(videoId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
@@ -99,6 +103,7 @@ export function useShiftAnnotations(videoId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
@@ -115,6 +120,7 @@ export function useDeleteAllAnnotations(videoId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
       qc.invalidateQueries({ queryKey: ['project'] })
+      qc.invalidateQueries({ queryKey: ['statistics', videoId] })
     },
   })
 }
