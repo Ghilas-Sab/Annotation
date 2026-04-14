@@ -16,6 +16,10 @@ interface VideoState {
   duration: number
   setCurrentFrame: (frame: number) => void
   setVideoMetadata: (meta: { fps: number; totalFrames: number; duration: number; videoId: string }) => void
+
+  // Vitesse de lecture (S4.4)
+  playbackRate: number
+  setPlaybackRate: (rate: number) => void
 }
 
 export const useVideoStore = create<VideoState>((set) => ({
@@ -31,4 +35,7 @@ export const useVideoStore = create<VideoState>((set) => ({
   duration: 0,
   setCurrentFrame: (frame) => set({ currentFrame: frame }),
   setVideoMetadata: (meta) => set({ ...meta }),
+
+  playbackRate: 1,
+  setPlaybackRate: (rate) => set({ playbackRate: rate }),
 }))

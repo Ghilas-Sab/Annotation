@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-14T12:00:00
+last_updated: 2026-04-14T16:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -85,7 +85,7 @@ development_status:
   4-1-service-calcul-bpm: review
   4-2-endpoints-statistiques: review
   4-3-dashboard-metriques-bpm: review
-  4-4-histogramme-intervalles-ajustement-vitesse: ready-for-dev
+  4-4-histogramme-intervalles-ajustement-vitesse: review
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────

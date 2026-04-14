@@ -22,11 +22,16 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const setIsPlaying = useVideoStore(s => s.setIsPlaying)
     const setVideoMetadata = useVideoStore(s => s.setVideoMetadata)
     const currentFrame = useVideoStore(s => s.currentFrame)
+    const playbackRate = useVideoStore(s => s.playbackRate)
     const [playing, setPlaying] = useState(false)
 
     useEffect(() => {
       setVideoMetadata({ fps, totalFrames, duration, videoId })
     }, [fps, totalFrames, duration, videoId, setVideoMetadata])
+
+    useEffect(() => {
+      if (videoRef.current) videoRef.current.playbackRate = playbackRate
+    }, [playbackRate])
 
     useRequestVideoFrame(videoRef, fps)
 

@@ -66,7 +66,8 @@ describe('StatisticsPage', () => {
       http.get(`${API_BASE}/videos/video-1/statistics`, () => HttpResponse.json(mockStats))
     )
     renderPage()
-    expect(await screen.findByText(/128\.4/)).toBeInTheDocument()
+    const elements = await screen.findAllByText(/128\.4/)
+    expect(elements.length).toBeGreaterThan(0)
   })
 
   it('contient un lien breadcrumb vers les projets', async () => {
@@ -76,5 +77,24 @@ describe('StatisticsPage', () => {
     )
     renderPage()
     expect(await screen.findByRole('link', { name: /projets/i })).toBeInTheDocument()
+  })
+
+  it('affiche le panneau histogramme des intervalles', async () => {
+    server.use(
+      http.get(`${API_BASE}/videos/video-1`, () => HttpResponse.json(mockVideo)),
+      http.get(`${API_BASE}/videos/video-1/statistics`, () => HttpResponse.json(mockStats))
+    )
+    renderPage()
+    const matches = await screen.findAllByText(/intervalles/i)
+    expect(matches.length).toBeGreaterThan(0)
+  })
+
+  it('affiche le panneau ajustement BPM cible', async () => {
+    server.use(
+      http.get(`${API_BASE}/videos/video-1`, () => HttpResponse.json(mockVideo)),
+      http.get(`${API_BASE}/videos/video-1/statistics`, () => HttpResponse.json(mockStats))
+    )
+    renderPage()
+    expect(await screen.findByLabelText(/BPM cible/i)).toBeInTheDocument()
   })
 })
