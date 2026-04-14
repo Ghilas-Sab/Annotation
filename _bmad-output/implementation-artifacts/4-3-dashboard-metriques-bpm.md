@@ -25,6 +25,7 @@ so that je peux analyser rapidement la régularité rythmique.
 - [ ] Créer `frontend/src/api/statistics.ts` (AC: 4–5)
   - [ ] `useVideoStatistics(videoId)`
   - [ ] Query key dédiée `['statistics', videoId]`
+  - [ ] Invalider `['statistics', videoId]` dans les hooks de mutation d'annotations (AC: 5)
 - [ ] Mettre à jour `frontend/src/types/statistics.ts` (AC: 1–3)
   - [ ] Ajouter les types BPM/API Epic 4 sans casser les types globaux existants
 - [ ] Créer `frontend/src/components/statistics/BpmMetrics.tsx` (AC: 1–3)

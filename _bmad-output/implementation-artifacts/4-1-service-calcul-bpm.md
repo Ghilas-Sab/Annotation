@@ -1,6 +1,6 @@
 # Story 4.1: Service de Calcul BPM (Backend)
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -134,7 +134,7 @@ gpt-5
 - Validation backend story : `pytest backend/tests/test_statistics.py -q` → `6 passed`
 - Vérification frontend : `npm run test` → `55 passed`
 - Vérification frontend : `npm run build` → OK
-- Vérification backend non-régression large : `pytest backend/tests/test_annotations.py -q` timeoute dans cet environnement (`timeout 30s`, exit 124)
+- Vérification backend non-régression large : `pytest backend/tests/test_annotations.py -q` → 11 passed in 3.14s ✅
 
 ### Completion Notes List
 
@@ -146,7 +146,8 @@ gpt-5
 - `activity_peaks` implémenté via histogramme temporel + `scipy.signal.find_peaks`
 - `FPS invalide` géré explicitement côté service
 - `compute_playback_speed` implémenté selon le ratio demandé
-- Story techniquement implémentée, mais statut laissé `in-progress` tant que la non-régression backend large n'est pas validée hors timeout
+- Story techniquement implémentée et validée
+- Non-régression backend confirmée : `pytest backend/tests/test_annotations.py -q` → 11 passed (timeout précédent était un problème d'environnement transitoire)
 
 ### File List
 
@@ -158,3 +159,4 @@ gpt-5
 
 - 2026-04-13 : Story créée par SM (Bob) — prête pour implémentation TDD
 - 2026-04-13 : Implémentation 4.1 par Amelia — tests story OK, build frontend OK
+- 2026-04-14 : Non-régression backend validée (11 passed) — statut passé à review
