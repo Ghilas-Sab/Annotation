@@ -1,6 +1,6 @@
 # Story 4.4: Histogramme Intervalles + Ajustement Vitesse (Frontend)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -139,22 +139,46 @@ frontend/src/
 
 ### Agent Model Used
 
-gpt-5
+claude-sonnet-4-6
 
 ### Debug Log References
 
-- Préparation story uniquement. Pas d'implémentation.
+- RED : 12 nouveaux tests (IntervalHistogram x3, BpmAdjuster x4, StatisticsPage +2) → fichiers manquants ✅
+- Bug VideoTimeline découvert via canvas mock (`dragging?.id === ann.id` quand les deux sont undefined) → corrigé ✅
+- GREEN : `vitest run` → 72 passed ✅
+- Build TypeScript : `npm run build` → OK ✅
 
 ### Completion Notes List
 
-- Synchronisation vitesse/store explicitée
-- Canvas histogramme cadré sur `interval_distribution`
-- Assemblage final StatisticsPage préparé pour relais dev
+- `frontend/src/types/statistics.ts` : `PlaybackSpeedRequest`, `PlaybackSpeedResponse` ajoutés
+- `frontend/src/stores/videoStore.ts` : `playbackRate: number` + `setPlaybackRate` ajoutés
+- `frontend/src/api/statistics.ts` : `usePlaybackSpeed(videoId)` mutation ajoutée
+- `frontend/src/components/statistics/IntervalHistogram.tsx` : canvas histogram + repère médian, gestion distribution vide
+- `frontend/src/components/statistics/BpmAdjuster.tsx` : saisie BPM cible, validation > 0, appel API, affichage ×facteur, `onSpeedChange` callback
+- `frontend/src/components/video/PlaybackControls.tsx` : migré de `useState` local vers `videoStore.playbackRate`
+- `frontend/src/components/video/VideoPlayer.tsx` : `useEffect` pour appliquer `playbackRate` du store à `video.playbackRate`
+- `frontend/src/pages/StatisticsPage.tsx` : assemblage final BpmMetrics + IntervalHistogram + BpmAdjuster
+- `frontend/src/test-setup.ts` : mock canvas `getContext` complet pour jsdom
+- `frontend/src/components/video/VideoTimeline.tsx` : correction bug null-deref (`dragging?.id === ann.id` → `dragging !== null && dragging.id === ann.id`)
 
 ### File List
 
 - _bmad-output/implementation-artifacts/4-4-histogramme-intervalles-ajustement-vitesse.md
+- frontend/src/types/statistics.ts
+- frontend/src/stores/videoStore.ts
+- frontend/src/api/statistics.ts
+- frontend/src/components/statistics/IntervalHistogram.tsx
+- frontend/src/components/statistics/IntervalHistogram.test.tsx
+- frontend/src/components/statistics/BpmAdjuster.tsx
+- frontend/src/components/statistics/BpmAdjuster.test.tsx
+- frontend/src/pages/StatisticsPage.tsx
+- frontend/src/pages/StatisticsPage.test.tsx
+- frontend/src/components/video/PlaybackControls.tsx
+- frontend/src/components/video/VideoPlayer.tsx
+- frontend/src/components/video/VideoTimeline.tsx
+- frontend/src/test-setup.ts
 
 ## Change Log
 
 - 2026-04-13 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-14 : Implémentation 4.4 — 12 nouveaux tests, 72 tests non-régression OK, build OK — statut passé à review

@@ -1,16 +1,17 @@
-import React from 'react'
+import { type RefObject } from 'react'
 import { useVideoStore } from '../../stores/videoStore'
 
 interface PlaybackControlsProps {
-  videoRef: React.RefObject<HTMLVideoElement>
+  videoRef: RefObject<HTMLVideoElement>
 }
 
 const SPEEDS = [0.5, 1, 2]
 
-const PlaybackControls: React.FC<PlaybackControlsProps> = ({ videoRef }) => {
+const PlaybackControls = ({ videoRef }: PlaybackControlsProps) => {
   const isPlaying = useVideoStore(s => s.isPlaying)
   const setIsPlaying = useVideoStore(s => s.setIsPlaying)
-  const [speed, setSpeed] = React.useState(1)
+  const playbackRate = useVideoStore(s => s.playbackRate)
+  const setPlaybackRate = useVideoStore(s => s.setPlaybackRate)
 
   const togglePlay = () => {
     const video = videoRef.current
@@ -26,9 +27,8 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({ videoRef }) => {
 
   const handleSpeed = (s: number) => {
     const video = videoRef.current
-    if (!video) return
-    video.playbackRate = s
-    setSpeed(s)
+    if (video) video.playbackRate = s
+    setPlaybackRate(s)
   }
 
   return (
@@ -47,7 +47,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({ videoRef }) => {
           <button
             key={s}
             onClick={() => handleSpeed(s)}
-            className={speed === s ? 'btn-primary' : 'btn-secondary'}
+            className={playbackRate === s ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}
             aria-label={`Vitesse ${s}x`}
           >

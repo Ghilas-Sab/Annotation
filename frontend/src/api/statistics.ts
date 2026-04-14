@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BpmStatisticsResponse } from '../types/statistics'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { BpmStatisticsResponse, PlaybackSpeedResponse } from '../types/statistics'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
@@ -20,4 +20,18 @@ export function useInvalidateStatistics() {
   return (videoId: string) => {
     qc.invalidateQueries({ queryKey: ['statistics', videoId] })
   }
+}
+
+export function usePlaybackSpeed(videoId: string) {
+  return useMutation({
+    mutationFn: async (targetBpm: number): Promise<PlaybackSpeedResponse> => {
+      const res = await fetch(`${API_BASE}/videos/${videoId}/statistics/playback-speed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_bpm: targetBpm }),
+      })
+      if (!res.ok) throw new Error('Erreur calcul vitesse de lecture')
+      return res.json()
+    },
+  })
 }

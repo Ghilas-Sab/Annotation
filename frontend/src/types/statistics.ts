@@ -21,6 +21,17 @@ export interface GlobalStatistics {
   projects: ProjectStatistics[]
 }
 
+// Epic 4 — Vitesse de lecture
+export interface PlaybackSpeedRequest {
+  target_bpm: number
+}
+
+export interface PlaybackSpeedResponse {
+  playback_speed: number
+  current_bpm: number
+  target_bpm: number
+}
+
 // Epic 4 — Métriques BPM
 export interface RhythmicSegment {
   start_frame: number

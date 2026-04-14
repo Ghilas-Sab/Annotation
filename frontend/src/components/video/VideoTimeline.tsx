@@ -110,9 +110,9 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
     } else {
       // Mode individuel — lignes + triangle
       for (const ann of visibleAnnotations) {
-        const displayFrame = dragging?.id === ann.id ? dragging.frame : ann.frame_number
+        const isDragging = dragging !== null && dragging.id === ann.id
+        const displayFrame = isDragging ? dragging.frame : ann.frame_number
         const x = frameToX(displayFrame, width)
-        const isDragging = dragging?.id === ann.id
         ctx.strokeStyle = isDragging ? '#ffcc00' : '#e94560'
         ctx.lineWidth = isDragging ? 3 : 2
         ctx.beginPath()
