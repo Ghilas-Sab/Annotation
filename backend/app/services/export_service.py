@@ -37,3 +37,18 @@ def build_csv_export(video: dict) -> str:
         label = a["label"].replace(",", ";")  # échapper les virgules dans le label
         lines.append(f"{a['frame_number']},{a['timestamp_ms']},{ts_fmt},{label}")
     return "\n".join(lines)
+
+
+_SCALAR_STATS_KEYS = (
+    "bpm_global", "bpm_mean", "bpm_median", "bpm_variation",
+    "interval_std_seconds", "annotation_density_per_minute",
+)
+
+
+def build_statistics_csv(stats: dict) -> str:
+    """Exporte les métriques scalaires de stats en CSV (metric,value)."""
+    lines = ["metric,value"]
+    for key in _SCALAR_STATS_KEYS:
+        if key in stats:
+            lines.append(f"{key},{stats[key]}")
+    return "\n".join(lines)

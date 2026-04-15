@@ -94,5 +94,5 @@ development_status:
   epic-5: in-progress
   5-1-export-json-csv: review
   5-2-export-clip-video-ffmpeg: review
-  5-3-ui-exports: ready-for-dev
+  5-3-ui-exports: review
   epic-5-retrospective: optional
