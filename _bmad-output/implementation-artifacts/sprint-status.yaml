@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-14T17:00:00
+last_updated: 2026-04-15T10:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -93,6 +93,6 @@ development_status:
   # ─────────────────────────────────────────
   epic-5: in-progress
   5-1-export-json-csv: review
-  5-2-export-clip-video-ffmpeg: ready-for-dev
+  5-2-export-clip-video-ffmpeg: review
   5-3-ui-exports: ready-for-dev
   epic-5-retrospective: optional

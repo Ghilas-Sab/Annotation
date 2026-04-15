@@ -1,6 +1,6 @@
 # Story 5.2: Export Clip Vidéo FFmpeg (Backend)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,14 +21,14 @@ so that j'isole la portion annotée de la vidéo.
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests EN PREMIER (AC: 1–8)
-  - [ ] Ajouter dans `backend/tests/test_exports.py` les tests vidéo
-- [ ] Modifier `backend/app/services/video_service.py` (AC: 2–4, 6)
-  - [ ] Ajouter `extract_clip(input_path, output_path, start_ms, end_ms) -> str`
-- [ ] Modifier `backend/app/routers/exports.py` (AC: 1, 5, 7, 8)
-  - [ ] Ajouter `GET /api/v1/videos/{video_id}/export/video`
-  - [ ] Utiliser `FileResponse` + `BackgroundTask` pour cleanup du fichier temporaire
-  - [ ] Valider que len(annotations) >= 2 → 422 sinon
+- [x] Écrire les tests EN PREMIER (AC: 1–8)
+  - [x] Ajouter dans `backend/tests/test_exports.py` les tests vidéo
+- [x] Modifier `backend/app/services/video_service.py` (AC: 2–4, 6)
+  - [x] Ajouter `extract_clip(input_path, output_path, start_ms, end_ms) -> str`
+- [x] Modifier `backend/app/routers/exports.py` (AC: 1, 5, 7, 8)
+  - [x] Ajouter `GET /api/v1/videos/{video_id}/export/video`
+  - [x] Utiliser `FileResponse` + `BackgroundTask` pour cleanup du fichier temporaire
+  - [x] Valider que len(annotations) >= 2 → 422 sinon
 
 ## Dev Notes
 
@@ -205,15 +205,19 @@ backend/
 
 ### Agent Model Used
 
-_à remplir par le dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_à remplir par le dev agent_
+- Aucun bug bloquant. Tests RED → GREEN en un seul cycle.
+- `filepath` dans le store JSON est bien le chemin absolu — vérifié via json_store.py.
 
 ### Completion Notes List
 
-_à remplir par le dev agent_
+- Implémentation TDD complète : 5 tests écrits avant le code, RED confirmé (404), GREEN atteint.
+- `video_service.py` : `extract_clip(input_path, start_ms, end_ms)` ajouté — FFmpeg stream copy via `ffmpeg-python`, seek natif (`ss` avant `-i`), fichier temporaire dans `settings.TEMP_DIR`.
+- `routers/exports.py` : endpoint `GET /videos/{video_id}/export/video` — 404 si vidéo inconnue, 422 si < 2 annotations, FileResponse + BackgroundTask cleanup.
+- 63/63 tests passent — zéro régression.
 
 ### File List
 
@@ -225,3 +229,4 @@ _à remplir par le dev agent_
 ## Change Log
 
 - 2026-04-14 : Story créée par SM (Bob) — prête pour implémentation TDD
+- 2026-04-15 : Implémentation complète par Amelia (Dev Agent) — 5 tests, 2 fichiers modifiés. Status → review.
