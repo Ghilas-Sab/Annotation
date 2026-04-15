@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Literal
 
 
 class ExportAnnotation(BaseModel):
@@ -19,3 +20,9 @@ class ExportVideo(BaseModel):
 class JsonExportResponse(BaseModel):
     video: ExportVideo
     annotations: list[ExportAnnotation]
+
+
+class BundleExportRequest(BaseModel):
+    target_bpm: float
+    clip_only: bool = False
+    format: Literal["json", "csv"] = "json"

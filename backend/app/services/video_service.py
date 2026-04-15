@@ -25,6 +25,61 @@ def get_video_metadata(filepath: str) -> dict:
     }
 
 
+def _atempo_chain(speed_factor: float) -> list:
+    """Chaîne de valeurs atempo pour atteindre speed_factor (chaque valeur ∈ [0.5, 2.0])."""
+    result = []
+    remaining = speed_factor
+    while remaining > 2.0:
+        result.append(2.0)
+        remaining /= 2.0
+    while remaining < 0.5:
+        result.append(0.5)
+        remaining /= 0.5
+    result.append(round(remaining, 6))
+    return result
+
+
+def adjust_video_speed(
+    input_path: str,
+    speed_factor: float,
+    start_ms: float = None,
+    end_ms: float = None,
+) -> str:
+    """
+    Réencode la vidéo en ajustant la vitesse par speed_factor.
+    Découpe optionnelle [start_ms, end_ms] avant l'ajustement.
+    Retourne le chemin du fichier temporaire produit.
+    """
+    Path(settings.TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    output_path = os.path.join(settings.TEMP_DIR, f"adjusted_{uuid.uuid4().hex}.mp4")
+
+    input_kwargs: dict = {}
+    if start_ms is not None:
+        input_kwargs["ss"] = start_ms / 1000
+    if end_ms is not None:
+        input_kwargs["to"] = end_ms / 1000
+
+    probe = ffmpeg.probe(input_path)
+    has_audio = any(s["codec_type"] == "audio" for s in probe["streams"])
+
+    stream = ffmpeg.input(input_path, **input_kwargs)
+    video = stream.video.filter("setpts", f"PTS/{speed_factor:.6f}")
+
+    if has_audio:
+        audio = stream.audio
+        for val in _atempo_chain(speed_factor):
+            audio = audio.filter("atempo", val)
+        out = ffmpeg.output(
+            video, audio, output_path,
+            vcodec="libx264", preset="fast", crf=23, acodec="aac",
+        )
+    else:
+        out = ffmpeg.output(video, output_path, vcodec="libx264", preset="fast", crf=23)
+
+    out.overwrite_output().run(quiet=True)
+    return output_path
+
+
 def extract_clip(input_path: str, start_ms: float, end_ms: float) -> str:
     """
     Découpe la vidéo [start_ms, end_ms] sans ré-encodage (stream copy).

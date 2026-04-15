@@ -105,3 +105,73 @@ async def test_export_video_unknown_video(client):
     """video_id inexistant → 404."""
     res = await client.get("/api/v1/videos/unknown-id/export/video")
     assert res.status_code == 404
+
+
+# ── Tests bundle export (S nouvelle feature) ────────────────────────────────
+
+async def test_export_bundle_json_ok(client, video_id_with_annotations):
+    """Bundle JSON : 200, content-type zip, contient annotations.json + statistics.json + video."""
+    import zipfile, io as _io
+    res = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": False, "format": "json"}
+    )
+    assert res.status_code == 200
+    assert "zip" in res.headers.get("content-type", "")
+    names = zipfile.ZipFile(_io.BytesIO(res.content)).namelist()
+    assert "annotations.json" in names
+    assert "statistics.json" in names
+    assert "video_adjusted.mp4" in names
+
+
+async def test_export_bundle_csv_format(client, video_id_with_annotations):
+    """Bundle CSV : contient annotations.csv et statistics.csv."""
+    import zipfile, io as _io
+    res = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": False, "format": "csv"}
+    )
+    assert res.status_code == 200
+    names = zipfile.ZipFile(_io.BytesIO(res.content)).namelist()
+    assert "annotations.csv" in names
+    assert "statistics.csv" in names
+
+
+async def test_export_bundle_clip_only(client, video_id_with_annotations):
+    """clip_only=True avec >= 2 annotations → 200."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": True, "format": "json"}
+    )
+    assert res.status_code == 200
+
+
+async def test_export_bundle_requires_2_annotations(client, video_id):
+    """Moins de 2 annotations → impossible de calculer le BPM courant → 422."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": False, "format": "json"}
+    )
+    assert res.status_code == 422
+
+
+async def test_export_bundle_clip_only_requires_2_annotations(client, video_id):
+    """clip_only=True avec 1 seule annotation → 422."""
+    await client.post(
+        f"/api/v1/videos/{video_id}/annotations",
+        json={"frame_number": 10, "label": "beat"}
+    )
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": True, "format": "json"}
+    )
+    assert res.status_code == 422
+
+
+async def test_export_bundle_unknown_video(client):
+    """video_id inconnu → 404."""
+    res = await client.post(
+        "/api/v1/videos/unknown-id/export/bundle",
+        json={"target_bpm": 120.0, "clip_only": False, "format": "json"}
+    )
+    assert res.status_code == 404

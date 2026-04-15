@@ -12,6 +12,7 @@ import { AnnotationList } from '../components/annotations/AnnotationList'
 import BulkPlacementForm from '../components/annotations/BulkPlacementForm'
 import ShiftForm from '../components/annotations/ShiftForm'
 import { KeyboardShortcutsModal } from '../components/KeyboardShortcutsModal'
+import ExportButtons from '../components/exports/ExportButtons'
 import type { Annotation } from '../types/annotation'
 
 type Tab = 'annotations' | 'placement' | 'decalage'
@@ -154,17 +155,6 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     updateMutation.mutate({ id, data: { frame_number: newFrame, label: ann.label } })
   }
 
-  const handleExport = () => {
-    const data = JSON.stringify(annotations, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `annotations-${videoId}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   const lastActionLabel = () => {
     if (history.length === 0) return ''
     const last = history[history.length - 1]
@@ -224,12 +214,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             </span>
           )}
         </span>
-        <button
-          onClick={handleExport}
-          style={{ fontSize: '0.78rem', padding: '0.2rem 0.6rem', borderRadius: 4, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'var(--color-text, #e0e0e0)' }}
-        >
-          ⬇ Exporter JSON
-        </button>
+        <ExportButtons videoId={videoId} annotationCount={annotations.length} />
         <button
           onClick={() => setShowShortcuts(true)}
           title="Raccourcis clavier"
