@@ -62,3 +62,14 @@ async def uploaded_video_id(client, project_id, tmp_video_file, videos_dir):
 async def video_id(uploaded_video_id):
     """Alias pour uploaded_video_id utilisé dans les tests d'annotations."""
     return uploaded_video_id
+
+
+@pytest.fixture
+async def video_id_with_annotations(client, video_id):
+    """Vidéo avec 3 annotations pour les tests d'export."""
+    for frame in [10, 25, 40]:
+        await client.post(
+            f"/api/v1/videos/{video_id}/annotations",
+            json={"frame_number": frame, "label": f"beat_{frame}"}
+        )
+    return video_id
