@@ -104,7 +104,7 @@ development_status:
   6-1-refonte-layout-page-detail-projet: ready-for-dev
   6-2-renommage-video-a-limport: ready-for-dev
   6-3-correction-compteur-annotations-bpm-conditionnel: done
-  6-4-boutons-equivalents-raccourcis-clavier: ready-for-dev
+  6-4-boutons-equivalents-raccourcis-clavier: review
   6-5-correction-ctrl-fleche-alt-fleche: done
   6-6-systeme-de-categories-dannotations: ready-for-dev
   6-7-fix-video-plein-espace: done
