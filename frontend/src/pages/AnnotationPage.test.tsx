@@ -47,7 +47,11 @@ vi.mock('../components/video/VideoTimeline', () => ({
   VideoTimeline: () => <div data-testid="video-timeline" />,
 }))
 vi.mock('../hooks/useVideoKeyboard', () => ({
-  useVideoKeyboard: vi.fn(),
+  useVideoKeyboard: vi.fn(() => ({
+    seekPrevFrame: vi.fn(), seekNextFrame: vi.fn(), seek5Back: vi.fn(),
+    seek5Forward: vi.fn(), seekPrevAnnotation: vi.fn(), seekNextAnnotation: vi.fn(),
+    seekStart: vi.fn(), seekEnd: vi.fn(), annotate: vi.fn(),
+  })),
 }))
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (

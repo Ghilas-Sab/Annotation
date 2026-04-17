@@ -16,6 +16,10 @@ interface VideoPlayerProps {
 
 export interface VideoPlayerHandle {
   seekToFrame: (frame: number) => void
+  play: () => Promise<void>
+  pause: () => void
+  setPlaybackRate: (rate: number) => void
+  isPaused: () => boolean
 }
 
 const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
@@ -41,6 +45,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       seekToFrame: (frame: number) => {
         if (videoRef.current) seekToFrame(videoRef.current, frame, fps)
       },
+      play: () => videoRef.current?.play() ?? Promise.resolve(),
+      pause: () => videoRef.current?.pause(),
+      setPlaybackRate: (rate: number) => {
+        if (videoRef.current) videoRef.current.playbackRate = rate
+      },
+      isPaused: () => videoRef.current?.paused ?? true,
     }))
 
     const togglePlay = () => {

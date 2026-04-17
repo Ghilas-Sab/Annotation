@@ -1,6 +1,6 @@
 # Story 6.4: Boutons Équivalents pour Tous les Raccourcis Clavier
 
-Status: backlog
+Status: review
 
 ## Story
 
@@ -99,21 +99,22 @@ test('keyboard shortcuts still work after adding buttons', () => {
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–5)
-  - [ ] Ajouter 8 tests dans `frontend/src/components/video/PlaybackControls.test.tsx`
-  - [ ] Tester chaque bouton du tableau AC1
-  - [ ] Tester régression raccourcis clavier
-- [ ] Refactoriser `frontend/src/hooks/useVideoKeyboard.ts` pour exporter les handlers (AC: 2)
-  - [ ] Extraire les fonctions de navigation en handlers réutilisables (pas de logique inline)
-  - [ ] Retourner les handlers depuis le hook : `{ seekPrevFrame, seekNextFrame, seek5Back, seek5Forward, seekPrevAnnotation, seekNextAnnotation, seekStart, seekEnd, annotate }`
-- [ ] Modifier `frontend/src/components/video/PlaybackControls.tsx` (AC: 1, 4, 5)
-  - [ ] Ajouter un panneau "Contrôles" avec les 10 boutons du tableau
-  - [ ] Chaque bouton appelle le handler correspondant via les props
-  - [ ] Bouton "?" pour ouvrir `KeyboardShortcutsModal`
-  - [ ] `aria-label` sur chaque bouton
-- [ ] Intégrer les handlers dans la page annotation (AC: 2)
-  - [ ] Passer les handlers depuis `useVideoKeyboard` comme props à `PlaybackControls`
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–5)
+  - [x] Ajouter 11 tests dans `frontend/src/components/video/PlaybackControls.test.tsx`
+  - [x] Tester chaque bouton du tableau AC1
+  - [x] Tester régression raccourcis clavier
+- [x] Refactoriser `frontend/src/hooks/useVideoKeyboard.ts` pour exporter les handlers (AC: 2)
+  - [x] Extraire les fonctions de navigation en handlers réutilisables via refs (anti-closure stale)
+  - [x] Retourner les handlers depuis le hook : `{ seekPrevFrame, seekNextFrame, seek5Back, seek5Forward, seekPrevAnnotation, seekNextAnnotation, seekStart, seekEnd, annotate }`
+- [x] Modifier `frontend/src/components/video/PlaybackControls.tsx` (AC: 1, 4, 5)
+  - [x] Panneau "Contrôles" avec les 10 boutons + bouton "?"
+  - [x] `useVideoKeyboard` intégré dans `PlaybackControls` (keyboard + boutons partagent les mêmes handlers)
+  - [x] `KeyboardShortcutsModal` géré en interne avec `role="dialog"` ajouté
+  - [x] `aria-label` sur chaque bouton
+- [x] Intégrer dans `AnnotationPage` (AC: 2, 3)
+  - [x] Retrait de `useVideoKeyboard` de `AnnotationPage` (déplacé dans `PlaybackControls`)
+  - [x] `<PlaybackControls>` rendu dans la zone vidéo avec toutes les props nécessaires
+- [x] Passer tous les tests → GREEN (356/356)
 
 ## Dev Notes
 
@@ -151,19 +152,32 @@ frontend/src/
 
 ### Agent Model Used
 
-_à remplir_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_à remplir_
+- `KeyboardShortcutsModal` n'avait pas `role="dialog"` → ajouté `role="dialog" aria-modal="true"`
+- Mock `useVideoKeyboard` dans `AnnotationPage.test.tsx` ne retournait pas les handlers → mis à jour
+- Test `Alt+→ seeks to totalFrames` attendait 500, corrigé en 499 (`totalFrames - 1`)
 
 ### Completion Notes List
 
-_à remplir_
+- `useVideoKeyboard` retourne maintenant `VideoKeyboardHandlers` via refs stables (anti-closure stale)
+- `PlaybackControls` intègre `useVideoKeyboard` en interne — keyboard + boutons partagent exactement les mêmes handlers, zéro duplication
+- Panneau "Contrôles" avec 10 boutons + bouton "?" pour la modal
+- `AnnotationPage` : `useVideoKeyboard` retiré, `<PlaybackControls>` rendu sous la vidéo
+- 356/356 tests GREEN, zéro régression
 
 ### File List
 
-_à remplir_
+- `_bmad-output/implementation-artifacts/6-4-boutons-equivalents-raccourcis-clavier.md`
+- `frontend/src/hooks/useVideoKeyboard.ts`
+- `frontend/src/components/video/PlaybackControls.tsx`
+- `frontend/src/components/video/PlaybackControls.test.tsx`
+- `frontend/src/components/KeyboardShortcutsModal.tsx`
+- `frontend/src/pages/AnnotationPage.tsx`
+- `frontend/src/pages/AnnotationPage.test.tsx`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ## Change Log
 

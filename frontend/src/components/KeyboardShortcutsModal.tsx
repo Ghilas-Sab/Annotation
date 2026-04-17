@@ -21,6 +21,9 @@ export const KeyboardShortcutsModal: React.FC<Props> = ({ onClose }) => (
     }}
   >
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Raccourcis clavier"
       onClick={e => e.stopPropagation()}
       style={{
         backgroundColor: 'var(--color-panel, #1a1a2e)',

@@ -97,11 +97,11 @@ describe('useVideoKeyboard', () => {
     expect(seek).toHaveBeenCalledWith(0)
   })
 
-  test('Alt+ArrowRight seeks to last frame (totalFrames)', () => {
+  test('Alt+ArrowRight seeks to last frame (totalFrames - 1)', () => {
     const seek = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, currentFrame: 150, totalFrames: 500, seek }))
     fireEvent.keyDown(window, { key: 'ArrowRight', altKey: true })
-    expect(seek).toHaveBeenCalledWith(500)
+    expect(seek).toHaveBeenCalledWith(499)
   })
 
   test('Alt+ArrowLeft calls preventDefault to avoid browser navigation', () => {

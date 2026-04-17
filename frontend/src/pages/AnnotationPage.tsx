@@ -5,8 +5,8 @@ import { useAudioStore } from '../stores/audioStore'
 import { useAudioBeep } from '../hooks/useAudioBeep'
 import { useAnnotations, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation, useShiftAnnotations } from '../api/annotations'
 import { useVideo } from '../api/projects'
-import { useVideoKeyboard } from '../hooks/useVideoKeyboard'
 import VideoPlayer from '../components/video/VideoPlayer'
+import PlaybackControls from '../components/video/PlaybackControls'
 import { VideoTimeline } from '../components/video/VideoTimeline'
 import { AnnotationList } from '../components/annotations/AnnotationList'
 import BulkPlacementForm from '../components/annotations/BulkPlacementForm'
@@ -166,16 +166,6 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     }
   }
 
-  useVideoKeyboard({
-    currentFrame,
-    totalFrames: effectiveTrimEnd,
-    fps: effectiveFps,
-    seek,
-    annotations, // Passer les vraies annotations ici
-    createAnnotation: handleCreate,
-    startFrame: trimStart,
-  })
-
   if (videoLoading || !video) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-accent)' }}>Chargement...</div>
   }
@@ -227,7 +217,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
       {/* Zone principale */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
-        {/* Vidéo */}
+        {/* Vidéo + contrôles */}
         <div style={{ flex: 7, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <VideoPlayer
             ref={videoRef}
@@ -238,6 +228,19 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             width={video.width}
             height={video.height}
           />
+          {/* Panneau contrôles (keyboard + boutons tablette) */}
+          <div style={{ flexShrink: 0, padding: '0.5rem 0.75rem', borderTop: '1px solid var(--color-surface, #2a2a3e)', backgroundColor: 'var(--color-panel, #1a1a2e)' }}>
+            <PlaybackControls
+              videoRef={videoRef}
+              currentFrame={currentFrame}
+              totalFrames={effectiveTrimEnd}
+              fps={effectiveFps}
+              annotations={annotations}
+              startFrame={trimStart}
+              onSeek={seek}
+              onAnnotate={handleCreate}
+            />
+          </div>
         </div>
 
         {/* Panneau droit */}
