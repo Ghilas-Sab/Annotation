@@ -98,7 +98,7 @@ describe('VideoCard', () => {
       ] 
     })
     renderVideoCard(video)
-    expect(await screen.findByText('72.5 BPM')).toBeInTheDocument()
+    expect(await screen.findByText('72.50 BPM')).toBeInTheDocument()
   })
 
   it('shows BPM when video has 5+ annotations', async () => {
@@ -111,7 +111,7 @@ describe('VideoCard', () => {
       annotations: new Array(5).fill({ id: 'a', frame: 0, timestamp: 0 }) 
     })
     renderVideoCard(video)
-    expect(await screen.findByText('90 BPM')).toBeInTheDocument()
+    expect(await screen.findByText('90.00 BPM')).toBeInTheDocument()
   })
 
   it('updates annotation count reactively when prop changes', () => {
