@@ -171,7 +171,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     totalFrames: effectiveTrimEnd,
     fps: effectiveFps,
     seek,
-    annotations,
+    annotations, // Passer les vraies annotations ici
     createAnnotation: handleCreate,
     startFrame: trimStart,
   })
