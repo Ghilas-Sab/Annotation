@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useVideo } from '../api/projects'
 import { useVideoStatistics } from '../api/statistics'
+import { useAnnotations } from '../api/annotations'
 import { useVideoStore } from '../stores/videoStore'
 import BpmMetrics from '../components/statistics/BpmMetrics'
 import BpmTimeline from '../components/statistics/BpmTimeline'
@@ -24,10 +25,11 @@ function StatisticsPage() {
   const { data: stats } = useVideoStatistics(videoId)
   const setPlaybackRate = useVideoStore(s => s.setPlaybackRate)
   const [showExportModal, setShowExportModal] = useState(false)
+  const { data: annotations = [] } = useAnnotations(videoId)
 
   const dist = stats?.interval_distribution ?? []
   const segments = stats?.rhythmic_segments ?? []
-  const annotationCount = video?.annotations?.length ?? 0
+  const annotationCount = annotations.length
   const canExport = !!(stats && !stats.error && stats.bpm_global > 0)
 
   return (

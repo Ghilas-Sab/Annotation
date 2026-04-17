@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useProject, useDeleteVideo } from '../api/projects'
 import VideoUpload from '../components/projects/VideoUpload'
 import VideoTrimModal from '../components/video/VideoTrimModal'
+import VideoCard from '../components/projects/VideoCard'
 import type { Video } from '../types/project'
 
 const ProjectDetailPage: React.FC = () => {
@@ -85,58 +86,13 @@ const ProjectDetailPage: React.FC = () => {
         {project.videos && project.videos.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {project.videos.map(video => (
-              <div 
+              <VideoCard
                 key={video.id}
-                role="listitem"
-                style={{
-                  backgroundColor: 'var(--color-panel)',
-                  padding: '1rem 1.5rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  border: '1px solid var(--color-surface)'
-                }}
-              >
-                <div>
-                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--color-text)' }}>{video.original_name}</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
-                    <span>{Math.round(video.duration_seconds)}s</span>
-                    <span>{video.fps} FPS</span>
-                    <span style={{ color: 'var(--color-accent2)' }}>{video.annotations?.length || 0} annotations</span>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    className="btn-primary"
-                    onClick={() => setTrimVideo(video)}
-                    style={{ fontSize: '0.85rem' }}
-                  >
-                    Annoter →
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => navigate(`/statistics/${video.id}`)}
-                    style={{ fontSize: '0.85rem' }}
-                  >
-                    Stats
-                  </button>
-                  <button 
-                    aria-label="Supprimer la vidéo"
-                    onClick={() => handleDeleteVideo(video.id, video.original_name)}
-                    style={{ 
-                      background: 'none', 
-                      border: 'none', 
-                      color: 'var(--color-danger)', 
-                      cursor: 'pointer',
-                      padding: '0.5rem'
-                    }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
+                video={video}
+                onAnnotate={(v) => setTrimVideo(v)}
+                onStats={(id) => navigate(`/statistics/${id}`)}
+                onDelete={handleDeleteVideo}
+              />
             ))}
           </div>
         ) : (

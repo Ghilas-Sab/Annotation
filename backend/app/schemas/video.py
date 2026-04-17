@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import BaseModel
 
 
@@ -26,3 +27,4 @@ class VideoRead(BaseModel):
     height: int = 0
     codec: str = ""
     uploaded_at: str = ""
+    annotations: list[Any] = []
