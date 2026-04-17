@@ -1,9 +1,12 @@
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation, UseQueryOptions } from '@tanstack/react-query'
 import { BpmStatisticsResponse, PlaybackSpeedResponse } from '../types/statistics'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
-export function useVideoStatistics(videoId: string) {
+export function useVideoStatistics(
+  videoId: string, 
+  options: Partial<UseQueryOptions<BpmStatisticsResponse>> = {}
+) {
   return useQuery({
     queryKey: ['statistics', videoId],
     queryFn: async () => {
@@ -12,6 +15,7 @@ export function useVideoStatistics(videoId: string) {
       return res.json() as Promise<BpmStatisticsResponse>
     },
     enabled: !!videoId,
+    ...options
   })
 }
 
