@@ -10,6 +10,8 @@ interface VideoPlayerProps {
   fps: number
   totalFrames: number
   duration: number
+  width: number
+  height: number
 }
 
 export interface VideoPlayerHandle {
@@ -17,7 +19,7 @@ export interface VideoPlayerHandle {
 }
 
 const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
-  ({ videoId, fps, totalFrames, duration }, ref) => {
+  ({ videoId, fps, totalFrames, duration, width, height }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const setIsPlaying = useVideoStore(s => s.setIsPlaying)
     const setVideoMetadata = useVideoStore(s => s.setVideoMetadata)
@@ -53,35 +55,96 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     }
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#000', flex: 1 }}>
-        {/* Vidéo */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <video
-            ref={videoRef}
-            src={`${API_BASE}/videos/${videoId}/stream`}
-            style={{ width: '100%', height: '100%', maxHeight: '50vh', objectFit: 'contain', display: 'block' }}
-            onPlay={() => { setIsPlaying(true); setPlaying(true) }}
-            onPause={() => { setIsPlaying(false); setPlaying(false) }}
-            controls={false}
-            preload="metadata"
-          />
-          {/* Bouton play/pause centré */}
-          <button
-            onClick={togglePlay}
-            style={{
-              position: 'absolute', bottom: '0.75rem', left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.3)',
-              color: '#fff', borderRadius: '50%', width: 44, height: 44,
-              fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            aria-label={playing ? 'Pause' : 'Play'}
-          >
-            {playing ? '⏸' : '▶'}
-          </button>
+      <div 
+        data-testid="video-container"
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          backgroundColor: 'transparent', 
+          width: '100%', 
+          height: '100%',
+          minHeight: 0,
+          boxSizing: 'border-box',
+          overflow: 'hidden' // Empêche tout débordement global
+        }}
+      >
+        {/* Zone Vidéo - S'adapte dynamiquement */}
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          minHeight: 0,
+          padding: '1rem',
+          position: 'relative'
+        }}>
+          {/* Le "Cadre" de la vidéo qui respecte le ratio et ne déborde jamais */}
+          <div style={{
+            position: 'relative',
+            maxWidth: '100%',
+            maxHeight: '100%',
+            aspectRatio: width && height ? `${width} / ${height}` : 'auto',
+            backgroundColor: 'var(--color-bg)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <video
+              ref={videoRef}
+              data-testid="video-element"
+              src={`${API_BASE}/videos/${videoId}/stream`}
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                display: 'block',
+                objectFit: 'contain'
+              }}
+              onPlay={() => { setIsPlaying(true); setPlaying(true) }}
+              onPause={() => { setIsPlaying(false); setPlaying(false) }}
+              controls={false}
+              preload="metadata"
+            />
+            {/* Bouton play/pause centré sur la vidéo */}
+            <button
+              onClick={togglePlay}
+              style={{
+                position: 'absolute', 
+                bottom: '1rem', 
+                left: '50%', 
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.6)', 
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: '#fff', 
+                borderRadius: '50%', 
+                width: 48, 
+                height: 48,
+                fontSize: '1.4rem', 
+                cursor: 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                zIndex: 10,
+                transition: 'transform 0.1s'
+              }}
+              aria-label={playing ? 'Pause' : 'Play'}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(0.95)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
+            >
+              {playing ? '⏸' : '▶'}
+            </button>
+          </div>
         </div>
 
-        {/* Scrubber barre de progression */}
-        <div style={{ padding: '0.4rem 0.75rem 0.2rem', backgroundColor: 'var(--color-panel, #1a1a2e)' }}>
+        {/* Scrubber - Toujours visible en bas */}
+        <div style={{ 
+          padding: '0.5rem 1rem 0.75rem', 
+          backgroundColor: 'var(--color-panel, #1a1a2e)',
+          borderTop: '1px solid var(--color-surface, #2a2a3e)',
+          flexShrink: 0
+        }}>
           <input
             type="range"
             min={0}

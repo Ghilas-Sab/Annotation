@@ -235,6 +235,8 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             fps={video.fps}
             totalFrames={video.total_frames}
             duration={video.duration_seconds}
+            width={video.width}
+            height={video.height}
           />
         </div>
 
