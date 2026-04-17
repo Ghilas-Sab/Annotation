@@ -100,15 +100,15 @@ development_status:
   # ─────────────────────────────────────────
   # EPIC 6 — Retours Client V1
   # ─────────────────────────────────────────
-  epic-6: backlog
-  6-1-refonte-layout-page-detail-projet: backlog
-  6-2-renommage-video-a-limport: backlog
-  6-3-correction-compteur-annotations-bpm-conditionnel: backlog
-  6-4-boutons-equivalents-raccourcis-clavier: backlog
-  6-5-correction-ctrl-fleche-alt-fleche: backlog
-  6-6-systeme-de-categories-dannotations: backlog
-  6-7-fix-video-plein-espace: backlog
-  6-8-formulaire-plage-apercu-video: backlog
-  6-9-export-par-projet-complet: backlog
-  6-10-adaptation-bpm-intelligente-previsualisation: backlog
+  epic-6: in-progress
+  6-1-refonte-layout-page-detail-projet: ready-for-dev
+  6-2-renommage-video-a-limport: ready-for-dev
+  6-3-correction-compteur-annotations-bpm-conditionnel: done
+  6-4-boutons-equivalents-raccourcis-clavier: ready-for-dev
+  6-5-correction-ctrl-fleche-alt-fleche: done
+  6-6-systeme-de-categories-dannotations: ready-for-dev
+  6-7-fix-video-plein-espace: done
+  6-8-formulaire-plage-apercu-video: ready-for-dev
+  6-9-export-par-projet-complet: ready-for-dev
+  6-10-adaptation-bpm-intelligente-previsualisation: ready-for-dev
   epic-6-retrospective: optional
