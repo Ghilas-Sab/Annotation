@@ -32,6 +32,8 @@ const defaultProps = {
   fps: 25,
   totalFrames: 1000,
   duration: 40,
+  width: 1920,
+  height: 1080,
 }
 
 describe('VideoPlayer', () => {
@@ -132,4 +134,29 @@ describe('VideoPlayer', () => {
     const video = document.querySelector('video') as HTMLVideoElement
     expect(video.preload).toBe('metadata')
   })
+
+  test('video element has correct size styles', () => {
+    render(<VideoPlayer {...defaultProps} />);
+    const video = screen.getByTestId('video-element');
+    expect(video).toHaveStyle({ width: '100%', height: '100%' });
+  });
+
+  test('video element uses object-fit: contain', () => {
+    render(<VideoPlayer {...defaultProps} />);
+    const video = screen.getByTestId('video-element');
+    expect(video).toHaveStyle({ objectFit: 'contain' });
+  });
+
+  test('video container takes full available space', () => {
+    render(<VideoPlayer {...defaultProps} />);
+    const container = screen.getByTestId('video-container');
+    expect(container).toHaveStyle({ width: '100%', height: '100%' });
+  });
+
+  test('play button is visible and has correct positioning', () => {
+    render(<VideoPlayer {...defaultProps} />);
+    const button = screen.getByRole('button', { name: /play/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveStyle({ position: 'absolute' });
+  });
 })
