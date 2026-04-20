@@ -1,6 +1,6 @@
 # Story 6.2: Renommage Vidéo à l'Import
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -91,23 +91,23 @@ async def test_upload_video_without_display_name_uses_filename(client, tmp_video
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–7)
-  - [ ] Ajouter 4 tests dans `frontend/src/components/projects/VideoUpload.test.tsx`
-  - [ ] Ajouter 2 tests dans `backend/tests/test_videos.py`
-- [ ] Modifier `frontend/src/components/projects/VideoUpload.tsx` (AC: 1, 2, 3, 5, 7)
-  - [ ] État local `displayName` initialisé avec `file.name` après sélection
-  - [ ] Afficher `<input type="text" aria-label="Nom de la vidéo" value={displayName} />`
-  - [ ] onBlur : si vide → fallback sur `file.name`
-  - [ ] Reset `displayName` après upload réussi ou annulation
-  - [ ] Passer `displayName` à la fonction d'upload
-- [ ] Modifier `frontend/src/api/projects.ts` (ou `videos.ts`) (AC: 6)
-  - [ ] Ajouter `displayName` dans la construction du `FormData`
-- [ ] Modifier `backend/app/routers/videos.py` (AC: 4, 6)
-  - [ ] Accepter `display_name: Optional[str] = Form(None)`
-  - [ ] Si `display_name` fourni → `original_name = display_name`, sinon `original_name = file.filename`
-- [ ] Modifier `backend/app/schemas/video.py` si besoin (AC: 4)
-  - [ ] Vérifier que `original_name` est bien exposé dans la réponse
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–7)
+  - [x] Ajouter 4 tests dans `frontend/src/components/projects/VideoUpload.test.tsx`
+  - [x] Ajouter 2 tests dans `backend/tests/test_videos.py`
+- [x] Modifier `frontend/src/components/projects/VideoUpload.tsx` (AC: 1, 2, 3, 5, 7)
+  - [x] État local `displayName` initialisé avec `file.name` après sélection
+  - [x] Afficher `<input type="text" aria-label="Nom de la vidéo" value={displayName} />`
+  - [x] onBlur : si vide → fallback sur `file.name`
+  - [x] Reset `displayName` après upload réussi ou annulation
+  - [x] Passer `displayName` à la fonction d'upload
+- [x] Modifier `frontend/src/api/projects.ts` (AC: 6)
+  - [x] Ajouter `displayName` dans la construction du `FormData`
+- [x] Modifier `backend/app/routers/videos.py` (AC: 4, 6)
+  - [x] Accepter `display_name: Optional[str] = Form(None)`
+  - [x] Si `display_name` fourni → `original_name = display_name`, sinon `original_name = file.filename`
+- [x] Modifier `backend/app/schemas/video.py` si besoin (AC: 4)
+  - [x] `original_name` déjà exposé dans la réponse — aucune modification nécessaire
+- [x] Passer tous les tests → GREEN
 
 ## Dev Notes
 
@@ -147,19 +147,25 @@ backend/app/
 
 ### Agent Model Used
 
-_à remplir_
+claude-sonnet-4-6 (Amelia — bmad-agent-dev)
 
 ### Debug Log References
 
-_à remplir_
+Aucun blocage — implémentation directe conforme aux AC.
 
 ### Completion Notes List
 
-_à remplir_
+- `original_name` était déjà exposé dans le schéma vidéo — aucune modification de `schemas/video.py` nécessaire
+- Le fallback `displayName.trim() || file.name` gère l'AC 5 côté frontend
+- `data-testid="dropzone"` ajouté sur la dropzone pour faciliter les tests
 
 ### File List
 
-_à remplir_
+- `frontend/src/components/projects/VideoUpload.tsx`
+- `frontend/src/components/projects/VideoUpload.test.tsx`
+- `frontend/src/api/projects.ts`
+- `backend/app/routers/videos.py`
+- `backend/tests/test_videos.py`
 
 ## Change Log
 

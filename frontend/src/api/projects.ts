@@ -56,7 +56,7 @@ export function useDeleteProject() {
 export function useUploadVideo(projectId: string, onProgress?: (pct: number) => void) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, displayName }: { file: File; displayName: string }) => {
       return new Promise<Video>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${API_BASE}/projects/${projectId}/videos`)
@@ -79,6 +79,7 @@ export function useUploadVideo(projectId: string, onProgress?: (pct: number) => 
 
         const formData = new FormData()
         formData.append('file', file)
+        formData.append('display_name', displayName)
         xhr.send(formData)
       })
     },
@@ -97,6 +98,22 @@ export function useVideo(videoId: string) {
       return res.json() as Promise<Video>
     },
     enabled: !!videoId,
+  })
+}
+
+export function useRenameVideo(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ videoId, originalName }: { videoId: string; originalName: string }) => {
+      const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ original_name: originalName }),
+      })
+      if (!res.ok) throw new Error('Erreur renommage vidéo')
+      return res.json() as Promise<Video>
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project', projectId] }),
   })
 }
 

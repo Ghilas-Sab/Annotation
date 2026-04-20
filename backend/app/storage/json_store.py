@@ -96,6 +96,17 @@ def get_video(video_id: str) -> dict | None:
     return None
 
 
+def update_video(video_id: str, **kwargs) -> dict | None:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                video.update({k: v for k, v in kwargs.items() if k in ("original_name",)})
+                _save(data)
+                return video
+    return None
+
+
 def delete_video(video_id: str) -> bool:
     """Supprime une vidéo (+ ses annotations) d'un projet."""
     data = _load()

@@ -5,7 +5,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Response
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, Response
+from pydantic import BaseModel, field_validator
 
 from app.storage import json_store
 from app.services.video_service import get_video_metadata
@@ -13,12 +15,27 @@ from app.services.video_service import get_video_metadata
 router = APIRouter(tags=["videos"])
 
 
+class VideoRenameBody(BaseModel):
+    original_name: str
+
+    @field_validator("original_name")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("original_name ne peut pas être vide")
+        return v
+
+
 def _videos_dir() -> str:
     return os.getenv("VIDEOS_DIR", "/videos")
 
 
 @router.post("/projects/{project_id}/videos", status_code=201)
-async def upload_video(project_id: str, file: UploadFile = File(...)):
+async def upload_video(
+    project_id: str,
+    file: UploadFile = File(...),
+    display_name: Optional[str] = Form(None),
+):
     project = json_store.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Projet introuvable")
@@ -46,7 +63,7 @@ async def upload_video(project_id: str, file: UploadFile = File(...)):
         "id": str(uuid.uuid4()),
         "project_id": project_id,
         "filename": filename,
-        "original_name": file.filename,
+        "original_name": display_name if display_name else file.filename,
         "filepath": filepath,
         "duration_seconds": meta["duration_seconds"],
         "fps": meta["fps"],
@@ -121,6 +138,15 @@ async def stream_video(video_id: str, request: Request):
             "Content-Length": str(len(payload)),
         }
         return Response(content=payload, status_code=200, media_type=mime_type, headers=headers)
+
+
+@router.patch("/videos/{video_id}")
+async def rename_video(video_id: str, body: VideoRenameBody):
+    video = json_store.get_video(video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Vidéo introuvable")
+    updated = json_store.update_video(video_id, original_name=body.original_name)
+    return updated
 
 
 @router.delete("/videos/{video_id}", status_code=204)

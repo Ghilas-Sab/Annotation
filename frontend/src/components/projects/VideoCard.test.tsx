@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -112,6 +113,55 @@ describe('VideoCard', () => {
     })
     renderVideoCard(video)
     expect(await screen.findByText('90.00 BPM')).toBeInTheDocument()
+  })
+
+  // Renommage inline
+  it('click on name shows editable input with current name', async () => {
+    const video = buildVideo()
+    renderVideoCard(video)
+    await userEvent.click(screen.getByText('Test Video'))
+    const input = screen.getByRole('textbox', { name: /nom de la vidéo/i })
+    expect(input).toHaveValue('Test Video')
+  })
+
+  it('saves new name on Enter and calls PATCH API', async () => {
+    server.use(
+      http.patch('*/api/v1/videos/uuid-v1', async ({ request }) => {
+        const body = await request.json() as { original_name: string }
+        return HttpResponse.json({ ...buildVideo(), original_name: body.original_name })
+      })
+    )
+    const video = buildVideo()
+    renderVideoCard(video)
+    await userEvent.click(screen.getByText('Test Video'))
+    const input = screen.getByRole('textbox', { name: /nom de la vidéo/i })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Nouveau nom')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+  })
+
+  it('cancels edit on Escape without saving', async () => {
+    const video = buildVideo()
+    renderVideoCard(video)
+    await userEvent.click(screen.getByText('Test Video'))
+    const input = screen.getByRole('textbox', { name: /nom de la vidéo/i })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Changement annulé')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Test Video')).toBeInTheDocument()
+  })
+
+  it('reverts to original name on blur if input is empty', async () => {
+    const video = buildVideo()
+    renderVideoCard(video)
+    await userEvent.click(screen.getByText('Test Video'))
+    const input = screen.getByRole('textbox', { name: /nom de la vidéo/i })
+    await userEvent.clear(input)
+    fireEvent.blur(input)
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Test Video')).toBeInTheDocument()
   })
 
   it('updates annotation count reactively when prop changes', () => {
