@@ -56,7 +56,7 @@ export function useDeleteProject() {
 export function useUploadVideo(projectId: string, onProgress?: (pct: number) => void) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, displayName }: { file: File; displayName: string }) => {
       return new Promise<Video>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${API_BASE}/projects/${projectId}/videos`)
@@ -79,6 +79,7 @@ export function useUploadVideo(projectId: string, onProgress?: (pct: number) => 
 
         const formData = new FormData()
         formData.append('file', file)
+        formData.append('display_name', displayName)
         xhr.send(formData)
       })
     },

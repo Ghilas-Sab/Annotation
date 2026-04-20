@@ -74,3 +74,26 @@ async def test_video_stream_range(client, uploaded_video_id):
 async def test_video_stream_not_found(client):
     res = await client.get("/api/v1/videos/00000000-0000-0000-0000-000000000000/stream")
     assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_upload_video_with_display_name(client, project_id, tmp_video_file, videos_dir):
+    with open(tmp_video_file, "rb") as f:
+        res = await client.post(
+            f"/api/v1/projects/{project_id}/videos",
+            data={"display_name": "Ma vidéo de test"},
+            files={"file": ("video.mp4", f, "video/mp4")},
+        )
+    assert res.status_code == 201
+    assert res.json()["original_name"] == "Ma vidéo de test"
+
+
+@pytest.mark.asyncio
+async def test_upload_video_without_display_name_uses_filename(client, project_id, tmp_video_file, videos_dir):
+    with open(tmp_video_file, "rb") as f:
+        res = await client.post(
+            f"/api/v1/projects/{project_id}/videos",
+            files={"file": ("my_file.mp4", f, "video/mp4")},
+        )
+    assert res.status_code == 201
+    assert res.json()["original_name"] == "my_file.mp4"

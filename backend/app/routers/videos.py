@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Response
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, Response
 
 from app.storage import json_store
 from app.services.video_service import get_video_metadata
@@ -18,7 +19,11 @@ def _videos_dir() -> str:
 
 
 @router.post("/projects/{project_id}/videos", status_code=201)
-async def upload_video(project_id: str, file: UploadFile = File(...)):
+async def upload_video(
+    project_id: str,
+    file: UploadFile = File(...),
+    display_name: Optional[str] = Form(None),
+):
     project = json_store.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Projet introuvable")
@@ -46,7 +51,7 @@ async def upload_video(project_id: str, file: UploadFile = File(...)):
         "id": str(uuid.uuid4()),
         "project_id": project_id,
         "filename": filename,
-        "original_name": file.filename,
+        "original_name": display_name if display_name else file.filename,
         "filepath": filepath,
         "duration_seconds": meta["duration_seconds"],
         "fps": meta["fps"],
