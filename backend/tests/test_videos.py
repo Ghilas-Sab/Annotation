@@ -1,4 +1,5 @@
 import pytest
+import io
 
 
 @pytest.mark.asyncio
@@ -125,3 +126,71 @@ async def test_rename_video_empty_name(client, uploaded_video_id):
         json={"original_name": ""},
     )
     assert res.status_code == 422
+
+
+# --- Validation format fichier ---
+
+@pytest.mark.asyncio
+async def test_upload_pdf_renamed_as_mp4_is_rejected(client, project_id, videos_dir):
+    """Un PDF renommé en .mp4 doit être rejeté avant même FFmpeg."""
+    pdf_bytes = b"%PDF-1.4 fake pdf content that is definitely not a video"
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("document.mp4", io.BytesIO(pdf_bytes), "video/mp4")},
+    )
+    assert res.status_code == 400
+    assert "vidéo" in res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_upload_png_renamed_as_mp4_is_rejected(client, project_id, videos_dir):
+    """Une image PNG renommée en .mp4 doit être rejetée."""
+    png_magic = b"\x89PNG\r\n\x1a\n" + b"\x00" * 50
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("image.mp4", io.BytesIO(png_magic), "video/mp4")},
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_jpeg_renamed_as_mp4_is_rejected(client, project_id, videos_dir):
+    """Un JPEG renommé en .mp4 doit être rejeté."""
+    jpeg_magic = b"\xff\xd8\xff\xe0" + b"\x00" * 50
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("photo.mp4", io.BytesIO(jpeg_magic), "video/mp4")},
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_zip_renamed_as_mp4_is_rejected(client, project_id, videos_dir):
+    """Un ZIP renommé en .mp4 doit être rejeté."""
+    zip_magic = b"PK\x03\x04" + b"\x00" * 50
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("archive.mp4", io.BytesIO(zip_magic), "video/mp4")},
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_text_file_is_rejected(client, project_id, videos_dir):
+    """Un fichier texte brut doit être rejeté."""
+    text_bytes = b"Hello world, this is not a video file at all."
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("note.txt", io.BytesIO(text_bytes), "text/plain")},
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_invalid_extension_is_rejected(client, project_id, videos_dir):
+    """Une extension non-vidéo doit être rejetée même avec du bon contenu."""
+    res = await client.post(
+        f"/api/v1/projects/{project_id}/videos",
+        files={"file": ("document.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")},
+    )
+    assert res.status_code == 400

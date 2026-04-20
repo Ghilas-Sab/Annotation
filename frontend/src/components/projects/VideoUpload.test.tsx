@@ -40,7 +40,7 @@ describe('VideoUpload', () => {
 
   test('affiche le texte des formats acceptés', () => {
     render(<VideoUpload projectId="p1" />, { wrapper })
-    expect(screen.getByText(/tous formats vidéo acceptés/i)).toBeInTheDocument()
+    expect(screen.getByText(/MP4.*MOV.*AVI/i)).toBeInTheDocument()
   })
 
   test("l'input file est hidden", () => {
