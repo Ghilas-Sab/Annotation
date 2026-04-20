@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from app.storage import json_store
 from app.schemas.annotation import AnnotationCreate, AnnotationRead, BulkCreate, ShiftRequest
+from typing import Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -26,12 +27,19 @@ async def create_annotation(video_id: str, body: AnnotationCreate):
     # Calcul timestamp_ms = frame_number / fps * 1000
     timestamp_ms = (body.frame_number / video["fps"]) * 1000
 
+    # Résoudre category_id : utiliser la catégorie par défaut si absent
+    category_id = body.category_id
+    if not category_id:
+        default_cat = json_store.get_default_category(video_id)
+        category_id = default_cat["id"] if default_cat else None
+
     annotation = {
         "id": str(uuid.uuid4()),
         "video_id": video_id,
         "frame_number": body.frame_number,
         "timestamp_ms": timestamp_ms,
         "label": body.label,
+        "category_id": category_id,
         "created_at": _now(),
         "updated_at": _now(),
     }
@@ -113,6 +121,12 @@ async def bulk_create_annotations(video_id: str, body: BulkCreate):
     fps = video["fps"]
     interval = (body.end_frame - body.start_frame) / (body.count - 1)
     now = _now()
+
+    category_id = body.category_id
+    if not category_id:
+        default_cat = json_store.get_default_category(video_id)
+        category_id = default_cat["id"] if default_cat else None
+
     annotations = []
     for i in range(body.count):
         frame = round(body.start_frame + i * interval)
@@ -123,6 +137,7 @@ async def bulk_create_annotations(video_id: str, body: BulkCreate):
             "frame_number": frame,
             "timestamp_ms": frame / fps * 1000,
             "label": label,
+            "category_id": category_id,
             "created_at": now,
             "updated_at": now,
         })

@@ -31,11 +31,26 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
     onUpdate(annotation.id, f, annotation.label)
   }
 
+  const badgeColor = annotation.category?.color ?? '#9CA3AF'
+
   return (
     <div
       data-testid="annotation-item"
       style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', fontSize: '0.82rem' }}
     >
+      {/* Badge catégorie */}
+      <span
+        data-testid="category-badge"
+        title={annotation.category?.name ?? 'Par défaut'}
+        style={{
+          display: 'inline-block',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: badgeColor,
+          flexShrink: 0,
+        }}
+      />
       {/* Frame number — cliquable pour seek, double-clic pour éditer */}
       {editingFrame ? (
         <input

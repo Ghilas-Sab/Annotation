@@ -11,10 +11,11 @@ const mockAnnotations = [
 
 vi.mock('../api/annotations', () => ({
   useAnnotations: () => ({ data: mockAnnotations }),
+  useCategories: () => ({ data: [] }),
   useCreateAnnotation: () => ({ mutate: vi.fn() }),
   useDeleteAnnotation: () => ({ mutate: vi.fn() }),
   useUpdateAnnotation: () => ({ mutate: vi.fn() }),
-  useCreateBulkAnnotations: () => ({ mutate: vi.fn() }),
+  useCreateBulkAnnotations: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useShiftAnnotations: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }))
 

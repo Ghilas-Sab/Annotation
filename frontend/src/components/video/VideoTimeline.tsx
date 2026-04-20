@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
-import type { Annotation } from '../../types/annotation'
+import type { Annotation, Category } from '../../types/annotation'
 
 interface VideoTimelineProps {
   currentFrame: number
   totalFrames: number
   fps: number
   annotations: Annotation[]
+  categories?: Category[]
   onSeek: (frame: number) => void
   onMoveAnnotation?: (id: string, newFrame: number) => void
   /** Restreindre la vue à une plage (trim) */
@@ -14,7 +15,7 @@ interface VideoTimelineProps {
 }
 
 export const VideoTimeline: React.FC<VideoTimelineProps> = ({
-  currentFrame, totalFrames, fps, annotations, onSeek, onMoveAnnotation,
+  currentFrame, totalFrames, fps, annotations, categories = [], onSeek, onMoveAnnotation,
   startFrame = 0, endFrame,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -113,13 +114,14 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
         const isDragging = dragging !== null && dragging.id === ann.id
         const displayFrame = isDragging ? dragging.frame : ann.frame_number
         const x = frameToX(displayFrame, width)
-        ctx.strokeStyle = isDragging ? '#ffcc00' : '#e94560'
+        const categoryColor = ann.category?.color ?? '#e94560'
+        ctx.strokeStyle = isDragging ? '#ffcc00' : categoryColor
         ctx.lineWidth = isDragging ? 3 : 2
         ctx.beginPath()
         ctx.moveTo(x, 8)
         ctx.lineTo(x, height)
         ctx.stroke()
-        ctx.fillStyle = isDragging ? '#ffcc00' : '#e94560'
+        ctx.fillStyle = isDragging ? '#ffcc00' : categoryColor
         ctx.beginPath()
         ctx.moveTo(x - 5, 0)
         ctx.lineTo(x + 5, 0)
@@ -239,6 +241,19 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
       <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.2, paddingBottom: 1 }}>
         Molette pour zoomer · {fps > 0 ? `${annotations.length} annotations` : ''}
       </div>
+      {categories.length > 0 && (
+        <div
+          data-testid="category-legend"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.4rem', fontSize: '0.72rem' }}
+        >
+          {categories.map((cat) => (
+            <span key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-text-muted)' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: cat.color }} />
+              {cat.name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

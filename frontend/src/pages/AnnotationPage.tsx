@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useVideoStore } from '../stores/videoStore'
 import { useAudioStore } from '../stores/audioStore'
 import { useAudioBeep } from '../hooks/useAudioBeep'
-import { useAnnotations, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation, useShiftAnnotations } from '../api/annotations'
+import { useAnnotations, useCreateAnnotation, useUpdateAnnotation, useDeleteAnnotation, useShiftAnnotations, useCategories } from '../api/annotations'
+import { CategorySelector } from '../components/annotations/CategorySelector'
+import { CategoryManager } from '../components/annotations/CategoryManager'
 import { useVideo } from '../api/projects'
 import VideoPlayer from '../components/video/VideoPlayer'
 import PlaybackControls from '../components/video/PlaybackControls'
@@ -15,7 +17,7 @@ import { KeyboardShortcutsModal } from '../components/KeyboardShortcutsModal'
 import ExportButtons from '../components/exports/ExportButtons'
 import type { Annotation } from '../types/annotation'
 
-type Tab = 'annotations' | 'placement' | 'decalage'
+type Tab = 'annotations' | 'categories' | 'placement' | 'decalage'
 
 type UndoAction =
   | { type: 'create'; annotation: Annotation }
@@ -46,7 +48,29 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const { beep } = useAudioBeep()
 
   const { data: video, isLoading: videoLoading } = useVideo(videoId)
-  const { data: annotations = [] } = useAnnotations(videoId)
+  const { data: rawAnnotations = [] } = useAnnotations(videoId)
+  const { data: categories = [] } = useCategories(videoId)
+  const [activeCategoryId, setActiveCategoryId] = useState('')
+  const [filterCategoryId, setFilterCategoryId] = useState('') // '' = tout afficher
+
+  // Sélectionner la catégorie par défaut dès le chargement
+  useEffect(() => {
+    if (categories.length > 0 && !activeCategoryId) {
+      const def = categories.find(c => c.name === 'Par défaut')
+      setActiveCategoryId(def ? def.id : categories[0].id)
+    }
+  }, [categories, activeCategoryId])
+
+  // Enrichir les annotations avec l'objet category, dédupliquées par id
+  const seenIds = new Set<string>()
+  const annotations = rawAnnotations
+    .filter(ann => { if (seenIds.has(ann.id)) return false; seenIds.add(ann.id); return true })
+    .map(ann => ({ ...ann, category: categories.find(c => c.id === ann.category_id) }))
+
+  // Annotations filtrées pour l'affichage dans la liste
+  const displayedAnnotations = filterCategoryId
+    ? annotations.filter(ann => ann.category_id === filterCategoryId)
+    : annotations
 
   const createMutation = useCreateAnnotation(videoId)
   const updateMutation = useUpdateAnnotation(videoId)
@@ -121,8 +145,11 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   }, [])
 
   const handleCreate = (frame: number) => {
+    const activeCategory = categories.find(c => c.id === activeCategoryId)
+    const countInCategory = annotations.filter(a => a.category_id === activeCategoryId).length
+    const autoLabel = activeCategory ? `${activeCategory.name} ${countInCategory + 1}` : ''
     createMutation.mutate(
-      { frame_number: frame, label: '' },
+      { frame_number: frame, label: autoLabel, category_id: activeCategoryId || undefined },
       {
         onSuccess: (ann) => pushHistory({ type: 'create', annotation: ann }),
       }
@@ -171,7 +198,8 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'annotations', label: `Liste (${annotations.length})` },
+    { id: 'annotations', label: filterCategoryId ? `Liste (${displayedAnnotations.length}/${annotations.length})` : `Liste (${annotations.length})` },
+    { id: 'categories',  label: 'Catégories' },
     { id: 'placement',   label: 'Placement auto' },
     { id: 'decalage',    label: 'Décaler tout' },
   ]
@@ -280,12 +308,31 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {activeTab === 'annotations' && (
               <>
-                <div style={{ padding: '0.3rem 0.75rem', fontSize: '0.68rem', color: 'var(--color-text-muted, #888)', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0 }}>
-                  Clic sur frame → naviguer · Double-clic sur frame ou label → modifier
+                {/* Sélecteur catégorie active (pour nouvelles annotations) */}
+                {categories.length > 0 && (
+                  <div style={{ padding: '0.3rem 0.75rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #888)', flexShrink: 0 }}>Créer dans :</span>
+                    <CategorySelector categories={categories} value={activeCategoryId} onChange={setActiveCategoryId} />
+                  </div>
+                )}
+                {/* Filtre d'affichage */}
+                <div style={{ padding: '0.3rem 0.75rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #888)', flexShrink: 0 }}>Afficher :</span>
+                  <select
+                    aria-label="Filtrer par catégorie"
+                    value={filterCategoryId}
+                    onChange={(e) => setFilterCategoryId(e.target.value)}
+                    style={{ padding: '0.25rem 0.4rem', borderRadius: '4px', border: '1px solid var(--color-surface)', backgroundColor: 'var(--color-panel)', color: 'var(--color-text)', fontSize: '0.8rem', flex: 1 }}
+                  >
+                    <option value="">Tout afficher</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                   <AnnotationList
-                    annotations={annotations}
+                    annotations={displayedAnnotations}
                     fps={effectiveFps}
                     totalFrames={effectiveTotalFrames}
                     onSeek={seek}
@@ -294,6 +341,11 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
                   />
                 </div>
               </>
+            )}
+            {activeTab === 'categories' && (
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <CategoryManager videoId={videoId} />
+              </div>
             )}
             {activeTab === 'placement' && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -315,7 +367,8 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
           currentFrame={currentFrame}
           totalFrames={effectiveTotalFrames}
           fps={effectiveFps}
-          annotations={annotations}
+          annotations={displayedAnnotations}
+          categories={categories}
           onSeek={seek}
           onMoveAnnotation={handleMoveAnnotation}
           startFrame={trimStart}
