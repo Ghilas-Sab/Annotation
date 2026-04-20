@@ -141,8 +141,24 @@ describe('AnnotationItem', () => {
 
   test('affiche le timestamp formaté', () => {
     render(<AnnotationItem {...defaultProps} />)
-    // frameToTimestamp(42, 25) = "0:01.68" ou similar — on vérifie juste la présence d'un span avec les ms
     const container = screen.getByTestId('annotation-item')
     expect(container).toBeInTheDocument()
+  })
+
+  // S6.6 — badge catégorie
+  test('shows color badge matching category color', () => {
+    const annotationWithCategory = {
+      ...mockAnnotation,
+      category: { id: 'c1', video_id: 'v1', name: 'Beat', color: '#FF5733', created_at: '' },
+    }
+    render(<AnnotationItem {...defaultProps} annotation={annotationWithCategory} />)
+    const badge = screen.getByTestId('category-badge')
+    expect(badge).toHaveStyle({ backgroundColor: '#FF5733' })
+  })
+
+  test('shows default gray badge when no category', () => {
+    render(<AnnotationItem {...defaultProps} />)
+    const badge = screen.getByTestId('category-badge')
+    expect(badge).toBeInTheDocument()
   })
 })

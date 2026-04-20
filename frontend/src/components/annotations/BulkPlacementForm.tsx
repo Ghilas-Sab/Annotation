@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { useCreateBulkAnnotations } from '../../api/annotations'
+import { useCreateBulkAnnotations, useCategories } from '../../api/annotations'
+import { CategorySelector } from './CategorySelector'
 
 interface BulkPlacementFormProps {
   videoId: string
@@ -12,8 +13,18 @@ const BulkPlacementForm: React.FC<BulkPlacementFormProps> = ({ videoId, totalFra
   const [endFrame, setEndFrame] = useState(totalFrames)
   const [count, setCount] = useState(4)
   const [prefix, setPrefix] = useState('beat')
+  const [categoryId, setCategoryId] = useState('')
 
   const bulkMutation = useCreateBulkAnnotations(videoId)
+  const { data: categories = [] } = useCategories(videoId)
+
+  // Initialiser avec la catégorie par défaut dès que les catégories sont chargées
+  React.useEffect(() => {
+    if (categories.length > 0 && !categoryId) {
+      const def = categories.find((c: { name: string; id: string }) => c.name === 'Par défaut')
+      setCategoryId(def ? def.id : categories[0].id)
+    }
+  }, [categories, categoryId])
 
   const interval = count >= 2 ? (endFrame - startFrame) / (count - 1) : 0
   const intervalSeconds = interval / fps
@@ -33,7 +44,8 @@ const BulkPlacementForm: React.FC<BulkPlacementFormProps> = ({ videoId, totalFra
         start_frame: startFrame,
         end_frame: endFrame,
         count: count,
-        prefix: prefix
+        prefix: prefix,
+        category_id: categoryId || undefined,
       })
       // Reset ou notification de succès
     } catch (err) {
@@ -80,6 +92,15 @@ const BulkPlacementForm: React.FC<BulkPlacementFormProps> = ({ videoId, totalFra
             />
           </div>
         </div>
+
+        {categories.length > 0 && (
+          <div>
+            <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>
+              Catégorie
+            </label>
+            <CategorySelector categories={categories} value={categoryId} onChange={setCategoryId} />
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>

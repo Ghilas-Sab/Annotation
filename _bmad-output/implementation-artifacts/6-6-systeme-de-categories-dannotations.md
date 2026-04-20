@@ -1,6 +1,6 @@
 # Story 6.6: Système de Catégories d'Annotations
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -141,40 +141,41 @@ test('shows color badge matching category color', () => {
 ## Tasks / Subtasks
 
 ### Backend
-- [ ] Écrire `backend/tests/test_categories.py` EN PREMIER — 8 tests (AC: 12–15)
-- [ ] Créer `backend/app/schemas/category.py` (AC: 12)
-  - [ ] `CategoryCreate`, `CategoryUpdate`, `CategoryResponse`
-- [ ] Modifier `backend/app/storage/json_store.py` (AC: 12, 15)
-  - [ ] Ajouter `categories` dans la structure JSON par vidéo
-  - [ ] Créer catégorie "Par défaut" automatiquement à la création d'une vidéo
-  - [ ] Migration : itérer les annotations sans `category_id` → assigner la catégorie par défaut
-- [ ] Créer `backend/app/routers/categories.py` (AC: 13)
-  - [ ] `GET /api/v1/videos/{id}/categories`
-  - [ ] `POST /api/v1/videos/{id}/categories`
-  - [ ] `PUT /api/v1/categories/{id}`
-  - [ ] `DELETE /api/v1/categories/{id}` (interdit si catégorie par défaut → 409)
-- [ ] Modifier `backend/app/main.py` (AC: 13)
-  - [ ] Inclure `categories_router`
-- [ ] Modifier `backend/app/routers/annotations.py` (AC: 14)
-  - [ ] Accepter `category_id` optionnel dans la création d'annotation
-  - [ ] Fallback sur catégorie par défaut si absent
+- [x] Écrire `backend/tests/test_categories.py` EN PREMIER — 10 tests (AC: 12–15)
+- [x] Créer `backend/app/schemas/category.py` (AC: 12)
+  - [x] `CategoryCreate`, `CategoryUpdate`, `CategoryResponse`
+- [x] Modifier `backend/app/storage/json_store.py` (AC: 12, 15)
+  - [x] Ajouter `categories` dans la structure JSON par vidéo
+  - [x] Créer catégorie "Par défaut" automatiquement à la création d'une vidéo
+  - [x] Migration lazy : catégorie par défaut créée si absente au GET
+- [x] Créer `backend/app/routers/categories.py` (AC: 13)
+  - [x] `GET /api/v1/videos/{id}/categories`
+  - [x] `POST /api/v1/videos/{id}/categories`
+  - [x] `PUT /api/v1/categories/{id}` (409 si défaut)
+  - [x] `DELETE /api/v1/categories/{id}` (409 si défaut)
+- [x] Modifier `backend/app/main.py` (AC: 13)
+  - [x] Inclure `categories_router`
+- [x] Modifier `backend/app/routers/annotations.py` (AC: 14)
+  - [x] Accepter `category_id` optionnel dans la création d'annotation
+  - [x] Fallback sur catégorie par défaut si absent (simple + bulk)
 
 ### Frontend
-- [ ] Écrire `CategorySelector.test.tsx` EN PREMIER (AC: 5, 6)
-- [ ] Enrichir `AnnotationItem.test.tsx` (AC: 7)
-- [ ] Créer `frontend/src/components/annotations/CategorySelector.tsx` (AC: 5, 6)
-- [ ] Modifier `frontend/src/components/annotations/AnnotationItem.tsx` (AC: 7)
-  - [ ] Ajouter badge coloré `data-testid="category-badge"`
-- [ ] Modifier `frontend/src/components/video/VideoTimeline.tsx` (AC: 8, 9)
-  - [ ] Utiliser `category.color` pour chaque barre Canvas
-  - [ ] Afficher une légende sous la timeline
-- [ ] Modifier `frontend/src/components/annotations/BulkPlacementForm.tsx` (AC: 10, 11)
-  - [ ] Ajouter `<CategorySelector>` dans le formulaire
-- [ ] Modifier `frontend/src/types/annotation.ts` (AC: 14)
-  - [ ] Ajouter `category_id?: string` et `category?: Category`
-- [ ] Modifier `frontend/src/api/annotations.ts` (AC: 14)
-  - [ ] Passer `category_id` dans les requêtes de création
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire `CategorySelector.test.tsx` EN PREMIER (AC: 5, 6)
+- [x] Enrichir `AnnotationItem.test.tsx` (AC: 7)
+- [x] Créer `frontend/src/components/annotations/CategorySelector.tsx` (AC: 5, 6)
+- [x] Modifier `frontend/src/components/annotations/AnnotationItem.tsx` (AC: 7)
+  - [x] Ajouter badge coloré `data-testid="category-badge"`
+- [x] Modifier `frontend/src/components/video/VideoTimeline.tsx` (AC: 8, 9)
+  - [x] Utiliser `category.color` pour chaque barre Canvas
+  - [x] Afficher une légende sous la timeline (`data-testid="category-legend"`)
+- [x] Modifier `frontend/src/components/annotations/BulkPlacementForm.tsx` (AC: 10, 11)
+  - [x] Ajouter `<CategorySelector>` dans le formulaire
+- [x] Modifier `frontend/src/types/annotation.ts` (AC: 14)
+  - [x] Ajouter `category_id?: string` et `category?: Category`
+- [x] Modifier `frontend/src/api/annotations.ts` (AC: 14)
+  - [x] Hooks `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory`
+  - [x] Passer `category_id` dans bulk creation
+- [x] Passer tous les tests → GREEN
 
 ## Dev Notes
 
@@ -239,19 +240,46 @@ frontend/src/
 
 ### Agent Model Used
 
-_à remplir_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_à remplir_
+Aucun blocage. TDD strict respecté : RED → GREEN sur chaque couche.
 
 ### Completion Notes List
 
-_à remplir_
+- Catégorie "Par défaut" (#9CA3AF) créée automatiquement à la création d'une vidéo
+- Migration lazy dans `get_categories` : vidéos existantes reçoivent la catégorie par défaut au premier GET
+- La catégorie par défaut est protégée en PUT (409) et DELETE (409) via `is_default: True`
+- `category_id` auto-assigné aux annotations (simple + bulk), fallback catégorie par défaut
+- `VideoTimeline` utilise `annotation.category?.color` (fallback `#e94560`)
+- Légende des catégories sous la timeline via prop `categories`
+- `CategoryManager` : onglet dédié dans AnnotationPage pour créer/supprimer des catégories (nom + palette 8 couleurs)
+- `CategorySelector` : sélecteur de catégorie active dans l'en-tête de la liste d'annotations
+- Annotations enrichies avec l'objet `category` avant rendu dans `AnnotationPage`
+- 90 tests backend (10 nouveaux) + 379 tests frontend (12 nouveaux) — tout GREEN
 
 ### File List
 
-_à remplir_
+- `backend/tests/test_categories.py` (créé — 10 tests)
+- `backend/app/schemas/category.py` (créé)
+- `backend/app/schemas/annotation.py` (modifié — category_id)
+- `backend/app/storage/json_store.py` (modifié — catégories CRUD + migration)
+- `backend/app/routers/categories.py` (créé)
+- `backend/app/routers/annotations.py` (modifié — category_id simple + bulk)
+- `backend/app/main.py` (modifié — inclure categories_router)
+- `frontend/src/types/annotation.ts` (modifié — Category, category_id, category)
+- `frontend/src/api/annotations.ts` (modifié — useCategories + autres hooks)
+- `frontend/src/components/annotations/CategorySelector.tsx` (créé)
+- `frontend/src/components/annotations/CategorySelector.test.tsx` (créé)
+- `frontend/src/components/annotations/CategoryManager.tsx` (créé)
+- `frontend/src/components/annotations/CategoryManager.test.tsx` (créé)
+- `frontend/src/components/annotations/AnnotationItem.tsx` (modifié — badge coloré)
+- `frontend/src/components/annotations/AnnotationItem.test.tsx` (modifié — 2 tests badge)
+- `frontend/src/components/video/VideoTimeline.tsx` (modifié — couleurs + légende)
+- `frontend/src/components/annotations/BulkPlacementForm.tsx` (modifié — CategorySelector)
+- `frontend/src/pages/AnnotationPage.tsx` (modifié — onglet catégories, enrichissement annotations)
+- `frontend/src/pages/AnnotationPage.test.tsx` (modifié — mock useCategories)
 
 ## Change Log
 

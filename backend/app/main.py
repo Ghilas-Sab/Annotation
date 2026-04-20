@@ -6,6 +6,7 @@ from app.routers.videos import router as videos_router
 from app.routers.annotations import router as annotations_router
 from app.routers.statistics import router as statistics_router
 from app.routers.exports import router as exports_router
+from app.routers.categories import router as categories_router
 
 app = FastAPI()
 
@@ -22,6 +23,7 @@ app.include_router(videos_router, prefix="/api/v1")
 app.include_router(annotations_router, prefix="/api/v1")
 app.include_router(statistics_router, prefix="/api/v1")
 app.include_router(exports_router, prefix="/api/v1")
+app.include_router(categories_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

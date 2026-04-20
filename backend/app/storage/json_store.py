@@ -76,11 +76,27 @@ def delete_project(project_id: str) -> bool:
     return False
 
 
+DEFAULT_CATEGORY_NAME = "Par défaut"
+DEFAULT_CATEGORY_COLOR = "#9CA3AF"
+
+
+def _make_default_category(video_id: str) -> dict:
+    return {
+        "id": str(uuid.uuid4()),
+        "video_id": video_id,
+        "name": DEFAULT_CATEGORY_NAME,
+        "color": DEFAULT_CATEGORY_COLOR,
+        "created_at": _now(),
+        "is_default": True,
+    }
+
+
 def add_video_to_project(project_id: str, video_data: dict) -> dict | None:
     """Ajoute une vidéo dans le projet. Retourne la vidéo ou None si projet absent."""
     data = _load()
     for project in data["projects"]:
         if project["id"] == project_id:
+            video_data.setdefault("categories", [_make_default_category(video_data["id"])])
             project.setdefault("videos", []).append(video_data)
             _save(data)
             return video_data
@@ -146,7 +162,7 @@ def update_annotation(annotation_id: str, **kwargs) -> dict | None:
         for video in project.get("videos", []):
             for ann in video.get("annotations", []):
                 if ann["id"] == annotation_id:
-                    ann.update({k: v for k, v in kwargs.items() if k in ("frame_number", "timestamp_ms", "label")})
+                    ann.update({k: v for k, v in kwargs.items() if k in ("frame_number", "timestamp_ms", "label", "category_id")})
                     ann["updated_at"] = _now()
                     _save(data)
                     return ann
@@ -161,6 +177,78 @@ def delete_annotation(annotation_id: str) -> bool:
             for i, ann in enumerate(annotations):
                 if ann["id"] == annotation_id:
                     del annotations[i]
+                    _save(data)
+                    return True
+    return False
+
+
+# --- Categories ---
+
+def get_categories(video_id: str) -> list[dict] | None:
+    video = get_video(video_id)
+    if video is None:
+        return None
+    categories = video.get("categories", [])
+    if not categories:
+        # Migration lazy : créer la catégorie par défaut si absente
+        default_cat = _make_default_category(video_id)
+        data = _load()
+        for project in data["projects"]:
+            for v in project.get("videos", []):
+                if v["id"] == video_id:
+                    v.setdefault("categories", []).append(default_cat)
+                    _save(data)
+                    return [default_cat]
+    return categories
+
+
+def get_default_category(video_id: str) -> dict | None:
+    cats = get_categories(video_id)
+    if cats is None:
+        return None
+    return next((c for c in cats if c.get("is_default")), None)
+
+
+def get_category(category_id: str) -> dict | None:
+    for project in get_projects():
+        for video in project.get("videos", []):
+            for cat in video.get("categories", []):
+                if cat["id"] == category_id:
+                    return cat
+    return None
+
+
+def add_category(video_id: str, category_data: dict) -> dict | None:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            if video["id"] == video_id:
+                video.setdefault("categories", []).append(category_data)
+                _save(data)
+                return category_data
+    return None
+
+
+def update_category(category_id: str, **kwargs) -> dict | None:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            for cat in video.get("categories", []):
+                if cat["id"] == category_id:
+                    cat.update({k: v for k, v in kwargs.items() if k in ("name", "color")})
+                    _save(data)
+                    return cat
+    return None
+
+
+def delete_category(category_id: str) -> bool:
+    data = _load()
+    for project in data["projects"]:
+        for video in project.get("videos", []):
+            categories = video.get("categories", [])
+            for i, cat in enumerate(categories):
+                if cat["id"] == category_id:
+                    del categories[i]
                     _save(data)
                     return True
     return False

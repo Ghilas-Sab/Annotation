@@ -8,7 +8,7 @@ import StatisticsPage from './pages/StatisticsPage'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: false,
       staleTime: 5 * 60 * 1000,
     },
   },
