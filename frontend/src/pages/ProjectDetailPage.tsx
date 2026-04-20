@@ -83,11 +83,6 @@ const ProjectDetailPage: React.FC = () => {
         <span style={{ color: 'var(--color-text)' }}>{project.name}</span>
       </nav>
 
-      <header style={{ marginBottom: '2rem' }}>
-        <h1 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem 0' }}>{project.name}</h1>
-        <p style={{ color: 'var(--color-text-muted)', margin: 0 }}>{project.description}</p>
-      </header>
-
       <div
         data-testid="detail-layout"
         className={isMobile ? 'flex-col' : undefined}
