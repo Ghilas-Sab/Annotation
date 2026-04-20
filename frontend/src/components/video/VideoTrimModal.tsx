@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import type { Video } from '../../types/project'
 import { frameToTimestamp } from '../../utils/frameUtils'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
 interface Props {
   video: Video
@@ -11,6 +13,12 @@ interface Props {
 const VideoTrimModal: React.FC<Props> = ({ video, onConfirm, onCancel }) => {
   const [start, setStart] = useState(0)
   const [end, setEnd] = useState(video.total_frames)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  const captureFrame = (): number => {
+    if (!videoRef.current) return 0
+    return Math.round(videoRef.current.currentTime * video.fps)
+  }
 
   const selectedFrames = end - start
   const selectedSeconds = (selectedFrames / video.fps).toFixed(1)
@@ -36,9 +44,34 @@ const VideoTrimModal: React.FC<Props> = ({ video, onConfirm, onCancel }) => {
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', color: 'var(--color-text, #e0e0e0)' }}>
           Annoter une vidéo
         </h2>
-        <p style={{ margin: '0 0 1.25rem', fontSize: '0.82rem', color: 'var(--color-text-muted, #888)' }}>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: 'var(--color-text-muted, #888)' }}>
           {video.original_name} — {video.total_frames} frames · {video.fps} FPS · {video.duration_seconds.toFixed(1)}s
         </p>
+
+        {/* Aperçu vidéo */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <video
+            ref={videoRef}
+            src={`${API_BASE}/videos/${video.id}/stream`}
+            controls
+            preload="metadata"
+            style={{ width: '100%', maxHeight: '160px', borderRadius: '6px', backgroundColor: '#000', display: 'block' }}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+            <button
+              onClick={() => setStart(Math.min(captureFrame(), end - 1))}
+              style={{ flex: 1, padding: '0.3rem', fontSize: '0.78rem', borderRadius: '4px', border: '1px solid var(--color-accent, #e94560)', backgroundColor: 'transparent', color: 'var(--color-accent, #e94560)', cursor: 'pointer' }}
+            >
+              ▶ Marquer comme début
+            </button>
+            <button
+              onClick={() => setEnd(Math.max(captureFrame(), start + 1))}
+              style={{ flex: 1, padding: '0.3rem', fontSize: '0.78rem', borderRadius: '4px', border: '1px solid var(--color-accent, #e94560)', backgroundColor: 'transparent', color: 'var(--color-accent, #e94560)', cursor: 'pointer' }}
+            >
+              ▶ Marquer comme fin
+            </button>
+          </div>
+        </div>
 
         {/* Mini barre de visualisation */}
         <div style={{ position: 'relative', height: 28, borderRadius: 6, backgroundColor: '#0a0a18', marginBottom: '1rem', overflow: 'hidden' }}>

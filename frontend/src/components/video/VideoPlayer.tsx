@@ -12,6 +12,8 @@ interface VideoPlayerProps {
   duration: number
   width: number
   height: number
+  startFrame?: number
+  endFrame?: number
 }
 
 export interface VideoPlayerHandle {
@@ -23,7 +25,7 @@ export interface VideoPlayerHandle {
 }
 
 const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
-  ({ videoId, fps, totalFrames, duration, width, height }, ref) => {
+  ({ videoId, fps, totalFrames, duration, width, height, startFrame, endFrame }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const setIsPlaying = useVideoStore(s => s.setIsPlaying)
     const setVideoMetadata = useVideoStore(s => s.setVideoMetadata)
@@ -38,6 +40,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     useEffect(() => {
       if (videoRef.current) videoRef.current.playbackRate = playbackRate
     }, [playbackRate])
+
+    // Arrêter la lecture quand on atteint endFrame
+    useEffect(() => {
+      if (endFrame !== undefined && currentFrame >= endFrame) {
+        videoRef.current?.pause()
+        if (videoRef.current) seekToFrame(videoRef.current, endFrame, fps)
+      }
+    }, [currentFrame, endFrame, fps])
 
     useRequestVideoFrame(videoRef, fps)
 
@@ -60,7 +70,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     }
 
     const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const frame = Number(e.target.value)
+      const raw = Number(e.target.value)
+      const frame = Math.max(startFrame ?? 0, Math.min(endFrame ?? totalFrames, raw))
       if (videoRef.current) seekToFrame(videoRef.current, frame, fps)
     }
 
@@ -157,9 +168,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         }}>
           <input
             type="range"
-            min={0}
-            max={totalFrames || 1}
-            value={currentFrame}
+            min={startFrame ?? 0}
+            max={(endFrame ?? totalFrames) || 1}
+            value={Math.max(startFrame ?? 0, Math.min(endFrame ?? totalFrames ?? 0, currentFrame))}
             onChange={handleScrub}
             style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--color-accent, #e94560)' }}
             aria-label="Position de lecture"

@@ -34,6 +34,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const [searchParams] = useSearchParams()
   const trimStart = searchParams.get('start') ? Number(searchParams.get('start')) : 0
   const trimEnd = searchParams.get('end') ? Number(searchParams.get('end')) : undefined
+
   const videoRef = useRef<import('../components/video/VideoPlayer').VideoPlayerHandle>(null)
   const [activeTab, setActiveTab] = useState<Tab>('annotations')
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -67,10 +68,19 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     .filter(ann => { if (seenIds.has(ann.id)) return false; seenIds.add(ann.id); return true })
     .map(ann => ({ ...ann, category: categories.find(c => c.id === ann.category_id) }))
 
-  // Annotations filtrées pour l'affichage dans la liste
-  const displayedAnnotations = filterCategoryId
-    ? annotations.filter(ann => ann.category_id === filterCategoryId)
+  // Annotations dans la plage sélectionnée (trimStart → effectiveTrimEnd)
+  // Note: effectiveTrimEnd n'est pas encore calculé ici, on l'applique après
+  const annotationsInRange = (trimEnd !== undefined || trimStart > 0)
+    ? annotations.filter(ann =>
+        ann.frame_number >= trimStart &&
+        ann.frame_number <= (trimEnd ?? Infinity)
+      )
     : annotations
+
+  // Filtre supplémentaire par catégorie
+  const displayedAnnotations = filterCategoryId
+    ? annotationsInRange.filter(ann => ann.category_id === filterCategoryId)
+    : annotationsInRange
 
   const createMutation = useCreateAnnotation(videoId)
   const updateMutation = useUpdateAnnotation(videoId)
@@ -80,6 +90,14 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const effectiveFps = fps || video?.fps || 25
   const effectiveTotalFrames = totalFrames || video?.total_frames || 0
   const effectiveTrimEnd = trimEnd ?? effectiveTotalFrames
+
+  // Auto-seek à trimStart dès que la vidéo est prête (fps > 0)
+  useEffect(() => {
+    if (fps > 0 && trimStart > 0) {
+      videoRef.current?.seekToFrame(trimStart)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fps])
 
   // Refs stables pour les closures (évite les dépendances dans useEffect)
   const audioEnabledRef = useRef(audioEnabled)
@@ -232,6 +250,12 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             </span>
           )}
         </span>
+        <span
+          data-testid="current-frame-display"
+          style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--color-text-muted, #888)' }}
+        >
+          {trimStart || currentFrame}
+        </span>
         <ExportButtons videoId={videoId} annotationCount={annotations.length} />
         <button
           onClick={() => setShowShortcuts(true)}
@@ -255,6 +279,8 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             duration={video.duration_seconds}
             width={video.width}
             height={video.height}
+            startFrame={trimStart || undefined}
+            endFrame={trimEnd}
           />
           {/* Panneau contrôles (keyboard + boutons tablette) */}
           <div style={{ flexShrink: 0, padding: '0.5rem 0.75rem', borderTop: '1px solid var(--color-surface, #2a2a3e)', backgroundColor: 'var(--color-panel, #1a1a2e)' }}>

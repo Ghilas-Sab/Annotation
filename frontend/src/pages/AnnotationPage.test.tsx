@@ -1,4 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -93,5 +94,15 @@ describe('AnnotationPage', () => {
     const items = screen.getAllByTestId('annotation-item')
     expect(items[0]).toHaveTextContent('beat 1')
     expect(items[1]).toHaveTextContent('beat 2')
+  })
+
+  test('annotation page respects range: player starts at startFrame', () => {
+    const rangeWrapper = ({ children }: { children: React.ReactNode }) => (
+      <MemoryRouter initialEntries={['/annotation/v1?start=50&end=200']}>
+        <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+      </MemoryRouter>
+    )
+    render(<AnnotationPage videoId="v1" />, { wrapper: rangeWrapper })
+    expect(screen.getByTestId('current-frame-display')).toHaveTextContent('50')
   })
 })

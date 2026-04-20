@@ -20,6 +20,12 @@ interface VideoState {
   // Vitesse de lecture (S4.4)
   playbackRate: number
   setPlaybackRate: (rate: number) => void
+
+  // Plage d'annotation (S6.8)
+  startFrame: number | null
+  endFrame: number | null
+  setStartFrame: (frame: number | null) => void
+  setEndFrame: (frame: number | null) => void
 }
 
 export const useVideoStore = create<VideoState>((set) => ({
@@ -38,4 +44,9 @@ export const useVideoStore = create<VideoState>((set) => ({
 
   playbackRate: 1,
   setPlaybackRate: (rate) => set({ playbackRate: rate }),
+
+  startFrame: null,
+  endFrame: null,
+  setStartFrame: (frame) => set({ startFrame: frame }),
+  setEndFrame: (frame) => set({ endFrame: frame }),
 }))
