@@ -101,6 +101,22 @@ export function useVideo(videoId: string) {
   })
 }
 
+export function useRenameVideo(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ videoId, originalName }: { videoId: string; originalName: string }) => {
+      const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ original_name: originalName }),
+      })
+      if (!res.ok) throw new Error('Erreur renommage vidéo')
+      return res.json() as Promise<Video>
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project', projectId] }),
+  })
+}
+
 export function useDeleteVideo(projectId: string) {
   const qc = useQueryClient()
   return useMutation({

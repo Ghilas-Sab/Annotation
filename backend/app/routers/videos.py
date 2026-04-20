@@ -7,11 +7,23 @@ from pathlib import Path
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, Response
+from pydantic import BaseModel, field_validator
 
 from app.storage import json_store
 from app.services.video_service import get_video_metadata
 
 router = APIRouter(tags=["videos"])
+
+
+class VideoRenameBody(BaseModel):
+    original_name: str
+
+    @field_validator("original_name")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("original_name ne peut pas être vide")
+        return v
 
 
 def _videos_dir() -> str:
@@ -126,6 +138,15 @@ async def stream_video(video_id: str, request: Request):
             "Content-Length": str(len(payload)),
         }
         return Response(content=payload, status_code=200, media_type=mime_type, headers=headers)
+
+
+@router.patch("/videos/{video_id}")
+async def rename_video(video_id: str, body: VideoRenameBody):
+    video = json_store.get_video(video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Vidéo introuvable")
+    updated = json_store.update_video(video_id, original_name=body.original_name)
+    return updated
 
 
 @router.delete("/videos/{video_id}", status_code=204)

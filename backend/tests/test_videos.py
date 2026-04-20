@@ -97,3 +97,31 @@ async def test_upload_video_without_display_name_uses_filename(client, project_i
         )
     assert res.status_code == 201
     assert res.json()["original_name"] == "my_file.mp4"
+
+
+@pytest.mark.asyncio
+async def test_rename_video(client, uploaded_video_id):
+    res = await client.patch(
+        f"/api/v1/videos/{uploaded_video_id}",
+        json={"original_name": "Nouveau nom"},
+    )
+    assert res.status_code == 200
+    assert res.json()["original_name"] == "Nouveau nom"
+
+
+@pytest.mark.asyncio
+async def test_rename_video_not_found(client):
+    res = await client.patch(
+        "/api/v1/videos/00000000-0000-0000-0000-000000000000",
+        json={"original_name": "Nouveau nom"},
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_rename_video_empty_name(client, uploaded_video_id):
+    res = await client.patch(
+        f"/api/v1/videos/{uploaded_video_id}",
+        json={"original_name": ""},
+    )
+    assert res.status_code == 422

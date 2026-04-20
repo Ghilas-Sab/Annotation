@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import type { Video } from '../../types/project'
 import { useVideoStatistics } from '../../api/statistics'
+import { useRenameVideo } from '../../api/projects'
 
 interface VideoCardProps {
   video: Video
@@ -11,10 +12,40 @@ interface VideoCardProps {
 
 const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onStats }) => {
   const annotationCount = video.annotations?.length || 0
-  
-  const { data: stats } = useVideoStatistics(video.id, { 
-    enabled: annotationCount >= 2 
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState(video.original_name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const { data: stats } = useVideoStatistics(video.id, {
+    enabled: annotationCount >= 2,
   })
+
+  const renameMutation = useRenameVideo(video.project_id)
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  const startEdit = () => {
+    setEditValue(video.original_name)
+    setEditing(true)
+  }
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim()
+    if (!trimmed) {
+      setEditValue(video.original_name)
+      setEditing(false)
+      return
+    }
+    renameMutation.mutate({ videoId: video.id, originalName: trimmed })
+    setEditing(false)
+  }
+
+  const cancelEdit = () => {
+    setEditValue(video.original_name)
+    setEditing(false)
+  }
 
   return (
     <div 
@@ -30,7 +61,38 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
       }}
     >
       <div>
-        <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--color-text)' }}>{video.original_name}</h3>
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            aria-label="Nom de la vidéo"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit()
+              if (e.key === 'Escape') cancelEdit()
+            }}
+            style={{
+              margin: '0 0 0.25rem 0',
+              fontSize: '1rem',
+              color: 'var(--color-text)',
+              background: 'var(--color-panel)',
+              border: '1px solid var(--color-accent)',
+              borderRadius: '4px',
+              padding: '0.1rem 0.4rem',
+              width: '100%',
+            }}
+          />
+        ) : (
+          <h3
+            onClick={startEdit}
+            title="Cliquer pour renommer"
+            style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--color-text)', cursor: 'pointer' }}
+          >
+            {video.original_name}
+          </h3>
+        )}
         <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
           <span>{Math.round(video.duration_seconds)}s</span>
           <span>{video.fps} FPS</span>
