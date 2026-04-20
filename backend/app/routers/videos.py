@@ -14,6 +14,31 @@ from app.services.video_service import get_video_metadata
 
 router = APIRouter(tags=["videos"])
 
+ALLOWED_VIDEO_EXTENSIONS = {
+    '.mp4', '.mov', '.avi', '.mkv', '.webm',
+    '.flv', '.wmv', '.m4v', '.ts', '.mts', '.3gp',
+}
+
+# Signatures (magic bytes) de formats connus non-vidéo → rejet immédiat
+_NON_VIDEO_SIGNATURES: list[bytes] = [
+    b'%PDF',              # PDF
+    b'\x89PNG',           # PNG
+    b'\xff\xd8\xff',      # JPEG
+    b'GIF8',              # GIF
+    b'PK\x03\x04',        # ZIP / DOCX / XLSX
+    b'\x1f\x8b',          # GZIP / TAR.GZ
+    b'BM',                # BMP
+    b'\x49\x49\x2a\x00',  # TIFF (little-endian)
+    b'\x4d\x4d\x00\x2a',  # TIFF (big-endian)
+    b'\x7fELF',           # ELF exécutable
+    b'MZ',                # PE Windows exécutable
+    b'\x25\x21',          # PostScript
+]
+
+
+def _is_non_video_bytes(header: bytes) -> bool:
+    return any(header.startswith(sig) for sig in _NON_VIDEO_SIGNATURES)
+
 
 class VideoRenameBody(BaseModel):
     original_name: str
@@ -41,6 +66,21 @@ async def upload_video(
         raise HTTPException(status_code=404, detail="Projet introuvable")
 
     ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format non supporté '{ext}'. Formats acceptés : {', '.join(sorted(ALLOWED_VIDEO_EXTENSIONS))}",
+        )
+
+    file.file.seek(0)
+    header = file.file.read(16)
+    file.file.seek(0)
+    if _is_non_video_bytes(header):
+        raise HTTPException(
+            status_code=400,
+            detail="Le fichier ne semble pas être une vidéo valide (contenu incompatible).",
+        )
+
     filename = f"{uuid.uuid4()}{ext}"
     videos_dir = _videos_dir()
     filepath = os.path.join(videos_dir, filename)

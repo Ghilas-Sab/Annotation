@@ -1,6 +1,6 @@
 # Story 6.1: Refonte Layout Page Détail Projet
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -60,20 +60,20 @@ test('existing VideoUpload tests pass without modification', () => {
 
 ## Tasks / Subtasks
 
-- [ ] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–6)
-  - [ ] Créer/enrichir `frontend/src/pages/ProjectDetailPage.test.tsx`
-  - [ ] Tester : présence des deux colonnes + ordre DOM
-  - [ ] Tester : layout responsive mobile (<768px)
-  - [ ] Tester : overflow-y sur la liste vidéos
-  - [ ] Vérifier que les tests existants VideoUpload et ProjectCard ne sont pas cassés
-- [ ] Modifier `frontend/src/pages/ProjectDetailPage.tsx` (ou équivalent) (AC: 1, 2, 6)
-  - [ ] Wrapper layout flex/grid deux colonnes avec `data-testid="detail-layout"`
-  - [ ] Colonne gauche ~35% avec `data-testid="dropzone-column"`
-  - [ ] Colonne droite ~65% avec `data-testid="video-list-column"` + `overflow-y: auto`
-  - [ ] Media query ou classe Tailwind responsive pour mobile
-- [ ] Ajouter `data-testid` dans `VideoUpload.tsx` si absent (AC: 6)
-- [ ] Vérifier visuellement avec le devserver que le layout est correct
-- [ ] Passer les tests → GREEN
+- [x] Écrire les tests EN PREMIER — RED confirmé avant tout code (AC: 1–6)
+  - [x] Créer/enrichir `frontend/src/pages/ProjectDetailPage.test.tsx`
+  - [x] Tester : présence des deux colonnes + ordre DOM
+  - [x] Tester : layout responsive mobile (<768px)
+  - [x] Tester : overflow-y sur la liste vidéos
+  - [x] Vérifier que les tests existants VideoUpload et ProjectCard ne sont pas cassés
+- [x] Modifier `frontend/src/pages/ProjectDetailPage.tsx` (ou équivalent) (AC: 1, 2, 6)
+  - [x] Wrapper layout flex/grid deux colonnes avec `data-testid="detail-layout"`
+  - [x] Colonne gauche ~35% avec `data-testid="dropzone-column"`
+  - [x] Colonne droite ~65% avec `data-testid="video-list-column"` + `overflow-y: auto`
+  - [x] Media query ou classe Tailwind responsive pour mobile
+- [x] Ajouter `data-testid` dans `VideoUpload.tsx` si absent (AC: 6)
+- [x] Vérifier visuellement avec le devserver que le layout est correct
+- [x] Passer les tests → GREEN
 
 ## Dev Notes
 
@@ -110,19 +110,25 @@ frontend/src/
 
 ### Agent Model Used
 
-_à remplir_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_à remplir_
+Aucun bug rencontré.
 
 ### Completion Notes List
 
-_à remplir_
+- Layout deux colonnes implémenté avec flexbox inline styles (35% / 65%)
+- Hook `useIsMobile` lit `window.innerWidth` au montage + écoute resize — permet aux tests de mocker innerWidth avant le rendu
+- Classe CSS `flex-col` appliquée sur le container `detail-layout` quand mobile
+- `overflowY: auto` + `maxHeight: 80vh` sur la colonne vidéos
+- `data-testid="dropzone"` déjà présent dans `VideoUpload.tsx` — aucune modification nécessaire
+- 367/367 tests frontend passent (3 nouveaux + 0 régression)
 
 ### File List
 
-_à remplir_
+- `frontend/src/pages/ProjectDetailPage.tsx` — layout refonte
+- `frontend/src/pages/ProjectDetailPage.test.tsx` — 3 nouveaux tests layout
 
 ## Change Log
 

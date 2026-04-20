@@ -93,7 +93,7 @@ const VideoUpload: React.FC<VideoUploadProps> = ({ projectId, onUpload }) => {
           }
         </p>
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-          Tous formats vidéo acceptés
+          MP4, MOV, AVI, MKV, WebM, FLV, WMV acceptés
         </p>
       </div>
 
