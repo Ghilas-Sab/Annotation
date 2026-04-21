@@ -110,9 +110,20 @@ const ProjectDetailPage: React.FC = () => {
             maxHeight: isMobile ? undefined : '80vh',
           }}
         >
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--color-text)' }}>
-            Vidéos du projet ({project.videos?.length || 0})
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--color-text)' }}>
+              Vidéos du projet ({project.videos?.length || 0})
+            </h2>
+            {(project.videos?.length ?? 0) > 0 && (
+              <button
+                onClick={() => navigate(`/export/${projectId}`)}
+                className="btn-secondary"
+                style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
+              >
+                ⬇ Exporter le projet
+              </button>
+            )}
+          </div>
 
           {project.videos && project.videos.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

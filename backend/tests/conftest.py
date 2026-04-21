@@ -73,3 +73,41 @@ async def video_id_with_annotations(client, video_id):
             json={"frame_number": frame, "label": f"beat_{frame}"}
         )
     return video_id
+
+
+@pytest.fixture
+async def project_with_two_videos(client, tmp_video_file, videos_dir):
+    """Projet avec deux vidéos, retourne (project_id, [vid1_id, vid2_id])."""
+    res = await client.post("/api/v1/projects", json={"name": "Projet Export Test"})
+    assert res.status_code == 201
+    proj_id = res.json()["id"]
+    ids = []
+    for i in range(2):
+        with open(tmp_video_file, "rb") as f:
+            res = await client.post(
+                f"/api/v1/projects/{proj_id}/videos",
+                files={"file": (f"video_{i}.mp4", f, "video/mp4")}
+            )
+        assert res.status_code == 201
+        ids.append(res.json()["id"])
+    return proj_id, ids
+
+
+@pytest.fixture
+async def project_with_two_annotated_videos(client, project_with_two_videos):
+    """Projet avec deux vidéos annotées (3 annotations chacune), retourne le project_id."""
+    proj_id, ids = project_with_two_videos
+    for vid_id in ids:
+        for frame in [10, 25, 40]:
+            await client.post(
+                f"/api/v1/videos/{vid_id}/annotations",
+                json={"frame_number": frame, "label": f"beat_{frame}"}
+            )
+    return proj_id
+
+
+@pytest.fixture
+async def video_ids(project_with_two_videos):
+    """Liste des IDs des deux vidéos du projet projet_with_two_videos."""
+    _, ids = project_with_two_videos
+    return ids
