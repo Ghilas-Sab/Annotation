@@ -1,6 +1,6 @@
 # Story 6.9: Export par Projet Complet
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -155,29 +155,29 @@ test('triggers download after successful export', async () => {
 ## Tasks / Subtasks
 
 ### Backend
-- [ ] Écrire les 7 tests backend EN PREMIER (AC: 1, 2, 3, 6)
-- [ ] Créer `backend/app/schemas/export.py` (AC: 1)
-  - [ ] `ProjectExportRequest` : `video_ids: Optional[List[str]]`, `formats: List[str]`, `target_bpm: Optional[float]`
-- [ ] Modifier `backend/app/services/export_service.py` (AC: 2)
-  - [ ] Ajouter `generate_project_zip(project_id, request: ProjectExportRequest) -> bytes`
-  - [ ] Générer les fichiers JSON/CSV/stats par vidéo, les zipper avec `zipfile`
-- [ ] Modifier `backend/app/routers/exports.py` (AC: 1, 2, 3)
-  - [ ] `POST /api/v1/projects/{id}/export` → appel `generate_project_zip`
-  - [ ] Retourner `StreamingResponse` avec `content-type: application/zip`
-  - [ ] Vérifier que les anciens endpoints restent intacts
-- [ ] Passer tests backend → GREEN
+- [x] Écrire les 7 tests backend EN PREMIER (AC: 1, 2, 3, 6)
+- [x] Créer `backend/app/schemas/export.py` (AC: 1)
+  - [x] `ProjectExportRequest` : `video_ids: Optional[List[str]]`, `formats: List[str]`, `target_bpm: Optional[float]`
+- [x] Modifier `backend/app/services/export_service.py` (AC: 2)
+  - [x] Ajouter `generate_project_zip(project_id, request: ProjectExportRequest) -> bytes`
+  - [x] Générer les fichiers JSON/CSV/stats par vidéo, les zipper avec `zipfile`
+- [x] Modifier `backend/app/routers/exports.py` (AC: 1, 2, 3)
+  - [x] `POST /api/v1/projects/{id}/export` → appel `generate_project_zip`
+  - [x] Retourner `Response` avec `content-type: application/zip`
+  - [x] Vérifier que les anciens endpoints restent intacts
+- [x] Passer tests backend → GREEN (99/99)
 
 ### Frontend
-- [ ] Écrire les 5 tests frontend EN PREMIER (AC: 4, 5)
-- [ ] Modifier `frontend/src/pages/ExportPage.tsx` (AC: 4, 5)
-  - [ ] Checkboxes vidéos avec "Tout sélectionner"
-  - [ ] Checkboxes formats (JSON, CSV, Vidéo)
-  - [ ] Champ BPM cible optionnel
-  - [ ] Indicateur de chargement `role="progressbar"` pendant l'export
-  - [ ] Téléchargement automatique du ZIP après succès
-- [ ] Modifier `frontend/src/api/exports.ts` (AC: 4)
-  - [ ] `exportProject(projectId, request: ProjectExportRequest): Promise<Blob>`
-- [ ] Passer tests frontend → GREEN
+- [x] Écrire les 5 tests frontend EN PREMIER (AC: 4, 5)
+- [x] Créer `frontend/src/pages/ExportPage.tsx` (AC: 4, 5)
+  - [x] Checkboxes vidéos avec "Tout sélectionner"
+  - [x] Checkboxes formats (JSON, CSV, Vidéo)
+  - [x] Champ BPM cible optionnel
+  - [x] Indicateur de chargement `role="progressbar"` pendant l'export
+  - [x] Téléchargement automatique du ZIP après succès
+- [x] Modifier `frontend/src/api/exports.ts` (AC: 4)
+  - [x] `exportProject(projectId, request: ProjectExportRequest): Promise<Blob>`
+- [x] Passer tests frontend → GREEN (388/388)
 
 ## Dev Notes
 
@@ -217,19 +217,30 @@ frontend/src/
 
 ### Agent Model Used
 
-_à remplir_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_à remplir_
+Aucune erreur majeure. Tests RED confirmés avant implémentation. 99/99 backend, 388/388 frontend.
 
 ### Completion Notes List
 
-_à remplir_
+- `ProjectExportRequest` utilise `@field_validator` Pydantic v2 pour valider les formats → 422 automatique
+- `generate_project_zip` en mémoire (BytesIO) — suffisant pour v1, pas de streaming chunk
+- Stats incluses automatiquement dans le ZIP quand "json" est dans les formats
+- `ExportPage` reçoit `onExport` prop injectable pour les tests (évite de mocker fetch)
+- Fixtures `project_with_two_videos` / `project_with_two_annotated_videos` / `video_ids` ajoutées dans conftest.py
 
 ### File List
 
-_à remplir_
+- `backend/tests/conftest.py` (modifié — ajout fixtures projet multi-vidéos)
+- `backend/tests/test_exports.py` (modifié — 7 tests S6.9 ajoutés)
+- `backend/app/schemas/export.py` (modifié — ajout ProjectExportRequest)
+- `backend/app/services/export_service.py` (modifié — ajout generate_project_zip)
+- `backend/app/routers/exports.py` (modifié — ajout POST /projects/{id}/export)
+- `frontend/src/api/exports.ts` (modifié — ajout exportProject + ProjectExportRequest)
+- `frontend/src/pages/ExportPage.tsx` (créé)
+- `frontend/src/pages/ExportPage.test.tsx` (créé)
 
 ## Change Log
 

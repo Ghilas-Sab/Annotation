@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Literal
+from pydantic import BaseModel, field_validator
+from typing import Literal, List, Optional, Dict
 
 
 class ExportAnnotation(BaseModel):
@@ -26,3 +26,20 @@ class BundleExportRequest(BaseModel):
     target_bpm: float
     clip_only: bool = False
     format: Literal["json", "csv"] = "json"
+
+
+_ALLOWED_FORMATS = {"json", "csv", "video"}
+
+
+class ProjectExportRequest(BaseModel):
+    video_ids: Optional[List[str]] = None
+    formats: List[str]
+    video_bpm: Optional[Dict[str, float]] = None
+
+    @field_validator("formats")
+    @classmethod
+    def validate_formats(cls, v: List[str]) -> List[str]:
+        invalid = [f for f in v if f not in _ALLOWED_FORMATS]
+        if invalid:
+            raise ValueError(f"Formats invalides : {invalid}. Valeurs acceptées : {_ALLOWED_FORMATS}")
+        return v

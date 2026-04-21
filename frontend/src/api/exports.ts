@@ -29,6 +29,45 @@ export interface BundleExportParams {
   format: 'json' | 'csv'
 }
 
+export interface ProjectExportRequest {
+  video_ids: string[] | null
+  formats: string[]
+  video_bpm?: Record<string, number>
+}
+
+export async function exportProject(
+  projectId: string,
+  request: ProjectExportRequest,
+): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { detail?: string }).detail ?? `Export failed: ${res.status}`)
+  }
+  return res.blob()
+}
+
+export async function createExportJob(
+  projectId: string,
+  request: ProjectExportRequest,
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/exports/jobs?project_id=${projectId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { detail?: string }).detail ?? `Job creation failed: ${res.status}`)
+  }
+  const data = await res.json()
+  return data.job_id as string
+}
+
 export async function downloadExportBundle(
   videoId: string,
   params: BundleExportParams,

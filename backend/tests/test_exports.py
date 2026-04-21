@@ -175,3 +175,147 @@ async def test_export_bundle_unknown_video(client):
         json={"target_bpm": 120.0, "clip_only": False, "format": "json"}
     )
     assert res.status_code == 404
+
+
+# ── Tests S6.10 : Algorithme compute_segment_speeds ─────────────────────────
+
+def test_compute_segment_speeds_basic():
+    """Vérifie le calcul des facteurs de vitesse par segment."""
+    from app.services.export_service import compute_segment_speeds
+    annotations = [
+        {"frame_number": 25,  "timestamp_ms": 1000.0},
+        {"frame_number": 62,  "timestamp_ms": 2480.0},
+        {"frame_number": 100, "timestamp_ms": 4000.0},
+    ]
+    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
+    assert len(speeds) == 2
+    assert abs(speeds[0] - 1.48) < 0.01
+    assert abs(speeds[1] - 1.52) < 0.01
+
+
+def test_compute_segment_speeds_acceleration():
+    """Segments plus courts que l'intervalle cible → facteur < 1 (ralentissement vidéo)."""
+    from app.services.export_service import compute_segment_speeds
+    annotations = [
+        {"frame_number": 25, "timestamp_ms": 1000.0},
+        {"frame_number": 37, "timestamp_ms": 1480.0},
+    ]
+    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
+    assert abs(speeds[0] - 0.48) < 0.01
+
+
+def test_compute_segment_speeds_single_annotation_returns_empty():
+    """Avec 0 ou 1 annotation, impossible de calculer des segments."""
+    from app.services.export_service import compute_segment_speeds
+    assert compute_segment_speeds([], fps=25.0, target_bpm=120.0) == []
+    assert compute_segment_speeds(
+        [{"frame_number": 25, "timestamp_ms": 1000.0}],
+        fps=25.0, target_bpm=120.0
+    ) == []
+
+
+def test_compute_segment_speeds_exact_bpm():
+    """Annotations exactement au BPM cible → speed = 1.0."""
+    from app.services.export_service import compute_segment_speeds
+    annotations = [
+        {"frame_number": 0,  "timestamp_ms": 0.0},
+        {"frame_number": 25, "timestamp_ms": 1000.0},
+        {"frame_number": 50, "timestamp_ms": 2000.0},
+    ]
+    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
+    assert all(abs(s - 1.0) < 0.001 for s in speeds)
+
+
+def test_compute_segment_speeds_high_bpm():
+    """BPM cible élevé → facteur > 1 si annotations lentes."""
+    from app.services.export_service import compute_segment_speeds
+    annotations = [
+        {"frame_number": 0,  "timestamp_ms": 0.0},
+        {"frame_number": 50, "timestamp_ms": 2000.0},
+    ]
+    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=120.0)
+    assert abs(speeds[0] - 4.0) < 0.01
+
+
+# ── Tests S6.9 : Export par projet complet ──────────────────────────────────
+
+async def test_export_project_zip_contains_expected_files(
+    client, project_with_two_annotated_videos
+):
+    import zipfile, io as _io
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": None, "formats": ["json", "csv"]}
+    )
+    assert resp.status_code == 200
+    assert "zip" in resp.headers.get("content-type", "")
+    z = zipfile.ZipFile(_io.BytesIO(resp.content))
+    names = z.namelist()
+    assert any(n.endswith('_annotations.json') for n in names)
+    assert any(n.endswith('_annotations.csv') for n in names)
+
+
+async def test_export_project_partial_selection(
+    client, project_with_two_annotated_videos, video_ids
+):
+    import zipfile, io as _io
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": [video_ids[0]], "formats": ["json"]}
+    )
+    assert resp.status_code == 200
+    z = zipfile.ZipFile(_io.BytesIO(resp.content))
+    json_files = [n for n in z.namelist() if n.endswith('.json') and 'statistics' not in n]
+    assert len(json_files) == 1
+
+
+async def test_export_project_includes_statistics(
+    client, project_with_two_annotated_videos
+):
+    import zipfile, io as _io
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": None, "formats": ["json"]}
+    )
+    assert resp.status_code == 200
+    z = zipfile.ZipFile(_io.BytesIO(resp.content))
+    assert any(n.endswith('_statistics.json') for n in z.namelist())
+
+
+async def test_export_project_zip_is_valid(client, project_with_two_annotated_videos):
+    import zipfile, io as _io
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": None, "formats": ["json"]}
+    )
+    assert resp.status_code == 200
+    assert zipfile.is_zipfile(_io.BytesIO(resp.content))
+
+
+async def test_export_project_all_formats(client, project_with_two_annotated_videos):
+    import zipfile, io as _io
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": None, "formats": ["json", "csv"]}
+    )
+    assert resp.status_code == 200
+    z = zipfile.ZipFile(_io.BytesIO(resp.content))
+    names = z.namelist()
+    assert any(n.endswith('.json') and 'statistics' not in n for n in names)
+    assert any(n.endswith('.csv') for n in names)
+
+
+async def test_legacy_video_export_endpoints_still_work(client, video_id_with_annotations):
+    """Rétrocompatibilité : les anciens endpoints doivent rester fonctionnels."""
+    resp = await client.get(f"/api/v1/videos/{video_id_with_annotations}/export/json")
+    assert resp.status_code == 200
+    resp2 = await client.get(f"/api/v1/videos/{video_id_with_annotations}/export/csv")
+    assert resp2.status_code == 200
+
+
+async def test_export_project_400_on_invalid_format(client, project_with_two_annotated_videos):
+    resp = await client.post(
+        f"/api/v1/projects/{project_with_two_annotated_videos}/export",
+        json={"video_ids": None, "formats": ["invalid_format"]}
+    )
+    assert resp.status_code == 422

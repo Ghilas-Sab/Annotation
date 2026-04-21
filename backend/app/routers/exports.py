@@ -1,16 +1,108 @@
 import io
 import json
 import os
+import tempfile
 import zipfile
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
-from app.storage.json_store import get_video
-from app.services.export_service import build_json_export, build_csv_export, build_statistics_csv
+from app.storage.json_store import get_video, get_project
+from app.services.export_service import build_json_export, build_csv_export, build_statistics_csv, generate_project_zip
 from app.services.video_service import extract_clip, adjust_video_speed
 from app.services.stats_service import compute_bpm_metrics
-from app.schemas.export import BundleExportRequest
+from app.schemas.export import BundleExportRequest, ProjectExportRequest
+from app.services.job_manager import job_manager
+from app.config import settings
+from pathlib import Path
 
 router = APIRouter()
+
+
+@router.post("/projects/{project_id}/export")
+async def export_project(project_id: str, body: ProjectExportRequest):
+    """Export synchrone (rétrocompatibilité — préférer /exports/jobs pour les gros projets)."""
+    project = get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    zip_bytes = generate_project_zip(project_id, body.video_ids, body.formats, body.video_bpm)
+    if zip_bytes is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="export_{project_id}.zip"'},
+    )
+
+
+# ── Export en arrière-plan ────────────────────────────────────────────────────
+
+@router.post("/exports/jobs", status_code=202)
+async def create_export_job(project_id: str, body: ProjectExportRequest):
+    """Crée un job d'export en arrière-plan. Retourne {job_id} immédiatement."""
+    project = get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    label = project.get("name", project_id)
+    job = job_manager.create_job(label=f"Export — {label}")
+
+    Path(settings.TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    result_path = os.path.join(settings.TEMP_DIR, f"export_{job.id}.zip")
+
+    def _run() -> str:
+        def _progress(pct: int) -> None:
+            job_manager.update(job.id, progress=pct)
+
+        generate_project_zip(
+            project_id, body.video_ids, body.formats, body.video_bpm,
+            output_path=result_path, progress_cb=_progress,
+            cancel_event=job.cancel_event,
+        )
+        return result_path
+
+    job_manager.launch(job, _run)
+    return {"job_id": job.id}
+
+
+@router.get("/exports/jobs/{job_id}")
+async def get_export_job(job_id: str):
+    """Retourne l'état du job (polling côté client)."""
+    job = job_manager.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.to_dict()
+
+
+@router.delete("/exports/jobs/{job_id}", status_code=200)
+async def cancel_export_job(job_id: str):
+    """Annule un job d'export en cours."""
+    job = job_manager.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    cancelled = job_manager.cancel(job_id)
+    if not cancelled:
+        raise HTTPException(status_code=409, detail=f"Job cannot be cancelled (status={job.status})")
+    return {"job_id": job_id, "status": "cancelled"}
+
+
+@router.get("/exports/jobs/{job_id}/download")
+async def download_export_job(job_id: str, background_tasks: BackgroundTasks):
+    """Télécharge le ZIP du job terminé."""
+    job = job_manager.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done":
+        raise HTTPException(status_code=409, detail=f"Job not done (status={job.status})")
+    if not job.result_path or not os.path.exists(job.result_path):
+        raise HTTPException(status_code=410, detail="Result file no longer available")
+
+    background_tasks.add_task(os.remove, job.result_path)
+    return FileResponse(
+        path=job.result_path,
+        media_type="application/zip",
+        filename=f"export_{job_id}.zip",
+    )
 
 
 @router.get("/videos/{video_id}/export/json")
