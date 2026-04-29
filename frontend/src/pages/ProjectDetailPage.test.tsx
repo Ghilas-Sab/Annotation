@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -115,7 +116,7 @@ describe('ProjectDetailPage', () => {
     expect(videoList).toHaveStyle({ overflowY: 'auto' })
   })
 
-  it('shows saved adapted preview as an embedded project video section', async () => {
+  it('shows saved adapted preview behind a local toggle in project video card', async () => {
     server.use(http.get('*/api/v1/projects/1', () =>
       HttpResponse.json(mockProject({
         videos: [
@@ -140,6 +141,9 @@ describe('ProjectDetailPage', () => {
 
     renderWithProviders('1')
 
+    expect(await screen.findByRole('button', { name: /^voir$/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('adapted-preview-player-v1')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^voir$/i }))
     expect(await screen.findByText(/vidéo adaptée sauvegardée/i)).toBeInTheDocument()
     expect(screen.getByTestId('adapted-preview-player-v1')).toBeInTheDocument()
   })

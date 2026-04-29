@@ -1,6 +1,6 @@
 # Story 7.4: Masquer/Afficher la Vidéo Adaptée dans la Carte Vidéo
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -81,10 +81,10 @@ test('each VideoCard toggles independently', async () => {
 
 ### Frontend
 
-- [ ] Écrire les 5 tests ci-dessus → RED
-- [ ] Modifier `frontend/src/components/projects/VideoCard.tsx` :
-  - [ ] Ajouter state `showAdaptedPreview: boolean` (local, défaut `false`)
-  - [ ] Remplacer le bloc `{video.adapted_preview && (...)}`  par :
+- [x] Écrire les 5 tests ci-dessus → RED
+- [x] Modifier `frontend/src/components/projects/VideoCard.tsx` :
+  - [x] Ajouter state `showAdaptedPreview: boolean` (local, défaut `false`)
+  - [x] Remplacer le bloc `{video.adapted_preview && (...)}`  par :
     ```tsx
     {video.adapted_preview && (
       <>
@@ -95,8 +95,8 @@ test('each VideoCard toggles independently', async () => {
       </>
     )}
     ```
-  - [ ] S'assurer que `data-testid="adapted-preview-player-{video.id}"` reste dans le player
-- [ ] Passer tous les tests → GREEN
+  - [x] S'assurer que `data-testid="adapted-preview-player-{video.id}"` reste dans le player
+- [x] Passer tous les tests → GREEN
 
 ### Backend (aucune modification)
 
@@ -140,16 +140,24 @@ Le bouton doit s'intégrer visuellement dans la séparation entre la ligne princ
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+- `frontend/src/components/projects/VideoCard.tsx`: ajout de l'état local `showAdaptedPreview` et du toggle voir/masquer
+- `frontend/src/components/projects/VideoCard.test.tsx`: couverture RED/GREEN des 5 AC de la story
+- `frontend/src/pages/ProjectDetailPage.test.tsx`: mise à jour d'un test d'intégration devenu obsolète avec le nouveau comportement masqué par défaut
+- `npm run test` frontend validé après adaptation de la suite complète
 
 ### Completion Notes List
-_à remplir_
+- L'aperçu adapté sauvegardé est maintenant masqué par défaut et révélable carte par carte
+- Le contenu de la sous-section reste inchangé quand elle est affichée
+- Aucun bouton toggle n'est rendu si `video.adapted_preview` est absent
+- Validation complète exécutée via `npm run test` dans `frontend` : 407 tests passants
 
 ### File List
-_à remplir_
+- `frontend/src/components/projects/VideoCard.tsx`
+- `frontend/src/components/projects/VideoCard.test.tsx`
+- `frontend/src/pages/ProjectDetailPage.test.tsx`
 
 ## Change Log
 
