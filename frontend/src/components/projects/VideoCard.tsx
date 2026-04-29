@@ -17,6 +17,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
   const annotationCount = video.annotations?.length || 0
   const [editing, setEditing] = useState(false)
   const [showPreviewPanel, setShowPreviewPanel] = useState(false)
+  const [showAdaptedPreview, setShowAdaptedPreview] = useState(false)
   const [editValue, setEditValue] = useState(video.original_name)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -142,33 +143,17 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
         </div>
       )}
 
-      {/* Sous-section : aperçu adapté */}
       {video.adapted_preview && (
-        <div style={{
-          borderTop: '1px solid rgba(100,255,218,0.15)',
-          background: 'rgba(100,255,218,0.04)',
-          padding: '0.85rem 1.5rem 0.9rem 2.2rem',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(220px, 320px) 1fr',
-          gap: '0.9rem',
-          alignItems: 'start',
-        }}>
-          <video
-            data-testid={`adapted-preview-player-${video.id}`}
-            src={getSavedPreviewStreamUrl(video.id)}
-            controls
-            preload="metadata"
-            style={{
-              width: '100%',
-              maxWidth: 320,
-              background: '#000',
-              borderRadius: 8,
-              border: '1px solid rgba(100,255,218,0.14)',
-            }}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <>
+          <div style={{
+            borderTop: '1px solid rgba(100,255,218,0.15)',
+            background: 'rgba(100,255,218,0.04)',
+            padding: '0.75rem 1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.65rem',
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', color: 'rgba(100,255,218,0.5)' }}>↳</span>
               <span style={{ fontSize: '0.82rem', color: '#64ffda', fontWeight: 600 }}>
                 Vidéo adaptée sauvegardée
               </span>
@@ -180,14 +165,24 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
                 {video.adapted_preview.bpm} BPM
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)' }}>
-                {new Date(video.adapted_preview.created_at).toLocaleDateString('fr-FR')}
+                Adaptée le {new Date(video.adapted_preview.created_at).toLocaleString('fr-FR')}
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted, #8892b0)', lineHeight: 1.45 }}>
-              Cette version a ete generee depuis les statistiques et reste rattachee a la video source.
-              Elle est visible ici, reutilisable dans l'export projet, et exportable seule.
-            </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowAdaptedPreview(v => !v)}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.28rem 0.55rem',
+                  borderRadius: 6,
+                  border: '1px solid rgba(100,255,218,0.25)',
+                  background: 'rgba(100,255,218,0.08)',
+                  color: '#64ffda',
+                  cursor: 'pointer',
+                }}
+              >
+                {showAdaptedPreview ? 'Masquer' : 'Voir'}
+              </button>
               <button
                 onClick={() => void downloadSavedPreview(video.id)}
                 style={{
@@ -221,7 +216,27 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
               )}
             </div>
           </div>
-        </div>
+          {showAdaptedPreview && (
+            <div style={{
+              borderTop: '1px solid rgba(100,255,218,0.15)',
+              padding: '0.85rem 1.5rem 0.9rem 1.5rem',
+            }}>
+              <video
+                data-testid={`adapted-preview-player-${video.id}`}
+                src={getSavedPreviewStreamUrl(video.id)}
+                controls
+                preload="metadata"
+                style={{
+                  width: '100%',
+                  maxWidth: 320,
+                  background: '#000',
+                  borderRadius: 8,
+                  border: '1px solid rgba(100,255,218,0.14)',
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   )

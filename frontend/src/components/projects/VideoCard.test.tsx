@@ -163,6 +163,69 @@ describe('VideoCard', () => {
     expect(screen.queryByTestId('bpm-preview-panel')).not.toBeInTheDocument()
   })
 
+  it('adapted preview section is hidden by default', () => {
+    const video = buildVideo({
+      adapted_preview: { bpm: 120, created_at: '2026-01-01T00:00:00' },
+    })
+    renderVideoCard(video)
+    expect(screen.queryByTestId(`adapted-preview-player-${video.id}`)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^voir$/i })).toBeInTheDocument()
+    expect(screen.getByText(/adaptée le/i)).toBeInTheDocument()
+  })
+
+  it('clicking toggle reveals adapted preview section', async () => {
+    const video = buildVideo({
+      adapted_preview: { bpm: 120, created_at: '2026-01-01T00:00:00' },
+    })
+    renderVideoCard(video)
+    await userEvent.click(screen.getByRole('button', { name: /^voir$/i }))
+    expect(screen.getByTestId(`adapted-preview-player-${video.id}`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^masquer$/i })).toBeInTheDocument()
+  })
+
+  it('clicking toggle again hides adapted preview section', async () => {
+    const video = buildVideo({
+      adapted_preview: { bpm: 120, created_at: '2026-01-01T00:00:00' },
+    })
+    renderVideoCard(video)
+    await userEvent.click(screen.getByRole('button', { name: /^voir$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^masquer$/i }))
+    expect(screen.queryByTestId(`adapted-preview-player-${video.id}`)).not.toBeInTheDocument()
+  })
+
+  it('toggle button absent when no adapted preview', () => {
+    const video = buildVideo({ adapted_preview: undefined })
+    renderVideoCard(video)
+    expect(screen.queryByRole('button', { name: /^voir$/i })).not.toBeInTheDocument()
+  })
+
+  it('each VideoCard toggles independently', async () => {
+    const v1 = buildVideo({
+      id: 'v1',
+      adapted_preview: { bpm: 120, created_at: '2026-01-01T00:00:00' },
+    })
+    const v2 = buildVideo({
+      id: 'v2',
+      adapted_preview: { bpm: 90, created_at: '2026-01-01T00:00:00' },
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <BrowserRouter>
+          <>
+            <VideoCard video={v1} onAnnotate={vi.fn()} onDelete={vi.fn()} onStats={vi.fn()} />
+            <VideoCard video={v2} onAnnotate={vi.fn()} onDelete={vi.fn()} onStats={vi.fn()} />
+          </>
+        </BrowserRouter>
+      </QueryClientProvider>
+    )
+
+    await userEvent.click(screen.getAllByRole('button', { name: /^voir$/i })[0])
+    expect(screen.getByTestId('adapted-preview-player-v1')).toBeInTheDocument()
+    expect(screen.queryByTestId('adapted-preview-player-v2')).not.toBeInTheDocument()
+  })
+
   // Renommage inline
   it('click on name shows editable input with current name', async () => {
     const video = buildVideo()
