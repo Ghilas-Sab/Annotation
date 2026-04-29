@@ -1,6 +1,6 @@
 # Story 7.2: Transitions Fluides — Adaptation BPM Début/Fin
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -86,21 +86,21 @@ def test_adapt_video_to_bpm_accepts_fade_duration_param(tmp_video_path, annotati
 
 ### Backend
 
-- [ ] Écrire les 5 tests ci-dessus → RED
-- [ ] Modifier la signature de `_build_adapt_filter` dans `video_service.py` :
-  - [ ] Ajouter `fade_duration_s: float = 0.5`, `has_pre_segment: bool`, `has_post_segment: bool`
-- [ ] Modifier `_build_adapt_filter` pour appliquer le fade :
-  - [ ] **Fade-in vidéo** : ajouter `,fade=t=in:st=0:d={clamped_fade}` au filtre du segment pré-annotation (si `has_pre_segment`)
-  - [ ] **Fade-out vidéo** : ajouter `,fade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` au dernier segment (si `has_post_segment`)
-  - [ ] **Fade-in audio** : ajouter `,afade=t=in:st=0:d={clamped_fade}` sur le flux audio du premier segment (si `has_audio` et `has_pre_segment`)
-  - [ ] **Fade-out audio** : ajouter `,afade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` sur le flux audio du dernier segment (si `has_audio` et `has_post_segment`)
-  - [ ] Calcul de `clamped_fade = min(fade_duration_s, segment_duration * 0.8)` avec minimum 0.1 s
-- [ ] Modifier `adapt_video_to_bpm` :
-  - [ ] Ajouter paramètre `fade_duration_s: float = 0.5`
-  - [ ] Détecter `has_pre_segment = timestamps[0] > 0.001` et `has_post_segment = timestamps[-1] < video_duration - 0.001`
-  - [ ] Passer ces infos à `_build_adapt_filter`
-- [ ] Passer tous les tests → GREEN
-- [ ] Vérifier que les tests existants (`test_compute_segment_speeds_*`) passent toujours
+- [x] Écrire les 5 tests ci-dessus → RED
+- [x] Modifier la signature de `_build_adapt_filter` dans `video_service.py` :
+  - [x] Ajouter `fade_duration_s: float = 0.5`, `has_pre_segment: bool`, `has_post_segment: bool`
+- [x] Modifier `_build_adapt_filter` pour appliquer le fade :
+  - [x] **Fade-in vidéo** : ajouter `,fade=t=in:st=0:d={clamped_fade}` au filtre du segment pré-annotation (si `has_pre_segment`)
+  - [x] **Fade-out vidéo** : ajouter `,fade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` au dernier segment (si `has_post_segment`)
+  - [x] **Fade-in audio** : ajouter `,afade=t=in:st=0:d={clamped_fade}` sur le flux audio du premier segment (si `has_audio` et `has_pre_segment`)
+  - [x] **Fade-out audio** : ajouter `,afade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` sur le flux audio du dernier segment (si `has_audio` et `has_post_segment`)
+  - [x] Calcul de `clamped_fade = min(fade_duration_s, segment_duration * 0.8)` avec minimum 0.1 s
+- [x] Modifier `adapt_video_to_bpm` :
+  - [x] Ajouter paramètre `fade_duration_s: float = 0.5`
+  - [x] Détecter `has_pre_segment = timestamps[0] > 0.001` et `has_post_segment = timestamps[-1] < video_duration - 0.001`
+  - [x] Passer ces infos à `_build_adapt_filter`
+- [x] Passer tous les tests → GREEN
+- [x] Vérifier que les tests existants (`test_compute_segment_speeds_*`) passent toujours
 
 ### Frontend (aucune modification nécessaire)
 
@@ -151,16 +151,23 @@ backend/tests/test_video_service.py    ← créer avec 5 nouveaux tests
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+- `backend/app/services/video_service.py`: ajout des paramètres de fade dans `_build_adapt_filter` et `adapt_video_to_bpm`
+- `backend/tests/test_video_service.py`: ajout de la couverture RED/GREEN sur fade vidéo, fade audio, clamp et transmission de paramètres
+- `backend/tests/test_exports.py`: validation conservée des `test_compute_segment_speeds_*`
 
 ### Completion Notes List
-_à remplir_
+- Ajout d'un nouveau fichier de tests `backend/tests/test_video_service.py` couvrant le parsing fps existant et la story 7.2
+- Implémentation des fades uniquement sur les segments pré/post annotation, jamais sur les segments adaptés intermédiaires
+- Clamp appliqué avec la règle `max(0.1, min(fade_duration_s, segment_duration * 0.8))`
+- Vérifications exécutées : `pytest backend/tests/test_video_service.py -q` puis `pytest backend/tests/test_exports.py -q -k compute_segment_speeds`
+- Tentative de `pytest backend/tests -q` lancée mais non concluante dans cette session non interactive
 
 ### File List
-_à remplir_
+- `backend/app/services/video_service.py`
+- `backend/tests/test_video_service.py`
 
 ## Change Log
 
