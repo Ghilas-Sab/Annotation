@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AnnotationList } from './AnnotationList'
 import type { Annotation } from '../../types/annotation'
 
@@ -25,7 +25,7 @@ describe('AnnotationList', () => {
   test("affiche le message vide quand aucune annotation", () => {
     render(<AnnotationList {...defaultProps} annotations={[]} />)
     expect(screen.getByText(/aucune annotation/i)).toBeInTheDocument()
-    expect(screen.getByText(/espace/i)).toBeInTheDocument()
+    expect(screen.getByText(/entrée/i)).toBeInTheDocument()
   })
 
   test('affiche toutes les annotations', () => {
@@ -71,5 +71,19 @@ describe('AnnotationList', () => {
     const annotations = [makeAnnotation('1', 10)]
     render(<AnnotationList {...defaultProps} annotations={annotations} fps={30} totalFrames={900} />)
     expect(screen.getByTestId('annotation-item')).toBeInTheDocument()
+  })
+
+  test('passes selected annotation state to the matching item', () => {
+    const annotations = [makeAnnotation('1', 10), makeAnnotation('2', 20)]
+    render(<AnnotationList {...defaultProps} annotations={annotations} selectedAnnotationId="2" />)
+    const items = screen.getAllByTestId('annotation-item')
+    expect(items[1]).toHaveStyle({ background: 'rgba(74,158,255,0.12)' })
+  })
+
+  test('forwards onSelect from item clicks', () => {
+    const onSelect = vi.fn()
+    render(<AnnotationList {...defaultProps} annotations={[makeAnnotation('1', 10)]} onSelect={onSelect} />)
+    fireEvent.click(screen.getByTestId('annotation-item'))
+    expect(onSelect).toHaveBeenCalledWith('1')
   })
 })

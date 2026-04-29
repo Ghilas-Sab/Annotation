@@ -7,8 +7,10 @@ interface Props {
 const shortcuts = [
   { keys: '←  →', desc: 'Frame précédente / suivante' },
   { keys: 'Shift + ←  →', desc: '−5 / +5 frames' },
+  { keys: 'Alt + ←  →', desc: 'Début / fin de la vidéo' },
   { keys: 'Ctrl + ←  →', desc: 'Saut inter-annotation (fallback 10)' },
-  { keys: 'Espace', desc: 'Créer une annotation sur la frame courante' },
+  { keys: 'Entrée', desc: 'Créer une annotation sur la frame courante' },
+  { keys: 'Espace', desc: 'Lecture / pause de la vidéo' },
   { keys: 'Ctrl + Z', desc: 'Annuler la dernière annotation créée' },
 ]
 
@@ -64,7 +66,7 @@ export const KeyboardShortcutsModal: React.FC<Props> = ({ onClose }) => (
         Les raccourcis sont désactivés quand le curseur est dans un champ texte.
       </div>
       <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted, #666)' }}>
-        <strong>Timeline :</strong> clic pour naviguer · glisser un marqueur rouge pour déplacer une annotation.
+        <strong>Timeline :</strong> clic pour naviguer · glisser un marqueur rouge pour déplacer une annotation · molette ou boutons + / - pour zoomer.
       </div>
     </div>
   </div>

@@ -6,13 +6,15 @@ interface AnnotationListProps {
   annotations: Annotation[]
   fps: number
   totalFrames: number
+  selectedAnnotationId?: string | null
   onSeek: (frame: number) => void
+  onSelect?: (id: string) => void
   onUpdate: (id: string, frame: number, label: string) => void
   onDelete: (id: string) => void
 }
 
 export const AnnotationList: React.FC<AnnotationListProps> = ({
-  annotations, fps, totalFrames, onSeek, onUpdate, onDelete,
+  annotations, fps, totalFrames, selectedAnnotationId, onSeek, onSelect, onUpdate, onDelete,
 }) => {
   const sorted = [...annotations].sort((a, b) => a.frame_number - b.frame_number)
 
@@ -20,7 +22,7 @@ export const AnnotationList: React.FC<AnnotationListProps> = ({
     <div style={{ overflowY: 'auto', flex: 1 }}>
       {sorted.length === 0 ? (
         <p style={{ color: 'var(--color-text-muted, #888)', fontSize: '0.85rem', padding: '1rem', textAlign: 'center' }}>
-          Aucune annotation — appuie sur <kbd>Espace</kbd> pour en créer
+          Aucune annotation — appuie sur <kbd>Entrée</kbd> pour en créer
         </p>
       ) : (
         sorted.map(ann => (
@@ -29,7 +31,9 @@ export const AnnotationList: React.FC<AnnotationListProps> = ({
             annotation={ann}
             fps={fps}
             totalFrames={totalFrames}
+            selected={selectedAnnotationId === ann.id}
             onSeek={onSeek}
+            onSelect={onSelect}
             onUpdate={onUpdate}
             onDelete={onDelete}
           />

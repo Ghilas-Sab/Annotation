@@ -39,6 +39,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const [activeTab, setActiveTab] = useState<Tab>('annotations')
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [history, setHistory] = useState<UndoAction[]>([])
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
 
   const currentFrame = useVideoStore(s => s.currentFrame)
   const fps = useVideoStore(s => s.fps)
@@ -81,6 +82,13 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const displayedAnnotations = filterCategoryId
     ? annotationsInRange.filter(ann => ann.category_id === filterCategoryId)
     : annotationsInRange
+
+  useEffect(() => {
+    if (!selectedAnnotationId) return
+    if (!displayedAnnotations.some((annotation) => annotation.id === selectedAnnotationId)) {
+      setSelectedAnnotationId(null)
+    }
+  }, [displayedAnnotations, selectedAnnotationId])
 
   const createMutation = useCreateAnnotation(videoId)
   const updateMutation = useUpdateAnnotation(videoId)
@@ -177,6 +185,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const handleDelete = (id: string) => {
     const ann = annotationsRef.current.find(a => a.id === id)
     if (!ann) return
+    if (selectedAnnotationId === id) setSelectedAnnotationId(null)
     pushHistory({ type: 'delete', annotation: ann })
     deleteMutation.mutate(id)
   }
@@ -361,7 +370,9 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
                     annotations={displayedAnnotations}
                     fps={effectiveFps}
                     totalFrames={effectiveTotalFrames}
+                    selectedAnnotationId={selectedAnnotationId}
                     onSeek={seek}
+                    onSelect={setSelectedAnnotationId}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
                   />
@@ -395,7 +406,9 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
           fps={effectiveFps}
           annotations={displayedAnnotations}
           categories={categories}
+          selectedAnnotationId={selectedAnnotationId}
           onSeek={seek}
+          onSelectAnnotation={setSelectedAnnotationId}
           onMoveAnnotation={handleMoveAnnotation}
           startFrame={trimStart}
           endFrame={effectiveTrimEnd}

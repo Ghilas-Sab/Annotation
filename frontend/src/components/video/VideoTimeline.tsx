@@ -7,7 +7,9 @@ interface VideoTimelineProps {
   fps: number
   annotations: Annotation[]
   categories?: Category[]
+  selectedAnnotationId?: string | null
   onSeek: (frame: number) => void
+  onSelectAnnotation?: (id: string) => void
   onMoveAnnotation?: (id: string, newFrame: number) => void
   /** Restreindre la vue à une plage (trim) */
   startFrame?: number
@@ -15,7 +17,7 @@ interface VideoTimelineProps {
 }
 
 export const VideoTimeline: React.FC<VideoTimelineProps> = ({
-  currentFrame, totalFrames, fps, annotations, categories = [], onSeek, onMoveAnnotation,
+  currentFrame, totalFrames, annotations, categories = [], selectedAnnotationId, onSeek, onSelectAnnotation, onMoveAnnotation,
   startFrame = 0, endFrame,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -24,6 +26,25 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
 
   const rangeEnd = endFrame ?? totalFrames
   const [viewRange, setViewRange] = useState({ start: startFrame, end: rangeEnd })
+
+  const clampViewRange = useCallback((start: number, span: number) => {
+    const maxSpan = Math.max(1, rangeEnd - startFrame)
+    const boundedSpan = maxSpan <= 50 ? maxSpan : Math.max(50, Math.min(maxSpan, Math.round(span)))
+    const maxStart = Math.max(startFrame, rangeEnd - boundedSpan)
+    const boundedStart = Math.min(Math.max(startFrame, Math.round(start)), maxStart)
+    return { start: boundedStart, end: boundedStart + boundedSpan }
+  }, [rangeEnd, startFrame])
+
+  const zoomAroundFrame = useCallback((anchorFrame: number, factor: number) => {
+    setViewRange((prev) => {
+      const span = prev.end - prev.start
+      if (span <= 0) return prev
+      const maxSpan = Math.max(1, rangeEnd - startFrame)
+      const nextSpan = maxSpan <= 50 ? maxSpan : Math.max(50, Math.min(maxSpan, Math.round(span * factor)))
+      const ratio = (anchorFrame - prev.start) / span
+      return clampViewRange(anchorFrame - ratio * nextSpan, nextSpan)
+    })
+  }, [clampViewRange, rangeEnd, startFrame])
 
   // Sync quand totalFrames change
   useEffect(() => {
@@ -43,15 +64,26 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
       const span = viewRange.end - viewRange.start
       const cursorFrame = viewRange.start + (x / canvas.width) * span
       const factor = e.deltaY > 0 ? 1.25 : 0.8
-      const newSpan = Math.max(50, Math.min(rangeEnd - startFrame, Math.round(span * factor)))
-      const ratio = (cursorFrame - viewRange.start) / span
-      const newStart = Math.max(startFrame, Math.round(cursorFrame - ratio * newSpan))
-      const newEnd = Math.min(rangeEnd, newStart + newSpan)
-      setViewRange({ start: newStart, end: newEnd })
+      zoomAroundFrame(cursorFrame, factor)
     }
     canvas.addEventListener('wheel', handleWheel, { passive: false })
     return () => canvas.removeEventListener('wheel', handleWheel)
-  }, [viewRange, totalFrames, startFrame, rangeEnd])
+  }, [viewRange, totalFrames, zoomAroundFrame])
+
+  useEffect(() => {
+    if (!isZoomed) return
+    setViewRange((prev) => {
+      const span = prev.end - prev.start
+      const margin = Math.max(5, Math.round(span * 0.15))
+      if (currentFrame > prev.end - margin) {
+        return clampViewRange(currentFrame - (span - margin), span)
+      }
+      if (currentFrame < prev.start + margin) {
+        return clampViewRange(currentFrame - margin, span)
+      }
+      return prev
+    })
+  }, [clampViewRange, currentFrame, isZoomed])
 
   const frameToX = useCallback((frame: number, width: number) => {
     return ((frame - viewRange.start) / (viewRange.end - viewRange.start)) * width
@@ -112,16 +144,17 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
       // Mode individuel — lignes + triangle
       for (const ann of visibleAnnotations) {
         const isDragging = dragging !== null && dragging.id === ann.id
+        const isSelected = ann.id === selectedAnnotationId
         const displayFrame = isDragging ? dragging.frame : ann.frame_number
         const x = frameToX(displayFrame, width)
         const categoryColor = ann.category?.color ?? '#e94560'
-        ctx.strokeStyle = isDragging ? '#ffcc00' : categoryColor
-        ctx.lineWidth = isDragging ? 3 : 2
+        ctx.strokeStyle = isDragging ? '#ffcc00' : isSelected ? '#4a9eff' : categoryColor
+        ctx.lineWidth = isDragging ? 3 : isSelected ? 4 : 2
         ctx.beginPath()
         ctx.moveTo(x, 8)
         ctx.lineTo(x, height)
         ctx.stroke()
-        ctx.fillStyle = isDragging ? '#ffcc00' : categoryColor
+        ctx.fillStyle = isDragging ? '#ffcc00' : isSelected ? '#4a9eff' : categoryColor
         ctx.beginPath()
         ctx.moveTo(x - 5, 0)
         ctx.lineTo(x + 5, 0)
@@ -165,7 +198,11 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const ann = findAnnotationAt(e.clientX)
     if (ann && onMoveAnnotation) {
+      onSelectAnnotation?.(ann.id)
       setDragging({ id: ann.id, frame: ann.frame_number })
+    } else if (ann) {
+      onSelectAnnotation?.(ann.id)
+      onSeek(ann.frame_number)
     } else {
       onSeek(xToFrame(e.clientX))
     }
@@ -195,19 +232,37 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
   return (
     <div style={{ position: 'relative', userSelect: 'none' }}>
       {/* Indicateur zoom + reset */}
-      {isZoomed && (
-        <div style={{ position: 'absolute', top: 2, right: 6, zIndex: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: '0.65rem', color: '#4a9eff' }}>
-            {viewRange.start}–{viewRange.end}
-          </span>
-          <button
-            onClick={() => setViewRange({ start: startFrame, end: rangeEnd })}
-            style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: 3, border: '1px solid #4a9eff', background: 'rgba(74,158,255,0.15)', color: '#4a9eff', cursor: 'pointer' }}
-          >
-            Reset zoom
-          </button>
-        </div>
-      )}
+      <div style={{ position: 'absolute', top: 2, right: 6, zIndex: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button
+          type="button"
+          aria-label="Zoom avant timeline"
+          onClick={() => zoomAroundFrame(currentFrame, 0.8)}
+          style={{ fontSize: '0.8rem', padding: '1px 6px', borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom arrière timeline"
+          onClick={() => zoomAroundFrame(currentFrame, 1.25)}
+          style={{ fontSize: '0.8rem', padding: '1px 6px', borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer' }}
+        >
+          -
+        </button>
+        {isZoomed && (
+          <>
+            <span style={{ fontSize: '0.65rem', color: '#4a9eff' }}>
+              {viewRange.start}–{viewRange.end}
+            </span>
+            <button
+              onClick={() => setViewRange({ start: startFrame, end: rangeEnd })}
+              style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: 3, border: '1px solid #4a9eff', background: 'rgba(74,158,255,0.15)', color: '#4a9eff', cursor: 'pointer' }}
+            >
+              Reset zoom
+            </button>
+          </>
+        )}
+      </div>
       <canvas
         ref={canvasRef}
         width={800}
@@ -238,9 +293,6 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
           → Frame {dragging.frame}
         </div>
       )}
-      <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.2, paddingBottom: 1 }}>
-        Molette pour zoomer · {fps > 0 ? `${annotations.length} annotations` : ''}
-      </div>
       {categories.length > 0 && (
         <div
           data-testid="category-legend"

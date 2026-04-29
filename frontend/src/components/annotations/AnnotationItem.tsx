@@ -6,13 +6,15 @@ interface AnnotationItemProps {
   annotation: Annotation
   fps: number
   totalFrames: number
+  selected?: boolean
   onSeek: (frame: number) => void
+  onSelect?: (id: string) => void
   onUpdate: (id: string, frame: number, label: string) => void
   onDelete: (id: string) => void
 }
 
 export const AnnotationItem: React.FC<AnnotationItemProps> = ({
-  annotation, fps, totalFrames, onSeek, onUpdate, onDelete,
+  annotation, fps, totalFrames, selected = false, onSeek, onSelect, onUpdate, onDelete,
 }) => {
   const [editingLabel, setEditingLabel] = useState(false)
   const [editingFrame, setEditingFrame] = useState(false)
@@ -36,7 +38,25 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
   return (
     <div
       data-testid="annotation-item"
-      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', fontSize: '0.82rem' }}
+      tabIndex={0}
+      onClick={(e) => {
+        e.currentTarget.focus()
+        onSelect?.(annotation.id)
+      }}
+      onKeyDown={(e) => {
+        const tag = (e.target as HTMLElement).tagName
+        if (editingFrame || editingLabel || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag)) return
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.4rem 0.6rem',
+        borderBottom: '1px solid var(--color-surface, #2a2a3e)',
+        fontSize: '0.82rem',
+        background: selected ? 'rgba(74,158,255,0.12)' : 'transparent',
+        outline: selected ? '1px solid rgba(74,158,255,0.55)' : 'none',
+      }}
     >
       {/* Badge catégorie */}
       <span
@@ -66,7 +86,10 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
         />
       ) : (
         <span
-          onClick={() => onSeek(annotation.frame_number)}
+          onClick={() => {
+            onSelect?.(annotation.id)
+            onSeek(annotation.frame_number)
+          }}
           onDoubleClick={() => setEditingFrame(true)}
           title="Clic : aller à cette frame — Double-clic : modifier la frame"
           style={{ minWidth: '4ch', color: 'var(--color-accent, #e94560)', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}

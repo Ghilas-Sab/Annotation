@@ -31,6 +31,12 @@ const btnStyle: React.CSSProperties = {
   minWidth: 38,
 }
 
+const annotationBtnStyle: React.CSSProperties = {
+  ...btnStyle,
+  color: '#FFD700',
+  borderColor: 'rgba(255,215,0,0.35)',
+}
+
 const PlaybackControls = ({
   videoRef,
   currentFrame = 0,
@@ -47,27 +53,6 @@ const PlaybackControls = ({
   const setPlaybackRate = useVideoStore(s => s.setPlaybackRate)
   const [showShortcuts, setShowShortcuts] = useState(false)
 
-  // Keyboard shortcuts + handlers partagés avec les boutons
-  const {
-    seekPrevFrame,
-    seekNextFrame,
-    seek5Back,
-    seek5Forward,
-    seekPrevAnnotation,
-    seekNextAnnotation,
-    seekStart,
-    seekEnd,
-    annotate,
-  } = useVideoKeyboard({
-    currentFrame,
-    totalFrames,
-    fps,
-    annotations,
-    startFrame,
-    seek: onSeek ?? (() => {}),
-    createAnnotation: onAnnotate,
-  })
-
   const togglePlay = () => {
     const handle = videoRef.current
     if (!handle) return
@@ -79,6 +64,29 @@ const PlaybackControls = ({
       setIsPlaying(false)
     }
   }
+
+  // Keyboard shortcuts + handlers partagés avec les boutons
+  const {
+    seekPrevFrame,
+    seekNextFrame,
+    seek5Back,
+    seek5Forward,
+    seekPrevAnnotation,
+    seekNextAnnotation,
+    seekStart,
+    seekEnd,
+    annotate,
+    togglePlayPause: keyboardTogglePlayPause,
+  } = useVideoKeyboard({
+    currentFrame,
+    totalFrames,
+    fps,
+    annotations,
+    startFrame,
+    seek: onSeek ?? (() => {}),
+    createAnnotation: onAnnotate,
+    togglePlayPause: togglePlay,
+  })
 
   const handleSpeed = (s: number) => {
     videoRef.current?.setPlaybackRate(s)
@@ -92,7 +100,7 @@ const PlaybackControls = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <button
           className="btn-primary"
-          onClick={togglePlay}
+          onClick={keyboardTogglePlayPause}
           style={{ minWidth: '80px' }}
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
@@ -130,8 +138,8 @@ const PlaybackControls = ({
         }}
       >
         {/* Navigation frame */}
-        <button style={btnStyle} aria-label="début vidéo" title="Début vidéo (Alt+←)" onClick={seekStart}>⏪</button>
-        <button style={btnStyle} aria-label="annotation précédente" title="Annotation précédente (Ctrl+←)" onClick={seekPrevAnnotation}>⏮</button>
+        <button style={btnStyle} aria-label="début vidéo" title="Début vidéo (Alt+←)" onClick={seekStart}>⏮</button>
+        <button style={annotationBtnStyle} aria-label="annotation précédente" title="Annotation précédente (Ctrl+←)" onClick={seekPrevAnnotation}>◀</button>
         <button style={btnStyle} aria-label="-5 frames" title="-5 frames (Shift+←)" onClick={seek5Back}>◀◀</button>
         <button style={btnStyle} aria-label="frame précédente" title="Frame précédente (←)" onClick={seekPrevFrame}>◀</button>
 
@@ -139,7 +147,7 @@ const PlaybackControls = ({
         <button
           style={{ ...btnStyle, padding: '0.4rem 0.9rem', background: 'rgba(233,69,96,0.15)', borderColor: 'rgba(233,69,96,0.4)', color: '#e94560', fontWeight: 600 }}
           aria-label="annoter"
-          title="Annoter (Espace)"
+          title="Annoter (Entrée)"
           onClick={annotate}
         >
           ● Annoter
@@ -148,8 +156,8 @@ const PlaybackControls = ({
         {/* Navigation frame (droite) */}
         <button style={btnStyle} aria-label="frame suivante" title="Frame suivante (→)" onClick={seekNextFrame}>▶</button>
         <button style={btnStyle} aria-label="+5 frames" title="+5 frames (Shift+→)" onClick={seek5Forward}>▶▶</button>
-        <button style={btnStyle} aria-label="annotation suivante" title="Annotation suivante (Ctrl+→)" onClick={seekNextAnnotation}>⏭</button>
-        <button style={btnStyle} aria-label="fin vidéo" title="Fin vidéo (Alt+→)" onClick={seekEnd}>⏩</button>
+        <button style={annotationBtnStyle} aria-label="annotation suivante" title="Annotation suivante (Ctrl+→)" onClick={seekNextAnnotation}>▶</button>
+        <button style={btnStyle} aria-label="fin vidéo" title="Fin vidéo (Alt+→)" onClick={seekEnd}>⏭</button>
 
         {/* Aide */}
         <button

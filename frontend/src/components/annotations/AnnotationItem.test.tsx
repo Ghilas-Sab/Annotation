@@ -59,6 +59,20 @@ describe('AnnotationItem', () => {
     expect(onSeek).not.toHaveBeenCalled()
   })
 
+  test('calls onSelect when clicking the annotation item', () => {
+    const onSelect = vi.fn()
+    render(<AnnotationItem {...defaultProps} onSelect={onSelect} />)
+    fireEvent.click(screen.getByTestId('annotation-item'))
+    expect(onSelect).toHaveBeenCalledWith('1')
+  })
+
+  test('applies selected highlight style', () => {
+    render(<AnnotationItem {...defaultProps} selected />)
+    expect(screen.getByTestId('annotation-item')).toHaveStyle({
+      background: 'rgba(74,158,255,0.12)',
+    })
+  })
+
   test('double-clic sur la frame active le mode édition frame', () => {
     render(<AnnotationItem {...defaultProps} />)
     fireEvent.dblClick(screen.getByText('42'))
