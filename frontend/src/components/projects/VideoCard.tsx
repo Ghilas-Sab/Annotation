@@ -3,6 +3,7 @@ import type { Video } from '../../types/project'
 import { useVideoStatistics } from '../../api/statistics'
 import { useRenameVideo } from '../../api/projects'
 import { downloadSavedPreview, getSavedPreviewStreamUrl } from '../../api/exports'
+import PreviewPanel from '../exports/PreviewPanel'
 
 interface VideoCardProps {
   video: Video
@@ -15,6 +16,7 @@ interface VideoCardProps {
 const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onStats, onDeletePreview }) => {
   const annotationCount = video.annotations?.length || 0
   const [editing, setEditing] = useState(false)
+  const [showPreviewPanel, setShowPreviewPanel] = useState(false)
   const [editValue, setEditValue] = useState(video.original_name)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -106,6 +108,15 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
           <button className="btn-secondary" onClick={() => onStats(video.id)} style={{ fontSize: '0.85rem' }}>
             Stats
           </button>
+          {annotationCount >= 2 && (
+            <button
+              className="btn-secondary"
+              onClick={() => setShowPreviewPanel(true)}
+              style={{ fontSize: '0.85rem' }}
+            >
+              Adapter
+            </button>
+          )}
           <button
             aria-label="Supprimer la vidéo"
             onClick={() => onDelete(video.id, video.original_name)}
@@ -115,6 +126,21 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
           </button>
         </div>
       </div>
+
+      {showPreviewPanel && (
+        <div style={{
+          borderTop: '1px solid rgba(122,162,247,0.14)',
+          background: 'rgba(122,162,247,0.03)',
+          padding: '1rem 1.5rem',
+        }}>
+          <PreviewPanel
+            videoId={video.id}
+            currentBpm={stats?.bpm_global ?? 0}
+            annotationCount={annotationCount}
+            onClose={() => setShowPreviewPanel(false)}
+          />
+        </div>
+      )}
 
       {/* Sous-section : aperçu adapté */}
       {video.adapted_preview && (

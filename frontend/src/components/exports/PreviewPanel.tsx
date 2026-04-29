@@ -17,6 +17,7 @@ interface PreviewPanelProps {
   videoId: string
   currentBpm: number
   annotationCount: number
+  onClose?: () => void
   onCreateJob?: (videoId: string, targetBpm: number) => Promise<string>
   onSave?: (videoId: string, jobId: string) => Promise<void>
   onCancel?: (jobId: string) => void
@@ -24,7 +25,7 @@ interface PreviewPanelProps {
 }
 
 const PreviewPanel: React.FC<PreviewPanelProps> = ({
-  videoId, currentBpm, annotationCount, onCreateJob, onSave, onCancel, _testState,
+  videoId, currentBpm, annotationCount, onClose, onCreateJob, onSave, onCancel, _testState,
 }) => {
   const [targetBpm, setTargetBpm] = useState(currentBpm)
   const [launching, setLaunching] = useState(false)
@@ -54,6 +55,15 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
   const canPreview = annotationCount >= 2 && targetBpm > 0
   const isActive = status === 'creating' || status === 'running'
+
+  const handleClose = () => {
+    if (isActive) {
+      const shouldClose = window.confirm('Annuler le job en cours ?')
+      if (!shouldClose) return
+      handleCancel()
+    }
+    onClose?.()
+  }
 
   const handlePreview = async () => {
     setLaunchError(null)
@@ -92,9 +102,23 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
   return (
     <div data-testid="bpm-preview-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text, #cdd6f4)' }}>
-        Prévisualisation BPM
-      </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text, #cdd6f4)' }}>
+          Prévisualisation BPM
+        </h3>
+        {onClose && (
+          <button
+            onClick={handleClose}
+            style={{
+              padding: '0.28rem 0.75rem', fontSize: '0.78rem', borderRadius: 5,
+              border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)',
+              color: 'var(--color-text-muted, #8892b0)', cursor: 'pointer',
+            }}
+          >
+            Fermer
+          </button>
+        )}
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <label htmlFor="preview-target-bpm" style={{ fontSize: '0.85rem', color: 'var(--color-text-muted, #8892b0)' }}>

@@ -1,6 +1,6 @@
 # Story 7.3: Déplacer Bouton "Adapter la Vidéo" → Carte Vidéo Projets
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -79,19 +79,19 @@ test('StatisticsPage does not contain PreviewPanel', () => {
 
 ### Frontend
 
-- [ ] Écrire les 5 tests ci-dessus → RED
-- [ ] Modifier `frontend/src/components/projects/VideoCard.tsx` :
-  - [ ] Ajouter prop optionnelle `onAdapt?: (videoId: string) => void` (ou gérer localement)
-  - [ ] Ajouter state `showPreviewPanel: boolean` (local, défaut `false`)
-  - [ ] Ajouter bouton "Adapter" dans la section boutons (à droite de "Stats") — visible seulement si `annotationCount >= 2`
-  - [ ] Afficher `<PreviewPanel>` conditionnel (entre ligne principale et sous-section aperçu)
-  - [ ] Passer `videoId={video.id}`, `currentBpm={stats?.bpm_global ?? 0}`, `annotationCount={annotationCount}` à `PreviewPanel`
-  - [ ] Gérer la fermeture via callback `onClose` de `PreviewPanel` (déjà présent dans le composant)
-- [ ] Modifier `frontend/src/pages/StatisticsPage.tsx` :
-  - [ ] Supprimer l'import de `PreviewPanel`
-  - [ ] Retirer le panneau `<PreviewPanel>` (panneau 2 actuel)
-  - [ ] Renuméroter les panneaux commentaires si nécessaire
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les 5 tests ci-dessus → RED
+- [x] Modifier `frontend/src/components/projects/VideoCard.tsx` :
+  - [x] Ajouter prop optionnelle `onAdapt?: (videoId: string) => void` (ou gérer localement)
+  - [x] Ajouter state `showPreviewPanel: boolean` (local, défaut `false`)
+  - [x] Ajouter bouton "Adapter" dans la section boutons (à droite de "Stats") — visible seulement si `annotationCount >= 2`
+  - [x] Afficher `<PreviewPanel>` conditionnel (entre ligne principale et sous-section aperçu)
+  - [x] Passer `videoId={video.id}`, `currentBpm={stats?.bpm_global ?? 0}`, `annotationCount={annotationCount}` à `PreviewPanel`
+  - [x] Gérer la fermeture via callback `onClose` de `PreviewPanel` (déjà présent dans le composant)
+- [x] Modifier `frontend/src/pages/StatisticsPage.tsx` :
+  - [x] Supprimer l'import de `PreviewPanel`
+  - [x] Retirer le panneau `<PreviewPanel>` (panneau 2 actuel)
+  - [x] Renuméroter les panneaux commentaires si nécessaire
+- [x] Passer tous les tests → GREEN
 
 ### Backend (aucune modification)
 
@@ -147,16 +147,26 @@ frontend/src/pages/StatisticsPage.test.tsx       ← 1 nouveau test
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+- `frontend/src/components/projects/VideoCard.tsx`: ajout du bouton `Adapter`, de l'état local `showPreviewPanel` et de l'insertion du `PreviewPanel` au bon endroit
+- `frontend/src/components/exports/PreviewPanel.tsx`: ajout d'une fermeture optionnelle avec confirmation si un job est actif
+- `frontend/src/pages/StatisticsPage.tsx`: retrait complet de `PreviewPanel`
+- `frontend/src/components/projects/VideoCard.test.tsx` et `frontend/src/pages/StatisticsPage.test.tsx`: couverture des AC1 à AC5
 
 ### Completion Notes List
-_à remplir_
+- Le bouton `Adapter` est présent uniquement si `annotationCount >= 2`
+- Le panneau `PreviewPanel` s'ouvre depuis `VideoCard`, se ferme via `Fermer`, et demande confirmation si un job preview tourne
+- `StatisticsPage` conserve ses métriques et graphiques, sans panneau d'adaptation BPM
+- Validation complète exécutée via `npm run test` dans `frontend` : 402 tests passants
 
 ### File List
-_à remplir_
+- `frontend/src/components/projects/VideoCard.tsx`
+- `frontend/src/components/projects/VideoCard.test.tsx`
+- `frontend/src/components/exports/PreviewPanel.tsx`
+- `frontend/src/pages/StatisticsPage.tsx`
+- `frontend/src/pages/StatisticsPage.test.tsx`
 
 ## Change Log
 

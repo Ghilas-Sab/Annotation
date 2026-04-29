@@ -89,23 +89,14 @@ describe('StatisticsPage', () => {
     expect(matches.length).toBeGreaterThan(0)
   })
 
-  it('affiche le panneau prévisualisation BPM juste après les métriques', async () => {
+  it('StatisticsPage does not contain PreviewPanel', async () => {
     server.use(
       http.get(`${API_BASE}/videos/video-1`, () => HttpResponse.json(mockVideo)),
       http.get(`${API_BASE}/videos/video-1/statistics`, () => HttpResponse.json(mockStats)),
       http.get(`${API_BASE}/videos/video-1/annotations`, () => HttpResponse.json([]))
     )
     renderPage()
-    expect(await screen.findByTestId('bpm-preview-panel')).toBeInTheDocument()
-  })
-
-  it('affiche le panneau de prévisualisation BPM en bas de page', async () => {
-    server.use(
-      http.get(`${API_BASE}/videos/video-1`, () => HttpResponse.json(mockVideo)),
-      http.get(`${API_BASE}/videos/video-1/statistics`, () => HttpResponse.json(mockStats)),
-      http.get(`${API_BASE}/videos/video-1/annotations`, () => HttpResponse.json([]))
-    )
-    renderPage()
-    expect(await screen.findByTestId('bpm-preview-panel')).toBeInTheDocument()
+    await screen.findByText(/danse\.mp4/i)
+    expect(screen.queryByTestId('bpm-preview-panel')).not.toBeInTheDocument()
   })
 })
