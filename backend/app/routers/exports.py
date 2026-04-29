@@ -1,15 +1,17 @@
 import io
 import json
 import os
+import shutil
 import tempfile
 import zipfile
+from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
-from app.storage.json_store import get_video, get_project
+from app.storage.json_store import get_video, get_project, update_video
 from app.services.export_service import build_json_export, build_csv_export, build_statistics_csv, generate_project_zip
 from app.services.video_service import extract_clip, adjust_video_speed
 from app.services.stats_service import compute_bpm_metrics
-from app.schemas.export import BundleExportRequest, ProjectExportRequest
+from app.schemas.export import BundleExportRequest, ProjectExportRequest, PreviewJobRequest, SavePreviewRequest
 from app.services.job_manager import job_manager
 from app.config import settings
 from pathlib import Path
@@ -86,6 +88,19 @@ async def cancel_export_job(job_id: str):
     return {"job_id": job_id, "status": "cancelled"}
 
 
+@router.get("/exports/jobs/{job_id}/stream")
+async def stream_export_job(job_id: str):
+    """Stream le fichier du job sans le supprimer (pour prévisualisation vidéo)."""
+    job = job_manager.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done":
+        raise HTTPException(status_code=409, detail=f"Job not done (status={job.status})")
+    if not job.result_path or not os.path.exists(job.result_path):
+        raise HTTPException(status_code=410, detail="Result file no longer available")
+    return FileResponse(path=job.result_path, media_type="video/mp4")
+
+
 @router.get("/exports/jobs/{job_id}/download")
 async def download_export_job(job_id: str, background_tasks: BackgroundTasks):
     """Télécharge le ZIP du job terminé."""
@@ -103,6 +118,131 @@ async def download_export_job(job_id: str, background_tasks: BackgroundTasks):
         media_type="application/zip",
         filename=f"export_{job_id}.zip",
     )
+
+
+# ── Preview BPM en arrière-plan (S6.10) ──────────────────────────────────────
+
+@router.post("/videos/{video_id}/preview-jobs", status_code=202)
+async def create_preview_job(video_id: str, body: PreviewJobRequest):
+    """Lance la génération d'une vidéo adaptée BPM en basse résolution (720p) en arrière-plan."""
+    from app.services.video_service import adapt_video_to_bpm
+
+    video = get_video(video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    annotations = sorted(video.get("annotations", []), key=lambda a: a["frame_number"])
+    if len(annotations) < 2:
+        raise HTTPException(status_code=400, detail="Au moins 2 annotations requises pour l'adaptation BPM")
+
+    if not video.get("filepath"):
+        raise HTTPException(status_code=400, detail="Fichier vidéo introuvable")
+
+    label = f"preview:{body.target_bpm}"
+    job = job_manager.create_job(label=label)
+
+    def _run() -> str:
+        def _progress(pct: int) -> None:
+            job_manager.update(job.id, progress=pct)
+
+        return adapt_video_to_bpm(
+            video["filepath"],
+            annotations,
+            body.target_bpm,
+            progress_cb=_progress,
+            cancel_event=job.cancel_event,
+            max_height=720,
+        )
+
+    job_manager.launch(job, _run)
+    return {"job_id": job.id}
+
+
+@router.post("/videos/{video_id}/preview-adapted/save")
+async def save_preview(video_id: str, body: SavePreviewRequest):
+    """Sauvegarde le résultat d'un job preview dans le record vidéo pour réutilisation."""
+    video = get_video(video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    job = job_manager.get_job(body.job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done":
+        raise HTTPException(status_code=409, detail=f"Job not done (status={job.status})")
+    if not job.result_path or not os.path.exists(job.result_path):
+        raise HTTPException(status_code=410, detail="Result file no longer available")
+
+    previews_dir = os.path.join(settings.TEMP_DIR, "previews")
+    os.makedirs(previews_dir, exist_ok=True)
+    dest_path = os.path.join(previews_dir, f"{video_id}_preview.mp4")
+    shutil.copy2(job.result_path, dest_path)
+
+    adapted_preview = {
+        "path": dest_path,
+        "bpm": body.target_bpm,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    updated = update_video(video_id, adapted_preview=adapted_preview)
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour du record vidéo")
+
+    return {"adapted_preview": adapted_preview}
+
+
+@router.delete("/videos/{video_id}/preview-adapted")
+async def delete_preview(video_id: str):
+    """Supprime le preview sauvegardé pour une vidéo."""
+    video = get_video(video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    preview = video.get("adapted_preview")
+    if preview and preview.get("path"):
+        try:
+            os.remove(preview["path"])
+        except OSError:
+            pass
+
+    update_video(video_id, adapted_preview=None)
+    return {"message": "Preview supprimé"}
+
+
+@router.get("/videos/{video_id}/preview-adapted/download")
+async def download_saved_preview(video_id: str):
+    """Télécharge la version adaptée sauvegardée pour une vidéo."""
+    video = get_video(video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    preview = video.get("adapted_preview")
+    preview_path = preview.get("path") if isinstance(preview, dict) else None
+    if not preview_path or not os.path.exists(preview_path):
+        raise HTTPException(status_code=404, detail="Saved preview not found")
+
+    stem = os.path.splitext(video.get("original_name", video["filename"]))[0]
+    bpm = preview.get("bpm")
+    suffix = f"_preview_{int(bpm)}bpm" if isinstance(bpm, (int, float)) else "_preview"
+    return Response(
+        content=Path(preview_path).read_bytes(),
+        media_type="video/mp4",
+        headers={"Content-Disposition": f'attachment; filename="{stem}{suffix}.mp4"'},
+    )
+
+
+@router.get("/videos/{video_id}/preview-adapted/stream")
+async def stream_saved_preview(video_id: str):
+    """Lit directement la version adaptée sauvegardée dans l'UI projet/export."""
+    video = get_video(video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    preview = video.get("adapted_preview")
+    preview_path = preview.get("path") if isinstance(preview, dict) else None
+    if not preview_path or not os.path.exists(preview_path):
+        raise HTTPException(status_code=404, detail="Saved preview not found")
+
+    return FileResponse(path=preview_path, media_type="video/mp4")
 
 
 @router.get("/videos/{video_id}/export/json")

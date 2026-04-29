@@ -68,6 +68,65 @@ export async function createExportJob(
   return data.job_id as string
 }
 
+export interface JobStatus {
+  id: string
+  label: string
+  status: 'pending' | 'running' | 'done' | 'error' | 'cancelled'
+  progress: number
+  estimated_remaining_s: number | null
+  error: string | null
+}
+
+export async function createPreviewJob(videoId: string, targetBpm: number): Promise<string> {
+  const res = await fetch(`${API_BASE}/videos/${videoId}/preview-jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_bpm: targetBpm }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { detail?: string }).detail ?? `Preview job failed: ${res.status}`)
+  }
+  const data = await res.json()
+  return data.job_id as string
+}
+
+export async function getJobStatus(jobId: string): Promise<JobStatus> {
+  const res = await fetch(`${API_BASE}/exports/jobs/${jobId}`)
+  if (!res.ok) throw new Error(`Job not found: ${res.status}`)
+  return res.json()
+}
+
+export function getJobDownloadUrl(jobId: string): string {
+  return `${API_BASE}/exports/jobs/${jobId}/download`
+}
+
+export async function savePreview(videoId: string, jobId: string, targetBpm: number): Promise<{ adapted_preview: { bpm: number; created_at: string } }> {
+  const res = await fetch(`${API_BASE}/videos/${videoId}/preview-adapted/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_id: jobId, target_bpm: targetBpm }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as { detail?: string }).detail ?? `Save preview failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function deletePreview(videoId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/videos/${videoId}/preview-adapted`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Delete preview failed: ${res.status}`)
+}
+
+export async function downloadSavedPreview(videoId: string): Promise<void> {
+  await triggerDownload(`${API_BASE}/videos/${videoId}/preview-adapted/download`)
+}
+
+export function getSavedPreviewStreamUrl(videoId: string): string {
+  return `${API_BASE}/videos/${videoId}/preview-adapted/stream`
+}
+
 export async function downloadExportBundle(
   videoId: string,
   params: BundleExportParams,

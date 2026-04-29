@@ -43,3 +43,12 @@ class ProjectExportRequest(BaseModel):
         if invalid:
             raise ValueError(f"Formats invalides : {invalid}. Valeurs acceptées : {_ALLOWED_FORMATS}")
         return v
+
+
+class PreviewJobRequest(BaseModel):
+    target_bpm: float
+
+
+class SavePreviewRequest(BaseModel):
+    job_id: str
+    target_bpm: float

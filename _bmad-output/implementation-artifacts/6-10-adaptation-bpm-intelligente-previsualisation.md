@@ -1,267 +1,423 @@
-# Story 6.10: Adaptation BPM Intelligente et Prévisualisation avant Export
+# Story 6.10: Prévisualisation BPM en Arrière-Plan + Sauvegarde et Réutilisation
 
-Status: backlog
+Status: done
 
 ## Story
 
 En tant qu'utilisateur,
-I want que l'export vidéo ajuste localement la vitesse de chaque segment pour que les annotations tombent exactement au BPM cible, et pouvoir prévisualiser le résultat avant de télécharger,
-so that j'obtiens une vidéo rythmiquement correcte et valide le résultat avant export définitif.
+Je veux lancer une prévisualisation de la vidéo adaptée au BPM cible depuis la page statistiques, suivre sa progression en arrière-plan, valider le résultat visuellement, puis soit l'exporter directement, soit le sauvegarder pour que l'export projet le réutilise sans retraitement,
+Afin d'obtenir une vidéo rythmiquement correcte en évitant toute double génération coûteuse.
 
 ## Acceptance Criteria
 
-### Algorithme d'adaptation BPM locale
-1. L'algorithme découpe la vidéo en segments entre annotations consécutives
-2. Pour chaque segment : `speed_factor = interval_actual_seconds / interval_target_seconds`
-   - `interval_target = 60.0 / target_bpm` (en secondes)
-3. Chaque segment est ré-encodé avec FFmpeg `setpts` filter : `PTS*speed_factor`
-4. Les segments sont concaténés avec le filtre `concat` de FFmpeg
-5. Les segments avant la première annotation et après la dernière sont copiés sans modification (`-c copy`)
-6. L'export final a un audio synchronisé (filtre `atempo`, chainé si facteur > 2.0 ou < 0.5)
-7. La fonction `compute_segment_speeds(annotations, fps, target_bpm)` est testée unitairement avec des valeurs précises
+### AC1 — Bouton prévisualisation dans StatisticsPage
+- Un panneau "Prévisualisation BPM" est visible en bas de `StatisticsPage`
+- Il contient : champ BPM cible (pré-rempli avec `stats.bpm_global`), bouton "Prévisualiser"
+- Le bouton est désactivé si `annotations.length < 2` ou si BPM cible ≤ 0
 
-### Prévisualisation
-8. Un bouton "Prévisualiser" génère la vidéo adaptée en basse résolution (720p max) et la lit dans le lecteur intégré
-9. Endpoint `POST /api/v1/videos/{id}/preview-adapted` retourne la vidéo preview (streaming)
-10. L'utilisateur peut valider ou annuler depuis l'aperçu
-11. "Sauvegarder cette version" déclenche le téléchargement de la version haute qualité
+### AC2 — Génération en arrière-plan via job_manager
+- Cliquer "Prévisualiser" appelle `POST /api/v1/videos/{id}/preview-jobs` (body: `{target_bpm: float}`)
+- L'endpoint crée un job `job_manager` et retourne immédiatement `{job_id}`
+- Le job génère la vidéo adaptée en 720p max (paramètre `max_height=720` sur `adapt_video_to_bpm`)
+- Le frontend poll `GET /api/v1/exports/jobs/{job_id}` toutes les 2 secondes
+
+### AC3 — Indicateur de progression
+- Une barre de progression affiche `job.progress` (0-100%)
+- Le temps restant estimé est affiché (`job.estimated_remaining_s` → format "~Xs")
+- Un bouton "Annuler" appelle `DELETE /api/v1/exports/jobs/{job_id}`
+
+### AC4 — Lecteur vidéo intégré après génération
+- Quand `job.status === "done"`, un `<video>` s'affiche avec `src` = URL blob du job download
+- L'URL est obtenue via `GET /api/v1/exports/jobs/{job_id}/download` (endpoint existant)
+- Le lecteur a `data-testid="preview-player"`, `controls`, `autoPlay`
+- En cas d'erreur (`job.status === "error"`), un message d'erreur s'affiche
+
+### AC5 — Actions après prévisualisation
+- Bouton **"Télécharger cette version"** : télécharge la vidéo preview (basse résolution)
+- Bouton **"Sauvegarder pour le projet"** : appelle `POST /api/v1/videos/{id}/preview-adapted/save` avec `{job_id}`, persiste la référence dans le record vidéo
+- Bouton **"Fermer"** : masque le lecteur, conserve l'état sauvegardé éventuel
+
+### AC6 — Persistance du preview sauvegardé
+- `POST /api/v1/videos/{id}/preview-adapted/save` :
+  - Copie le fichier temp du job vers `TEMP_DIR/previews/{video_id}_preview.mp4` (permanent)
+  - Met à jour le record vidéo : `adapted_preview = { path, bpm, created_at }`
+  - Retourne `{ adapted_preview: {...} }`
+- `DELETE /api/v1/videos/{id}/preview-adapted` :
+  - Supprime le fichier et retire `adapted_preview` du record vidéo
+- `update_video()` dans `json_store.py` doit autoriser la clé `"adapted_preview"`
+
+### AC7 — Réutilisation dans ExportPage
+- Si `video.adapted_preview` existe pour une vidéo sélectionnée :
+  - Un badge "Aperçu sauvegardé (X BPM)" est affiché sur la ligne vidéo dans `ExportPage`
+  - Si le BPM cible de l'export correspond au BPM du preview → `generate_project_zip` utilise le fichier sauvegardé (skip `adapt_video_to_bpm`)
+- Dans `generate_project_zip` : avant d'appeler `adapt_video_to_bpm`, vérifier `video.adapted_preview` et comparer `bpm`
+
+### AC8 — Notification quand le job se termine
+- Utiliser le même mécanisme que `ExportJobsContext` : `Notification` navigateur quand le job preview passe à "done"
+- Le composant preview gère lui-même son polling (hook dédié `usePreviewJob`) sans dépendre de `ExportJobsContext`
 
 ## MANDAT TESTS — COUVERTURE MAXIMALE OBLIGATOIRE
 
-> TDD STRICT : écrire les tests avant tout code. Couverture cible : **100%** sur `compute_segment_speeds`, **≥ 80%** sur le reste.
-> L'algorithme BPM est le cœur de cette story — tester tous les cas limites.
+> TDD STRICT. `compute_segment_speeds` et `adapt_video_to_bpm` sont DÉJÀ implémentés et testés (commit S6.9/S6.10).
+> Ne PAS réécrire ces tests. Focus sur les NOUVEAUX endpoints et composants.
 
-### Tests backend obligatoires à écrire en PREMIER
+### Tests backend à écrire EN PREMIER
 
 ```python
 # backend/tests/test_exports.py (ajouts)
 
-def test_compute_segment_speeds_basic():
-    """Vérifie le calcul des facteurs de vitesse par segment."""
-    from app.services.export_service import compute_segment_speeds
-    annotations = [
-        {"frame_number": 25,  "timestamp_ms": 1000.0},
-        {"frame_number": 62,  "timestamp_ms": 2480.0},  # interval = 1.48s
-        {"frame_number": 100, "timestamp_ms": 4000.0},  # interval = 1.52s
-    ]
-    # target_bpm = 60 → interval_target = 1.0s
-    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
-    assert len(speeds) == 2
-    assert abs(speeds[0] - 1.48) < 0.01   # segment 1: ralentir (facteur >1)
-    assert abs(speeds[1] - 1.52) < 0.01   # segment 2: ralentir
-
-def test_compute_segment_speeds_acceleration():
-    """Segments plus lents que le BPM cible → facteur < 1 (accélération)."""
-    from app.services.export_service import compute_segment_speeds
-    annotations = [
-        {"frame_number": 25,  "timestamp_ms": 1000.0},
-        {"frame_number": 37,  "timestamp_ms": 1480.0},  # interval = 0.48s
-    ]
-    # target_bpm = 60 → interval_target = 1.0s → speed = 0.48/1.0 = 0.48
-    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
-    assert abs(speeds[0] - 0.48) < 0.01  # accélérer (facteur < 1)
-
-def test_compute_segment_speeds_single_annotation_returns_empty():
-    """Avec 0 ou 1 annotation, impossible de calculer des segments."""
-    from app.services.export_service import compute_segment_speeds
-    assert compute_segment_speeds([], fps=25.0, target_bpm=120.0) == []
-    assert compute_segment_speeds(
-        [{"frame_number": 25, "timestamp_ms": 1000.0}],
-        fps=25.0, target_bpm=120.0
-    ) == []
-
-def test_compute_segment_speeds_exact_bpm():
-    """Annotations exactement au BPM cible → speed = 1.0 (pas de modification)."""
-    from app.services.export_service import compute_segment_speeds
-    # BPM = 60 → interval = 1.0s → frames à 25fps: 0, 25, 50
-    annotations = [
-        {"frame_number": 0,  "timestamp_ms": 0.0},
-        {"frame_number": 25, "timestamp_ms": 1000.0},  # interval = 1.0s
-        {"frame_number": 50, "timestamp_ms": 2000.0},  # interval = 1.0s
-    ]
-    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=60.0)
-    assert all(abs(s - 1.0) < 0.001 for s in speeds)
-
-def test_compute_segment_speeds_high_bpm():
-    """BPM cible élevé (120) → interval_target court → facteurs > 1 si annotations lentes."""
-    from app.services.export_service import compute_segment_speeds
-    annotations = [
-        {"frame_number": 0,  "timestamp_ms": 0.0},
-        {"frame_number": 50, "timestamp_ms": 2000.0},  # interval = 2.0s
-    ]
-    # target_bpm = 120 → interval_target = 0.5s → speed = 2.0/0.5 = 4.0
-    speeds = compute_segment_speeds(annotations, fps=25.0, target_bpm=120.0)
-    assert abs(speeds[0] - 4.0) < 0.01
-
-async def test_preview_adapted_returns_video(client, video_with_annotations):
+async def test_create_preview_job_returns_job_id(client, video_with_annotations):
+    """POST /preview-jobs retourne un job_id immédiatement."""
     resp = await client.post(
-        f"/api/v1/videos/{video_with_annotations}/preview-adapted",
+        f"/api/v1/videos/{video_with_annotations}/preview-jobs",
         json={"target_bpm": 120.0}
     )
-    assert resp.status_code == 200
-    assert "video" in resp.headers["content-type"]
+    assert resp.status_code == 202
+    data = resp.json()
+    assert "job_id" in data
+    assert isinstance(data["job_id"], str)
 
-async def test_preview_adapted_requires_target_bpm(client, video_with_annotations):
+async def test_create_preview_job_requires_min_2_annotations(client, video_no_annotations):
+    """Retourne 400 si moins de 2 annotations."""
     resp = await client.post(
-        f"/api/v1/videos/{video_with_annotations}/preview-adapted",
+        f"/api/v1/videos/{video_no_annotations}/preview-jobs",
+        json={"target_bpm": 120.0}
+    )
+    assert resp.status_code == 400
+
+async def test_create_preview_job_requires_target_bpm(client, video_with_annotations):
+    """422 si target_bpm absent ou invalide."""
+    resp = await client.post(
+        f"/api/v1/videos/{video_with_annotations}/preview-jobs",
         json={}
     )
     assert resp.status_code == 422
 
-async def test_preview_adapted_requires_min_2_annotations(client, video_no_annotations):
+async def test_save_preview_updates_video_record(client, video_with_annotations, mocker):
+    """POST /preview-adapted/save persiste adapted_preview dans le record vidéo."""
+    # Crée un job terminé (mock)
+    from app.services.job_manager import job_manager, ExportJob
+    import time, tempfile, os
+    
+    # Crée un vrai fichier temp pour le mock du job result
+    tmp = tempfile.mktemp(suffix=".mp4")
+    with open(tmp, 'wb') as f:
+        f.write(b'fakevideo')
+    
+    job = job_manager.create_job(label="test preview")
+    job_manager.update(job.id, status="done", progress=100,
+                       result_path=tmp, finished_at=time.time())
+    
     resp = await client.post(
-        f"/api/v1/videos/{video_no_annotations}/preview-adapted",
-        json={"target_bpm": 120.0}
+        f"/api/v1/videos/{video_with_annotations}/preview-adapted/save",
+        json={"job_id": job.id}
     )
-    assert resp.status_code == 400  # Pas assez d'annotations
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "adapted_preview" in data
+    assert data["adapted_preview"]["bpm"] == 120.0  # bpm du job
+    
+    os.unlink(tmp)
+
+async def test_delete_preview_removes_from_record(client, video_with_saved_preview):
+    """DELETE /preview-adapted retire adapted_preview du record."""
+    resp = await client.delete(
+        f"/api/v1/videos/{video_with_saved_preview}/preview-adapted"
+    )
+    assert resp.status_code == 200
+
+async def test_generate_zip_reuses_saved_preview(project_with_saved_preview):
+    """generate_project_zip réutilise le preview sauvegardé si BPM correspond."""
+    from app.services.export_service import generate_project_zip
+    # La vidéo a adapted_preview.bpm = 120.0
+    # On exporte avec video_bpm = {video_id: 120.0}
+    # → adapt_video_to_bpm ne doit PAS être appelé
+    import unittest.mock as mock
+    with mock.patch('app.services.video_service.adapt_video_to_bpm') as mock_adapt:
+        result = generate_project_zip(
+            project_with_saved_preview["project_id"],
+            video_ids=None,
+            formats=["video"],
+            video_bpm={project_with_saved_preview["video_id"]: 120.0},
+        )
+        mock_adapt.assert_not_called()
+        assert result is not None
 ```
 
-### Tests frontend obligatoires à écrire en PREMIER
+### Tests frontend à écrire EN PREMIER
 
 ```tsx
-// frontend/src/components/exports/PreviewPlayer.test.tsx (nouveau)
+// frontend/src/components/exports/PreviewPanel.test.tsx (nouveau)
 
-test('preview button triggers preview generation', async () => {
-  const generatePreview = vi.fn().mockResolvedValue('/preview.mp4');
-  render(<ExportForm onGeneratePreview={generatePreview} targetBpm={120} videoId="uuid-1" />);
-  await userEvent.click(screen.getByRole('button', { name: /prévisualiser/i }));
-  expect(generatePreview).toHaveBeenCalledWith({ videoId: 'uuid-1', targetBpm: 120 });
-});
+test('preview button is disabled when less than 2 annotations', () => {
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={1} />)
+  expect(screen.getByRole('button', { name: /prévisualiser/i })).toBeDisabled()
+})
 
-test('shows video player after preview is generated', async () => {
-  const generatePreview = vi.fn().mockResolvedValue('/preview.mp4');
-  render(<ExportForm onGeneratePreview={generatePreview} targetBpm={120} videoId="uuid-1" />);
-  await userEvent.click(screen.getByRole('button', { name: /prévisualiser/i }));
-  await waitFor(() =>
-    expect(screen.getByTestId('preview-player')).toBeInTheDocument()
-  );
-});
+test('preview button calls createPreviewJob with videoId and targetBpm', async () => {
+  const createJob = vi.fn().mockResolvedValue('job-123')
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    onCreateJob={createJob} />)
+  await userEvent.click(screen.getByRole('button', { name: /prévisualiser/i }))
+  expect(createJob).toHaveBeenCalledWith('v1', 120)
+})
 
-test('shows loading state while preview is generating', async () => {
-  const generatePreview = vi.fn().mockImplementation(() => new Promise(() => {}));
-  render(<ExportForm onGeneratePreview={generatePreview} targetBpm={120} videoId="uuid-1" />);
-  await userEvent.click(screen.getByRole('button', { name: /prévisualiser/i }));
-  expect(screen.getByRole('button', { name: /prévisualiser/i })).toBeDisabled();
-  expect(screen.getByText(/génération/i)).toBeInTheDocument();
-});
+test('shows progress bar while job is running', async () => {
+  const createJob = vi.fn().mockResolvedValue('job-123')
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    onCreateJob={createJob} />)
+  await userEvent.click(screen.getByRole('button', { name: /prévisualiser/i }))
+  expect(screen.getByRole('progressbar')).toBeInTheDocument()
+})
 
-test('save button triggers high quality download', async () => {
-  const onSave = vi.fn();
-  render(<PreviewPlayer previewUrl="/preview.mp4" onSave={onSave} onCancel={vi.fn()} />);
-  await userEvent.click(screen.getByRole('button', { name: /sauvegarder/i }));
-  expect(onSave).toHaveBeenCalled();
-});
+test('shows video player when job is done', async () => {
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    previewUrl="/preview.mp4" jobStatus="done" />)
+  expect(screen.getByTestId('preview-player')).toBeInTheDocument()
+})
 
-test('cancel button hides preview player', async () => {
-  const onCancel = vi.fn();
-  render(<PreviewPlayer previewUrl="/preview.mp4" onSave={vi.fn()} onCancel={onCancel} />);
-  await userEvent.click(screen.getByRole('button', { name: /annuler/i }));
-  expect(onCancel).toHaveBeenCalled();
-});
+test('shows estimated remaining time during generation', () => {
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    jobStatus="running" progress={40} estimatedRemaining={30} />)
+  expect(screen.getByText(/~30s/i)).toBeInTheDocument()
+})
+
+test('save button calls savePreview with videoId and jobId', async () => {
+  const onSave = vi.fn()
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    previewUrl="/preview.mp4" jobStatus="done" jobId="job-123" onSave={onSave} />)
+  await userEvent.click(screen.getByRole('button', { name: /sauvegarder pour le projet/i }))
+  expect(onSave).toHaveBeenCalledWith('v1', 'job-123')
+})
+
+test('cancel button calls cancelJob with jobId', async () => {
+  const onCancel = vi.fn()
+  render(<PreviewPanel videoId="v1" currentBpm={120} annotationCount={5}
+    jobStatus="running" jobId="job-123" onCancel={onCancel} />)
+  await userEvent.click(screen.getByRole('button', { name: /annuler/i }))
+  expect(onCancel).toHaveBeenCalledWith('job-123')
+})
+
+// frontend/src/pages/StatisticsPage.test.tsx (ajout)
+test('statistics page shows preview panel at the bottom', () => {
+  render(<StatisticsPage />)
+  expect(screen.getByTestId('bpm-preview-panel')).toBeInTheDocument()
+})
+
+// frontend/src/pages/ExportPage.test.tsx (ajout)
+test('shows saved preview badge when video has adapted_preview', () => {
+  const videos = [buildVideo({ adapted_preview: { bpm: 120, created_at: '...' } })]
+  render(<ExportPage projectId="p1" videos={videos} />)
+  expect(screen.getByText(/aperçu sauvegardé/i)).toBeInTheDocument()
+})
 ```
 
 ## Tasks / Subtasks
 
-### Backend — Algorithme
-- [ ] Écrire les 8 tests backend EN PREMIER — tous les cas de `compute_segment_speeds`
-- [ ] Implémenter `compute_segment_speeds(annotations, fps, target_bpm) -> List[float]` dans `export_service.py`
-  - [ ] Calcul : `speed = interval_actual / interval_target` pour chaque paire d'annotations consécutives
-  - [ ] `interval_target = 60.0 / target_bpm`
-  - [ ] Retourne `[]` si 0 ou 1 annotation
-- [ ] Implémenter `adapt_video_bpm(video_path, annotations, target_bpm, output_path, resolution='720p')` dans `export_service.py`
-  - [ ] Découper en segments avec FFmpeg
-  - [ ] Appliquer `setpts=PTS*speed` sur chaque segment vidéo
-  - [ ] Appliquer `atempo=1/speed` sur chaque segment audio (chainé si > 2.0 ou < 0.5)
-  - [ ] Copier les segments avant/après sans modification (`-c copy`)
-  - [ ] Concaténer avec `concat` filter
-- [ ] Ajouter `POST /api/v1/videos/{id}/preview-adapted` dans `exports.py` (AC: 9)
-  - [ ] Accepter `target_bpm: float`
-  - [ ] Générer avec `adapt_video_bpm(..., resolution='720p')`
-  - [ ] Streamer la vidéo générée
-  - [ ] Retourner 400 si < 2 annotations
-- [ ] Intégrer `adapt_video_bpm` dans `generate_project_zip` quand `target_bpm` fourni (AC: S6.9)
+### Backend
+
+- [x] Écrire tous les tests backend EN PREMIER (6 tests listés ci-dessus)
+- [x] Étendre `update_video()` dans `json_store.py` pour autoriser la clé `"adapted_preview"`
+- [x] Ajouter paramètre `max_height: int | None = None` à `adapt_video_to_bpm()` dans `video_service.py`
+  - [x] Si `max_height` fourni → ajouter `-vf "scale=-2:min({max_height}\\,ih)"` dans la commande ffmpeg
+- [x] Implémenter `POST /api/v1/videos/{id}/preview-jobs` dans `exports.py`
+  - [x] Valider `target_bpm > 0` (422) et `len(annotations) >= 2` (400)
+  - [x] Créer un job via `job_manager.create_job()`
+  - [x] Lancer `adapt_video_to_bpm(..., max_height=720)` dans le thread du job
+  - [x] Retourner `{job_id}` avec status 202
+- [x] Implémenter `POST /api/v1/videos/{id}/preview-adapted/save` dans `exports.py`
+  - [x] Vérifier que le job existe et est "done"
+  - [x] Copier `job.result_path` vers `TEMP_DIR/previews/{video_id}_preview.mp4` (créer le répertoire si besoin)
+  - [x] Appeler `update_video(video_id, adapted_preview={"path": ..., "bpm": job_bpm, "created_at": now})`
+  - [x] Retourner le record vidéo mis à jour
+- [x] Implémenter `DELETE /api/v1/videos/{id}/preview-adapted` dans `exports.py`
+  - [x] Lire `video.adapted_preview.path`, supprimer le fichier (`os.remove` + `try/except OSError`)
+  - [x] Mettre à jour le record : `update_video(video_id, adapted_preview=None)`
+- [x] Modifier `generate_project_zip()` dans `export_service.py`
+  - [x] Avant `adapt_video_to_bpm`, vérifier `video.get("adapted_preview")` et comparer `bpm`
+  - [x] Si preview sauvegardée avec même BPM ET fichier existe → `zf.write(preview_path, ...)` directement
+  - [x] Sinon → comportement existant (`adapt_video_to_bpm`)
 
 ### Frontend
-- [ ] Écrire les 5 tests frontend EN PREMIER
-- [ ] Créer `frontend/src/components/exports/PreviewPlayer.tsx` (AC: 8, 10, 11)
-  - [ ] Lecteur vidéo avec `data-testid="preview-player"`
-  - [ ] Boutons "Sauvegarder cette version" et "Annuler"
-- [ ] Modifier `frontend/src/pages/ExportPage.tsx` (AC: 8, 11)
-  - [ ] Intégrer `<PreviewPlayer>` dans le workflow d'export
-  - [ ] État loading pendant la génération preview
-  - [ ] "Sauvegarder" → téléchargement haute qualité
-- [ ] Modifier `frontend/src/api/exports.ts` (AC: 9)
-  - [ ] `generatePreview(videoId, targetBpm): Promise<string>` (URL du blob preview)
-- [ ] Passer tous les tests → GREEN
+
+- [x] Écrire tous les tests frontend EN PREMIER (9 tests listés ci-dessus)
+- [x] Créer `frontend/src/api/exports.ts` — ajouter les nouvelles fonctions :
+  - [x] `createPreviewJob(videoId: string, targetBpm: number): Promise<string>` → POST /videos/{id}/preview-jobs
+  - [x] `savePreview(videoId: string, jobId: string): Promise<Video>` → POST /videos/{id}/preview-adapted/save
+  - [x] `deletePreview(videoId: string): Promise<void>` → DELETE /videos/{id}/preview-adapted
+  - [x] `getJobStatus(jobId: string): Promise<JobStatus>` → GET /exports/jobs/{job_id}
+  - [x] `getJobDownloadUrl(jobId: string): string` → retourne l'URL (pas de fetch, le `<video src>` la charge)
+- [x] Créer hook `frontend/src/hooks/usePreviewJob.ts`
+  - [x] Gère le cycle : idle → creating → polling → done/error
+  - [x] Poll `getJobStatus` toutes les 2s (setInterval, cleanup on unmount)
+  - [x] Envoie `Notification` navigateur quand `status === "done"`
+  - [x] Retourne `{ jobId, status, progress, estimatedRemaining, previewUrl, start, cancel }`
+- [x] Créer `frontend/src/components/exports/PreviewPanel.tsx`
+  - [x] Champ BPM de prévisualisation (nombre, min=1, pré-rempli avec prop `currentBpm`)
+  - [x] Bouton "Prévisualiser" (désactivé si `annotationCount < 2` ou `targetBpm <= 0`)
+  - [x] État idle : bouton seul
+  - [x] État running : `<progress>` + texte "~Xs restant" + bouton "Annuler"
+  - [x] État done : `<video data-testid="preview-player" controls autoPlay src={previewUrl}>`
+    + boutons "Télécharger" + "Sauvegarder pour le projet" + "Fermer"
+  - [x] État error : message d'erreur
+  - [x] `data-testid="bpm-preview-panel"` sur le conteneur racine
+- [x] Modifier `frontend/src/pages/StatisticsPage.tsx`
+  - [x] Ajouter un 6ème panneau (après BpmAdjuster) avec `<PreviewPanel>`
+  - [x] Passer `videoId`, `currentBpm={stats?.bpm_global ?? 0}`, `annotationCount={annotations.length}`
+- [x] Modifier `frontend/src/types/project.ts` (ou `video.ts`)
+  - [x] Ajouter champ optionnel `adapted_preview?: { path?: string; bpm: number; created_at: string }` à `Video`
+- [x] Modifier `frontend/src/pages/ExportPage.tsx`
+  - [x] Dans la liste des vidéos, si `v.adapted_preview` existe → afficher badge "Aperçu sauvegardé (X BPM)"
+- [x] Passer tous les tests → GREEN
 
 ## Dev Notes
 
-### Dépendances
+### DÉJÀ IMPLÉMENTÉ — NE PAS RÉÉCRIRE
 
-- **S6.9 DOIT être implémentée avant S6.10** (l'algorithme est intégré dans le ZIP projet)
+Les éléments suivants sont présents depuis le commit `ac096fb` :
+- `compute_segment_speeds()` dans `export_service.py` ✅
+- `adapt_video_to_bpm()` dans `video_service.py` ✅
+- `job_manager` + `ExportJob` dans `job_manager.py` ✅
+- Tests `test_compute_segment_speeds_*` dans `test_exports.py` ✅
+- Endpoints existants utilisables : `GET /exports/jobs/{id}`, `DELETE /exports/jobs/{id}`, `GET /exports/jobs/{id}/download`
 
-### Contexte codebase
-
-- `export_service.py` existe déjà (Epic 5) — ajouter les nouvelles fonctions
-- FFmpeg est déjà disponible dans le container Docker (S5.2)
-- Pattern FFmpeg Python : `ffmpeg.input(...).filter(...).output(...).run()`
-- `atempo` range : 0.5 à 2.0. Pour facteurs hors range → chaîner : `atempo=0.5,atempo=0.5` pour 0.25
-
-### Algorithme FFmpeg détaillé
+### Patterns établis à réutiliser (S6.9)
 
 ```python
-# Pseudo-code pour l'adaptation par segments
-def adapt_video_bpm(video_path, annotations, target_bpm, output_path, resolution='720p'):
-    interval_target = 60.0 / target_bpm
-    speeds = compute_segment_speeds(annotations, fps, target_bpm)
-    
-    segments = []
-    # Segment avant première annotation : copie directe
-    # Pour chaque paire d'annotations consécutives :
-    #   filter_video = f"[v{i}]setpts={speed}*PTS[ov{i}]"
-    #   filter_audio = build_atempo_chain(1.0/speed)
-    # Segment après dernière annotation : copie directe
-    # Concat final : ffmpeg concat filter
+# Pattern création job (exports.py) — COPIER CE PATTERN
+job = job_manager.create_job(label=f"preview:{target_bpm}:{video_id}")
+Path(settings.TEMP_DIR).mkdir(parents=True, exist_ok=True)
+result_path = os.path.join(settings.TEMP_DIR, f"preview_{job.id}.mp4")
+
+def _run() -> str:
+    def _progress(pct: int) -> None:
+        job_manager.update(job.id, progress=pct)
+    adapt_video_to_bpm(video["filepath"], annotations, target_bpm,
+                       progress_cb=_progress, cancel_event=job.cancel_event,
+                       max_height=720)
+    return result_path  # adapt_video_to_bpm écrit dans output_path, pas return
+
+job_manager.launch(job, _run)
+return {"job_id": job.id}
 ```
 
-### atempo chain builder
+> **ATTENTION** : `adapt_video_to_bpm` n'a pas de paramètre `output_path` — il génère lui-même le path via `tempfile`. Il retourne le path. Adapter le wrapper en conséquence : `result_path = adapt_video_to_bpm(...)`.
+
+### Encodage du BPM dans le label du job
+
+Pour récupérer le BPM lors de `save`, encoder dans le label :
+```python
+label = f"preview:{target_bpm}"
+# Lors du save :
+bpm_from_label = float(job.label.split(":")[1])  # "preview:120.0" → 120.0
+```
+
+### Paramètre max_height dans adapt_video_to_bpm
 
 ```python
-def build_atempo_chain(speed: float) -> str:
-    """Construit la chaîne atempo pour un facteur de vitesse audio."""
-    filters = []
-    while speed > 2.0:
-        filters.append("atempo=2.0")
-        speed /= 2.0
-    while speed < 0.5:
-        filters.append("atempo=0.5")
-        speed /= 0.5
-    filters.append(f"atempo={speed:.4f}")
-    return ",".join(filters)
+# Dans video_service.py, adapter la commande ffmpeg :
+vf_filters = []
+if max_height:
+    vf_filters.append(f"scale=-2:min({max_height}\\,ih)")
+
+# Insérer avant les codec args si vf_filters non vide :
+if vf_filters:
+    cmd += ["-vf", ",".join(vf_filters)]
 ```
 
-### Structure des fichiers
+Attention : `adapt_video_to_bpm` utilise déjà `-filter_complex` (pour les setpts/atempo). Un deuxième `-vf` est incompatible. Il faut intégrer le scale DANS le filter_complex comme étape finale sur le flux de sortie final, OU utiliser un post-processing séparé. **Solution simple** : appliquer le scale comme `libavfilter` chaîné sur la sortie `concat` : ajouter `,scale=-2:min(720\,ih)` à la fin du dernier filtre vidéo avant le `[vout]` map.
+
+**Alternative plus simple** : ajouter un pass de re-scale après l'adaptation BPM (deux passes ffmpeg). Utiliser l'approche deux passes pour éviter de modifier `_build_adapt_filter` :
+```python
+if max_height:
+    # Réencoder avec scale après l'adaptation
+    scaled_path = output_path.replace('.mp4', '_scaled.mp4')
+    subprocess.run([
+        "ffmpeg", "-y", "-i", output_path,
+        "-vf", f"scale=-2:min({max_height}\\,ih)",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "28",
+        "-c:a", "copy", scaled_path
+    ], check=True, capture_output=True)
+    os.replace(scaled_path, output_path)
+```
+
+### Structure json_store.py — `update_video`
+
+```python
+# Modifier la whitelist :
+ALLOWED_VIDEO_KEYS = {"original_name", "adapted_preview"}
+video.update({k: v for k, v in kwargs.items() if k in ALLOWED_VIDEO_KEYS})
+```
+
+### Hook usePreviewJob (frontend)
+
+```ts
+// Pattern de polling (réutiliser logique de ExportJobsContext)
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+
+export function usePreviewJob(videoId: string) {
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [status, setStatus] = useState<'idle'|'creating'|'running'|'done'|'error'>('idle')
+  const [progress, setProgress] = useState(0)
+  const [estimatedRemaining, setEstimatedRemaining] = useState<number | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  
+  // Poll avec setInterval, nettoyer sur unmount
+  // Quand done : setPreviewUrl(`${API_BASE}/exports/jobs/${jobId}/download`)
+  // Notification navigateur si permission accordée
+}
+```
+
+### Répertoire previews permanent
+
+```python
+# Dans exports.py (save endpoint) :
+import shutil
+previews_dir = os.path.join(settings.TEMP_DIR, "previews")
+os.makedirs(previews_dir, exist_ok=True)
+dest_path = os.path.join(previews_dir, f"{video_id}_preview.mp4")
+shutil.copy2(job.result_path, dest_path)
+```
+
+Note : le fichier temp du job est supprimé par le download endpoint (`background_tasks.add_task(os.remove, ...)`). Ne PAS déclencher le download endpoint avant le save. Le save endpoint copie le fichier (pas un move) pour être safe.
+
+### Structure des fichiers modifiés
 
 ```
 backend/app/
-├── services/export_service.py       ← modifier (compute_segment_speeds + adapt_video_bpm)
-├── routers/exports.py               ← modifier (endpoint preview-adapted)
-└── tests/test_exports.py            ← enrichir (8 tests)
+├── services/
+│   ├── export_service.py    ← modifier generate_project_zip (réutilisation preview)
+│   └── video_service.py     ← modifier adapt_video_to_bpm (paramètre max_height)
+├── routers/
+│   └── exports.py           ← ajouter 3 nouveaux endpoints
+├── storage/
+│   └── json_store.py        ← update_video autorise "adapted_preview"
+└── tests/
+    └── test_exports.py      ← 6 nouveaux tests
 
 frontend/src/
+├── api/
+│   └── exports.ts           ← 5 nouvelles fonctions
+├── hooks/
+│   └── usePreviewJob.ts     ← nouveau hook
 ├── components/exports/
-│   ├── PreviewPlayer.tsx             ← créer
-│   └── PreviewPlayer.test.tsx        ← créer
-├── pages/ExportPage.tsx              ← modifier (workflow preview)
-└── api/exports.ts                    ← modifier (generatePreview)
+│   ├── PreviewPanel.tsx     ← nouveau composant
+│   └── PreviewPanel.test.tsx← nouveau
+├── pages/
+│   ├── StatisticsPage.tsx   ← ajouter panneau PreviewPanel (6ème)
+│   └── ExportPage.tsx       ← badge "Aperçu sauvegardé"
+└── types/
+    └── project.ts (ou video.ts) ← champ adapted_preview dans Video
 ```
 
 ### Anti-patterns à éviter
 
-- Ne PAS utiliser `WebCodecs` côté client — FFmpeg côté serveur uniquement (ADR-002)
-- Ne PAS mettre en queue les exports preview — synchrone en v1
-- Ne PAS supprimer les fichiers temporaires en cas d'erreur — utiliser `try/finally` ou `tempfile`
-- Ne PAS hardcoder le chemin de sortie — utiliser `tempfile.mktemp()` + cleanup
+- Ne PAS réécrire `compute_segment_speeds` ni `adapt_video_to_bpm` — ils existent déjà
+- Ne PAS utiliser `ExportJobsContext` pour le preview job — créer un hook local `usePreviewJob` pour garder le preview isolé
+- Ne PAS exposer `job.result_path` côté client — toujours passer par l'endpoint `/jobs/{id}/download`
+- Ne PAS supprimer le fichier temp dans le save endpoint (déjà géré par download ou TTL)
+- Ne PAS hardcoder les chemins de fichiers — utiliser `settings.TEMP_DIR`
+- Ne PAS bloquer l'UI pendant la génération — toujours via job + polling
 
 ## Dev Agent Record
 
@@ -283,4 +439,5 @@ _à remplir_
 
 ## Change Log
 
-- 2026-04-17 : Story créée par SM (Bob) — Epic 6 Retours Client, Phase D (complexité élevée). Dépend de S6.9. Exigence couverture tests maximale, 100% sur compute_segment_speeds.
+- 2026-04-17 : Story créée initialement (version synchrone)
+- 2026-04-21 : Story réécrite par SM (Bob) — passage en mode arrière-plan via job_manager, ajout bouton dans StatisticsPage, "Sauvegarder pour le projet" + réutilisation dans generate_project_zip, suppression du pattern synchrone. compute_segment_speeds et adapt_video_to_bpm déjà implémentés (commit ac096fb).

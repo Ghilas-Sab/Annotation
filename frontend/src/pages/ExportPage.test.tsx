@@ -56,4 +56,16 @@ describe('ExportPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /exporter/i }))
     await waitFor(() => expect(exportFn).toHaveBeenCalled())
   })
+
+  test('shows saved preview badge when video has adapted_preview', () => {
+    const videosWithPreview: Video[] = [
+      {
+        ...mockVideos[0],
+        adapted_preview: { bpm: 120, created_at: '2026-04-21T00:00:00' },
+      },
+      mockVideos[1],
+    ]
+    render(<ExportPage projectId="uuid-p1" videos={videosWithPreview} />)
+    expect(screen.getByText(/aperçu adapté/i)).toBeInTheDocument()
+  })
 })

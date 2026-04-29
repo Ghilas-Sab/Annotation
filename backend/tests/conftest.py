@@ -111,3 +111,62 @@ async def video_ids(project_with_two_videos):
     """Liste des IDs des deux vidéos du projet projet_with_two_videos."""
     _, ids = project_with_two_videos
     return ids
+
+
+@pytest.fixture
+async def video_with_saved_preview(client, video_id_with_annotations, tmp_path, monkeypatch):
+    """Vidéo avec un preview BPM sauvegardé à 120 BPM."""
+    import os, time
+    from app.config import settings
+
+    previews_dir = os.path.join(settings.TEMP_DIR, "previews")
+    os.makedirs(previews_dir, exist_ok=True)
+    preview_path = os.path.join(previews_dir, f"{video_id_with_annotations}_preview.mp4")
+    with open(preview_path, "wb") as f:
+        f.write(b"fakevideo")
+
+    from app.storage.json_store import update_video
+    update_video(video_id_with_annotations, adapted_preview={
+        "path": preview_path,
+        "bpm": 120.0,
+        "created_at": str(time.time()),
+    })
+    return video_id_with_annotations
+
+
+@pytest.fixture
+async def project_with_saved_preview(client, tmp_video_file, videos_dir, monkeypatch):
+    """Projet avec une vidéo ayant un preview sauvegardé à 120 BPM."""
+    import os, time
+    from app.config import settings
+
+    res = await client.post("/api/v1/projects", json={"name": "Preview Test"})
+    proj_id = res.json()["id"]
+
+    with open(tmp_video_file, "rb") as f:
+        res = await client.post(
+            f"/api/v1/projects/{proj_id}/videos",
+            files={"file": ("test.mp4", f, "video/mp4")}
+        )
+    vid_id = res.json()["id"]
+
+    for frame in [10, 25, 40]:
+        await client.post(
+            f"/api/v1/videos/{vid_id}/annotations",
+            json={"frame_number": frame, "label": f"beat_{frame}"}
+        )
+
+    previews_dir = os.path.join(settings.TEMP_DIR, "previews")
+    os.makedirs(previews_dir, exist_ok=True)
+    preview_path = os.path.join(previews_dir, f"{vid_id}_preview.mp4")
+    with open(preview_path, "wb") as f:
+        f.write(b"fakevideo")
+
+    from app.storage.json_store import update_video
+    update_video(vid_id, adapted_preview={
+        "path": preview_path,
+        "bpm": 120.0,
+        "created_at": str(time.time()),
+    })
+
+    return {"project_id": proj_id, "video_id": vid_id}

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useExportJobs } from '../../contexts/ExportJobsContext'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
 function formatEta(s: number | null): string {
   if (s === null || s <= 0) return ''
@@ -7,25 +10,17 @@ function formatEta(s: number | null): string {
   return `~${Math.ceil(s / 60)}min`
 }
 
-const statusIcon: Record<string, string> = {
-  pending: '⏳',
-  running: '⚙️',
-  done: '✅',
-  error: '❌',
-}
-
 const ExportJobsWidget: React.FC = () => {
-  const { jobs, dismissJob, cancelJob } = useExportJobs()
+  const { jobs, dismissJob, cancelJob, savePreviewJob } = useExportJobs()
   const [collapsed, setCollapsed] = useState(false)
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
 
-  // Draggable state
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const dragging = useRef(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   const widgetRef = useRef<HTMLDivElement>(null)
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only drag from header
     dragging.current = true
     const rect = widgetRef.current!.getBoundingClientRect()
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
@@ -45,6 +40,22 @@ const ExportJobsWidget: React.FC = () => {
       window.removeEventListener('mouseup', onUp)
     }
   }, [])
+
+  const handleDownload = (jobId: string) => {
+    const a = document.createElement('a')
+    a.href = `${API_BASE}/exports/jobs/${jobId}/download`
+    a.download = 'preview.mp4'
+    a.click()
+  }
+
+  const handleSave = async (jobId: string) => {
+    setSavingIds(prev => new Set(prev).add(jobId))
+    try {
+      await savePreviewJob(jobId)
+    } finally {
+      setSavingIds(prev => { const s = new Set(prev); s.delete(jobId); return s })
+    }
+  }
 
   if (jobs.length === 0) return null
 
@@ -69,7 +80,7 @@ const ExportJobsWidget: React.FC = () => {
         fontFamily: 'inherit',
       }}
     >
-      {/* Header — drag handle */}
+      {/* Header */}
       <div
         onMouseDown={onMouseDown}
         onClick={() => setCollapsed(c => !c)}
@@ -77,21 +88,19 @@ const ExportJobsWidget: React.FC = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0.65rem 0.9rem',
           borderBottom: collapsed ? 'none' : '1px solid var(--color-border, #2a2a4a)',
-          cursor: 'grab',
-          userSelect: 'none',
+          cursor: 'grab', userSelect: 'none',
           background: 'rgba(0,0,0,0.15)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text, #cdd6f4)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            Exports
+            Traitements
           </span>
           {activeCount > 0 && (
             <span style={{
               fontSize: '0.7rem', fontWeight: 700,
               background: 'var(--color-accent, #e94560)',
-              color: '#fff', borderRadius: 10,
-              padding: '0 5px', lineHeight: '16px',
+              color: '#fff', borderRadius: 10, padding: '0 5px', lineHeight: '16px',
             }}>
               {activeCount}
             </span>
@@ -102,22 +111,19 @@ const ExportJobsWidget: React.FC = () => {
         </span>
       </div>
 
-      {/* Job list */}
       {!collapsed && (
-        <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
           {jobs.map(job => (
             <div
               key={job.job_id}
-              style={{
-                padding: '0.75rem 0.9rem',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
-              }}
+              style={{ padding: '0.75rem 0.9rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
             >
-              {/* Nom + état + actions */}
+              {/* Ligne titre + actions */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.4rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text, #cdd6f4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {statusIcon[job.status]} {job.label}
+                    {job.status === 'done' ? '✅' : job.status === 'error' ? '❌' : '⚙️'}{' '}
+                    {job.label}
                   </div>
                   {job.status === 'error' && (
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-danger, #ff6b6b)', marginTop: 2 }}>
@@ -129,7 +135,6 @@ const ExportJobsWidget: React.FC = () => {
                   {(job.status === 'pending' || job.status === 'running') && (
                     <button
                       onClick={() => cancelJob(job.job_id)}
-                      aria-label="Annuler"
                       title="Annuler"
                       style={{ background: 'transparent', border: '1px solid rgba(255,107,107,0.4)', color: 'var(--color-danger, #ff6b6b)', cursor: 'pointer', fontSize: '0.72rem', padding: '1px 6px', borderRadius: 4 }}
                     >
@@ -139,7 +144,7 @@ const ExportJobsWidget: React.FC = () => {
                   {(job.status === 'done' || job.status === 'error') && (
                     <button
                       onClick={() => dismissJob(job.job_id)}
-                      aria-label="Fermer"
+                      title="Fermer"
                       style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted, #8892b0)', cursor: 'pointer', fontSize: '0.9rem', padding: '0 2px' }}
                     >
                       ✕
@@ -158,11 +163,9 @@ const ExportJobsWidget: React.FC = () => {
                       aria-valuemin={0}
                       aria-valuemax={100}
                       style={{
-                        height: '100%',
-                        width: `${job.progress}%`,
-                        background: 'var(--color-accent, #e94560)',
-                        borderRadius: 2,
-                        transition: 'width 0.4s ease',
+                        height: '100%', width: `${job.progress}%`,
+                        background: job.type === 'preview' ? '#7aa2f7' : 'var(--color-accent, #e94560)',
+                        borderRadius: 2, transition: 'width 0.4s ease',
                       }}
                     />
                   </div>
@@ -173,9 +176,53 @@ const ExportJobsWidget: React.FC = () => {
                 </>
               )}
 
-              {job.status === 'done' && (
+              {/* Actions quand terminé */}
+              {job.status === 'done' && job.type === 'export' && (
                 <div style={{ fontSize: '0.72rem', color: '#64ffda', marginTop: 2 }}>
                   Téléchargement démarré
+                </div>
+              )}
+
+              {job.status === 'done' && job.type === 'preview' && (
+                <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleDownload(job.job_id)}
+                    style={{
+                      fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
+                      border: '1px solid rgba(100,255,218,0.4)', background: 'rgba(100,255,218,0.06)',
+                      color: '#64ffda', cursor: 'pointer',
+                    }}
+                  >
+                    Télécharger
+                  </button>
+                  {!job.saved ? (
+                    <button
+                      onClick={() => handleSave(job.job_id)}
+                      disabled={savingIds.has(job.job_id)}
+                      style={{
+                        fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
+                        border: '1px solid rgba(233,69,96,0.4)', background: 'rgba(233,69,96,0.06)',
+                        color: 'var(--color-accent, #e94560)', cursor: 'pointer',
+                      }}
+                    >
+                      {savingIds.has(job.job_id) ? '…' : 'Sauvegarder'}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '0.72rem', color: '#64ffda' }}>✓ Sauvegardé</span>
+                  )}
+                  {job.videoId && (
+                    <Link
+                      to={`/statistics/${job.videoId}`}
+                      style={{
+                        fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
+                        border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
+                        color: 'var(--color-text-muted, #8892b0)', textDecoration: 'none',
+                        display: 'inline-block',
+                      }}
+                    >
+                      Voir
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

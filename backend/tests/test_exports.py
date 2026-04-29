@@ -319,3 +319,112 @@ async def test_export_project_400_on_invalid_format(client, project_with_two_ann
         json={"video_ids": None, "formats": ["invalid_format"]}
     )
     assert resp.status_code == 422
+
+
+# ── Tests S6.10 : Preview job en arrière-plan ───────────────────────────────
+
+async def test_create_preview_job_returns_job_id(client, video_id_with_annotations):
+    """POST /preview-jobs retourne un job_id immédiatement (202)."""
+    resp = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/preview-jobs",
+        json={"target_bpm": 120.0}
+    )
+    assert resp.status_code == 202
+    data = resp.json()
+    assert "job_id" in data
+    assert isinstance(data["job_id"], str)
+
+
+async def test_create_preview_job_requires_min_2_annotations(client, video_id):
+    """Retourne 400 si moins de 2 annotations."""
+    resp = await client.post(
+        f"/api/v1/videos/{video_id}/preview-jobs",
+        json={"target_bpm": 120.0}
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_preview_job_requires_target_bpm(client, video_id_with_annotations):
+    """422 si target_bpm absent."""
+    resp = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/preview-jobs",
+        json={}
+    )
+    assert resp.status_code == 422
+
+
+async def test_save_preview_updates_video_record(client, video_id_with_annotations, tmp_path):
+    """POST /preview-adapted/save persiste adapted_preview dans le record vidéo."""
+    import time
+    from app.services.job_manager import job_manager
+
+    tmp_file = tmp_path / "fake_preview.mp4"
+    tmp_file.write_bytes(b"fakevideo")
+
+    job = job_manager.create_job(label="preview:120.0")
+    job_manager.update(job.id, status="done", progress=100,
+                       result_path=str(tmp_file), finished_at=time.time())
+
+    resp = await client.post(
+        f"/api/v1/videos/{video_id_with_annotations}/preview-adapted/save",
+        json={"job_id": job.id, "target_bpm": 120.0}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "adapted_preview" in data
+    assert abs(data["adapted_preview"]["bpm"] - 120.0) < 0.01
+
+
+async def test_delete_preview_removes_from_record(client, video_with_saved_preview):
+    """DELETE /preview-adapted retire adapted_preview du record."""
+    resp = await client.delete(
+        f"/api/v1/videos/{video_with_saved_preview}/preview-adapted"
+    )
+    assert resp.status_code == 200
+
+
+async def test_download_saved_preview_returns_video_file(client, video_with_saved_preview):
+    """GET /preview-adapted/download retourne la vidéo adaptée sauvegardée."""
+    resp = await client.get(f"/api/v1/videos/{video_with_saved_preview}/preview-adapted/download")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "video/mp4"
+    assert "content-disposition" in resp.headers
+
+
+async def test_stream_saved_preview_returns_video_file(client, video_with_saved_preview):
+    """GET /preview-adapted/stream retourne la vidéo adaptée sauvegardée pour lecture inline."""
+    resp = await client.get(f"/api/v1/videos/{video_with_saved_preview}/preview-adapted/stream")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "video/mp4"
+
+
+def test_generate_zip_reuses_saved_preview(project_with_saved_preview):
+    """generate_project_zip réutilise le preview sauvegardé si BPM correspond."""
+    from app.services.export_service import generate_project_zip
+    from unittest.mock import patch
+
+    with patch("app.services.video_service.adapt_video_to_bpm") as mock_adapt:
+        result = generate_project_zip(
+            project_with_saved_preview["project_id"],
+            video_ids=None,
+            formats=["video"],
+            video_bpm={project_with_saved_preview["video_id"]: 120.0},
+        )
+        mock_adapt.assert_not_called()
+        assert result is not None
+
+
+def test_generate_zip_uses_saved_preview_without_target_bpm(project_with_saved_preview):
+    """Sans BPM saisi, l'export vidéo inclut le preview sauvegardé s'il existe."""
+    from app.services.export_service import generate_project_zip
+    from unittest.mock import patch
+
+    with patch("app.services.video_service.adapt_video_to_bpm") as mock_adapt:
+        result = generate_project_zip(
+            project_with_saved_preview["project_id"],
+            video_ids=None,
+            formats=["video"],
+            video_bpm=None,
+        )
+        mock_adapt.assert_not_called()
+        assert result is not None

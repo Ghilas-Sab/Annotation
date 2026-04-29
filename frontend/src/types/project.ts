@@ -9,6 +9,12 @@ export interface Project {
   videos: Video[]
 }
 
+export interface AdaptedPreview {
+  path?: string
+  bpm: number
+  created_at: string
+}
+
 export interface Video {
   id: string
   project_id: string
@@ -22,6 +28,7 @@ export interface Video {
   codec: string
   uploaded_at: string
   annotations: Annotation[]
+  adapted_preview?: AdaptedPreview
 }
 
 export interface CreateProjectRequest {
