@@ -8,6 +8,7 @@ interface UseVideoKeyboardOptions {
   seek: (frame: number) => void
   annotations: Annotation[]
   createAnnotation?: (frame: number) => void
+  togglePlayPause?: () => void
   startFrame?: number
 }
 
@@ -21,10 +22,11 @@ export interface VideoKeyboardHandlers {
   seekStart: () => void
   seekEnd: () => void
   annotate: () => void
+  togglePlayPause: () => void
 }
 
 export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHandlers => {
-  const { currentFrame, totalFrames, seek, annotations, createAnnotation, startFrame = 0 } = opts
+  const { currentFrame, totalFrames, seek, annotations, createAnnotation, togglePlayPause, startFrame = 0 } = opts
 
   // Refs pour éviter les closures stale dans le listener clavier
   const currentFrameRef = useRef(currentFrame)
@@ -39,6 +41,8 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHa
   seekRef.current = seek
   const createAnnotationRef = useRef(createAnnotation)
   createAnnotationRef.current = createAnnotation
+  const togglePlayPauseRef = useRef(togglePlayPause)
+  togglePlayPauseRef.current = togglePlayPause
 
   const clamp = (f: number) => {
     const start = startFrameRef.current
@@ -65,6 +69,7 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHa
     seekStart: () => seekRef.current(startFrameRef.current),
     seekEnd: () => seekRef.current(Math.max(0, totalFramesRef.current - 1)),
     annotate: () => createAnnotationRef.current?.(currentFrameRef.current),
+    togglePlayPause: () => togglePlayPauseRef.current?.(),
   }
 
   const handlersRef = useRef(handlers)
@@ -93,8 +98,10 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHa
         e.preventDefault(); h.seekNextAnnotation()
       } else if (e.key === 'ArrowLeft' && e.ctrlKey) {
         e.preventDefault(); h.seekPrevAnnotation()
-      } else if (e.key === ' ') {
+      } else if (e.key === 'Enter') {
         e.preventDefault(); h.annotate()
+      } else if (e.key === ' ') {
+        e.preventDefault(); h.togglePlayPause()
       }
     }
 

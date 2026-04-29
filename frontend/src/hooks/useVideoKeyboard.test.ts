@@ -83,11 +83,20 @@ describe('useVideoKeyboard', () => {
     expect(seek).toHaveBeenCalledWith(20) // 10 + fallback(10)
   })
 
-  test('Space creates annotation at current frame', () => {
+  test('Enter creates annotation at current frame', () => {
     const createAnnotation = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), createAnnotation }))
-    fireEvent.keyDown(window, { key: ' ' })
+    fireEvent.keyDown(window, { key: 'Enter' })
     expect(createAnnotation).toHaveBeenCalledWith(10)
+  })
+
+  test('Space toggles play/pause instead of creating an annotation', () => {
+    const createAnnotation = vi.fn()
+    const togglePlayPause = vi.fn()
+    renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), createAnnotation, togglePlayPause }))
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(togglePlayPause).toHaveBeenCalledOnce()
+    expect(createAnnotation).not.toHaveBeenCalled()
   })
 
   test('Alt+ArrowLeft seeks to frame 0', () => {

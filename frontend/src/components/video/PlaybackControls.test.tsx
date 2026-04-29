@@ -209,11 +209,20 @@ describe('PlaybackControls — navigation buttons (S6.4)', () => {
     expect(seekFn).toHaveBeenCalledWith(11)
   })
 
-  test('keyboard shortcuts still work after adding buttons (Space → annotate)', () => {
+  test('keyboard shortcuts still work after adding buttons (Enter → annotate)', () => {
     const annotateFn = vi.fn()
     render(<PlaybackControls {...defaultNavProps} currentFrame={42} onAnnotate={annotateFn} />)
-    fireEvent.keyDown(window, { key: ' ' })
+    fireEvent.keyDown(window, { key: 'Enter' })
     expect(annotateFn).toHaveBeenCalledWith(42)
+  })
+
+  test('Space toggles play/pause instead of annotating', () => {
+    const annotateFn = vi.fn()
+    const ref = makeVideoRef({ isPaused: vi.fn().mockReturnValue(true) })
+    render(<PlaybackControls {...defaultNavProps} videoRef={ref} currentFrame={42} onAnnotate={annotateFn} />)
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(ref.current!.play).toHaveBeenCalled()
+    expect(annotateFn).not.toHaveBeenCalled()
   })
 
   test('all 10 control buttons are rendered', () => {
@@ -228,5 +237,33 @@ describe('PlaybackControls — navigation buttons (S6.4)', () => {
     expect(screen.getByRole('button', { name: /fin vidéo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /annoter/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /raccourcis/i })).toBeInTheDocument()
+  })
+
+  test('début vidéo button shows ⏮ icon', () => {
+    render(<PlaybackControls {...defaultNavProps} />)
+    expect(screen.getByRole('button', { name: /début vidéo/i })).toHaveTextContent('⏮')
+  })
+
+  test('fin vidéo button shows ⏭ icon', () => {
+    render(<PlaybackControls {...defaultNavProps} />)
+    expect(screen.getByRole('button', { name: /fin vidéo/i })).toHaveTextContent('⏭')
+  })
+
+  test('annotation précédente button has accent color style', () => {
+    render(<PlaybackControls {...defaultNavProps} />)
+    expect(screen.getByRole('button', { name: /annotation précédente/i })).toHaveStyle({ color: '#FFD700' })
+  })
+
+  test('annotation suivante button has accent color style', () => {
+    render(<PlaybackControls {...defaultNavProps} />)
+    expect(screen.getByRole('button', { name: /annotation suivante/i })).toHaveStyle({ color: '#FFD700' })
+  })
+
+  test('button order is preserved', () => {
+    render(<PlaybackControls {...defaultNavProps} />)
+    const labels = screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))
+    expect(labels.indexOf('début vidéo')).toBeLessThan(labels.indexOf('annotation précédente'))
+    expect(labels.indexOf('annotation précédente')).toBeLessThan(labels.indexOf('annotation suivante'))
+    expect(labels.indexOf('annotation suivante')).toBeLessThan(labels.indexOf('fin vidéo'))
   })
 })

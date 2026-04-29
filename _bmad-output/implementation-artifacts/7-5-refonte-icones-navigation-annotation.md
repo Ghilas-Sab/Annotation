@@ -1,6 +1,6 @@
 # Story 7.5: Refonte Icônes Boutons Navigation Page Annotation
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -83,14 +83,18 @@ test('button order is preserved', () => {
 
 ### Frontend
 
-- [ ] Écrire les 5 tests ci-dessus → RED
-- [ ] Modifier `frontend/src/components/video/PlaybackControls.tsx` :
-  - [ ] Ligne 133 — changer `⏪` → `⏮` pour le bouton "début vidéo"
-  - [ ] Ligne 134 — changer `⏮` → `◀` pour le bouton "annotation précédente", ajouter style `color: '#FFD700'`
-  - [ ] Ligne 151 — changer `⏭` → `▶` pour le bouton "annotation suivante", ajouter style `color: '#FFD700'`
-  - [ ] Ligne 152 — changer `⏩` → `⏭` pour le bouton "fin vidéo"
-- [ ] Si `KeyboardShortcutsModal` affiche les icônes de ces boutons → mettre à jour
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les 5 tests ci-dessus → RED
+- [x] Modifier `frontend/src/components/video/PlaybackControls.tsx` :
+  - [x] Changer `⏪` → `⏮` pour le bouton "début vidéo"
+  - [x] Changer `⏮` → `◀` pour le bouton "annotation précédente", avec style `color: '#FFD700'`
+  - [x] Changer `⏭` → `▶` pour le bouton "annotation suivante", avec style `color: '#FFD700'`
+  - [x] Changer `⏩` → `⏭` pour le bouton "fin vidéo"
+- [x] Mettre à jour `KeyboardShortcutsModal`
+- [x] Étendre les raccourcis demandés par l'utilisateur (`Entrée` pour annoter, `Espace` pour play/pause)
+- [x] Ajouter le zoom timeline via boutons `+` / `-`, bornes visibles et auto-pan en bout de vue
+- [x] Synchroniser la sélection timeline ↔ liste d'annotations
+- [x] Retirer les textes secondaires inutiles sous la timeline
+- [x] Passer tous les tests → GREEN
 
 ### Backend (aucune modification)
 
@@ -132,17 +136,43 @@ frontend/src/components/KeyboardShortcutsModal.tsx      ← si icônes référen
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+`npm run test -- src/hooks/useVideoKeyboard.test.ts`
+`npm run test -- src/components/video/PlaybackControls.test.tsx`
+`npm run test -- src/components/video/VideoTimeline.test.tsx`
+`npm run test -- src/components/annotations/AnnotationItem.test.tsx`
+`npm run test -- src/components/KeyboardShortcutsModal.test.tsx`
+`npm run test -- src/pages/AnnotationPage.test.tsx`
+`npm run test`
 
 ### Completion Notes List
-_à remplir_
+- Icônes de navigation annotation mises à jour selon la story (`⏮`, `◀`, `▶`, `⏭`) sans changer les `aria-label`.
+- Raccourcis clavier alignés avec la demande utilisateur: `Entrée` annote, `Espace` bascule lecture/pause.
+- Liste des raccourcis visuelle synchronisée avec le comportement réel final.
+- La suppression reste uniquement via le bouton poubelle; le raccourci clavier de suppression a été retiré.
+- Timeline enrichie avec boutons zoom, auto-pan quand la lecture atteint le bord d'une vue zoomée et sélection synchronisée avec la liste.
+- Textes secondaires sous la timeline retirés pour simplifier l'UI.
+- Suite frontend complète verte: `422` tests.
 
 ### File List
-_à remplir_
+- `frontend/src/hooks/useVideoKeyboard.ts`
+- `frontend/src/hooks/useVideoKeyboard.test.ts`
+- `frontend/src/components/video/PlaybackControls.tsx`
+- `frontend/src/components/video/PlaybackControls.test.tsx`
+- `frontend/src/components/KeyboardShortcutsModal.tsx`
+- `frontend/src/components/KeyboardShortcutsModal.test.tsx`
+- `frontend/src/components/annotations/AnnotationList.tsx`
+- `frontend/src/components/annotations/AnnotationList.test.tsx`
+- `frontend/src/components/annotations/AnnotationItem.tsx`
+- `frontend/src/components/annotations/AnnotationItem.test.tsx`
+- `frontend/src/components/video/VideoTimeline.tsx`
+- `frontend/src/components/video/VideoTimeline.test.tsx`
+- `frontend/src/pages/AnnotationPage.tsx`
 
 ## Change Log
 
 - 2026-04-29 : Story créée par SM (Bob) — Epic 7, refonte icônes navigation annotation
+- 2026-04-29 : Implémentation dev terminée avec extension UX validée par l'utilisateur sur raccourcis et zoom timeline
+- 2026-04-29 : Ajustement final UX avec sélection croisée timeline/liste et retrait des aides visuelles inutiles
