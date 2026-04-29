@@ -1,20 +1,21 @@
 """
-Tests unitaires pour video_service.py
+Tests unitaires pour video_service.py.
 
-Couvre particulièrement le parsing de fps, qui est la cause du bug
-'frames aléatoires + boutons cassés' sur les vidéos réencodées (adapted).
+Couvre le parsing de fps, la construction des filtres ffmpeg et les transitions
+de fade en début/fin pour l'adaptation BPM.
 """
-import subprocess
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from app.services.video_service import get_video_metadata, _atempo_chain
+from app.services.video_service import (
+    get_video_metadata,
+    _atempo_chain,
+    _build_adapt_filter,
+    adapt_video_to_bpm,
+)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _make_probe(r_frame_rate: str, avg_frame_rate: str, duration: float = 10.0, nb_frames=None):
     stream = {
@@ -33,19 +34,7 @@ def _make_probe(r_frame_rate: str, avg_frame_rate: str, duration: float = 10.0, 
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# get_video_metadata — parsing fps
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestGetVideoMetadataFps:
-    """
-    Régression : les vidéos réencodées par adapt_video_to_bpm avaient un
-    r_frame_rate irréaliste (ex: '90000/3003'), ce qui donnait fps ≈ 30000
-    et cassait tous les boutons de navigation.
-
-    avg_frame_rate est fiable après ré-encodage ; on l'utilise en priorité.
-    """
-
     def _call(self, r_frame_rate, avg_frame_rate, nb_frames=None, duration=10.0):
         probe = _make_probe(r_frame_rate, avg_frame_rate, duration, nb_frames)
         with patch("ffmpeg.probe", return_value=probe):
@@ -64,27 +53,19 @@ class TestGetVideoMetadataFps:
         assert meta["fps"] == pytest.approx(29.97, rel=1e-3)
 
     def test_adapted_video_weird_r_frame_rate_uses_avg(self):
-        """
-        Bug de régression : vidéo issue de adapt_video_to_bpm avait
-        r_frame_rate='90000/3003' (timebase ffmpeg) mais avg_frame_rate='30/1'.
-        On doit retourner 30, pas ~30000.
-        """
         meta = self._call("90000/3003", "30/1")
         assert meta["fps"] == pytest.approx(30.0)
 
     def test_avg_rate_zero_falls_back_to_r_frame_rate(self):
-        """avg_frame_rate='0/0' → fallback sur r_frame_rate."""
         meta = self._call("25/1", "0/0")
         assert meta["fps"] == pytest.approx(25.0)
 
     def test_both_broken_returns_default_25(self):
-        """Si les deux sont inutilisables, on retourne 25 par défaut."""
         meta = self._call("0/0", "0/0")
         assert meta["fps"] == pytest.approx(25.0)
 
     def test_fps_over_240_r_frame_rate_fallback(self):
-        """avg > 240 (timebase gonflé) → on ignore et on prend r_frame_rate."""
-        meta = self._call("30/1", "90000/1")  # avg = 90000 fps absurde
+        meta = self._call("30/1", "90000/1")
         assert meta["fps"] == pytest.approx(30.0)
 
     def test_total_frames_from_nb_frames_when_present(self):
@@ -92,18 +73,14 @@ class TestGetVideoMetadataFps:
         assert meta["total_frames"] == 250
 
     def test_total_frames_computed_from_fps_x_duration_when_missing(self):
-        meta = self._call("25/1", "25/1", duration=4.0)  # pas de nb_frames
-        assert meta["total_frames"] == 100  # 25 * 4
+        meta = self._call("25/1", "25/1", duration=4.0)
+        assert meta["total_frames"] == 100
 
     def test_returns_all_expected_keys(self):
         meta = self._call("25/1", "25/1")
         for key in ("duration_seconds", "fps", "total_frames", "width", "height", "codec"):
             assert key in meta
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# _atempo_chain
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestAtempoChain:
     def test_factor_1_gives_single_value(self):
@@ -118,8 +95,8 @@ class TestAtempoChain:
         chain = _atempo_chain(4.0)
         assert len(chain) == 2
         result = 1.0
-        for v in chain:
-            result *= v
+        for value in chain:
+            result *= value
         assert result == pytest.approx(4.0, rel=1e-4)
 
     def test_factor_0_5_gives_single_value(self):
@@ -130,32 +107,18 @@ class TestAtempoChain:
         chain = _atempo_chain(0.25)
         assert len(chain) == 2
         result = 1.0
-        for v in chain:
-            result *= v
+        for value in chain:
+            result *= value
         assert result == pytest.approx(0.25, rel=1e-4)
 
     def test_all_values_within_atempo_bounds(self):
         for factor in [0.1, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 8.0]:
-            for v in _atempo_chain(factor):
-                assert 0.5 <= v <= 2.0, f"factor={factor} → {v} hors [0.5, 2.0]"
+            for value in _atempo_chain(factor):
+                assert 0.5 <= value <= 2.0, f"factor={factor} -> {value} hors [0.5, 2.0]"
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# adapt_video_to_bpm — vérifie que la commande ffmpeg est correcte
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestAdaptVideoToBpmCommand:
-    """
-    Vérifie que adapt_video_to_bpm génère une commande ffmpeg qui :
-    - inclut -fps_mode cfr  (force framerate constant — correction du bug)
-    - inclut -r <fps>       (force le fps source en sortie)
-    - inclut -movflags +faststart (seeking fiable)
-    - utilise filter_complex avec split/asplit (pas de référence multiple)
-    """
-
     def _run(self, n_annotations=3, target_bpm=120.0, has_audio=False):
-        from app.services.video_service import adapt_video_to_bpm
-
         annotations = [
             {"timestamp_ms": i * 500, "frame_number": i * 12}
             for i in range(n_annotations)
@@ -185,7 +148,7 @@ class TestAdaptVideoToBpmCommand:
              patch("subprocess.Popen", side_effect=fake_popen):
             adapt_video_to_bpm("/fake/input.mp4", annotations, target_bpm)
 
-        assert captured, "Popen n'a pas été appelé"
+        assert captured, "Popen n'a pas ete appele"
         return captured[0]
 
     def test_cfr_flag_present(self):
@@ -208,7 +171,6 @@ class TestAdaptVideoToBpmCommand:
 
     def test_filter_complex_uses_split(self):
         cmd = self._run()
-        assert "-filter_complex" in cmd
         idx = cmd.index("-filter_complex")
         fc = cmd[idx + 1]
         assert "split=" in fc
@@ -226,12 +188,105 @@ class TestAdaptVideoToBpmCommand:
         assert "asplit=" not in fc
 
     def test_raises_with_less_than_2_annotations(self):
-        from app.services.video_service import adapt_video_to_bpm
         probe_result = {
             "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
-                          "avg_frame_rate": "25/1"}],
+                         "avg_frame_rate": "25/1"}],
             "format": {"duration": "10.0"},
         }
         with patch("ffmpeg.probe", return_value=probe_result):
             with pytest.raises(ValueError, match="2 annotations"):
                 adapt_video_to_bpm("/fake.mp4", [{"timestamp_ms": 0, "frame_number": 0}], 120.0)
+
+
+def test_build_adapt_filter_no_fade_when_no_pre_segment():
+    segs = [(0.0, 1.0, 1.2), (1.0, 2.0, 0.8)]
+    fc, maps, codec = _build_adapt_filter(
+        segs,
+        has_audio=False,
+        fade_duration_s=0.5,
+        has_pre_segment=False,
+        has_post_segment=False,
+    )
+    assert "fade=" not in fc
+    assert maps == ["-map", "[vout]"]
+    assert "-c:v" in codec
+
+
+def test_build_adapt_filter_fade_in_applied_when_pre_segment():
+    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.3), (3.0, 5.0, 1.0)]
+    fc, _, _ = _build_adapt_filter(
+        segs,
+        has_audio=False,
+        fade_duration_s=0.5,
+        has_pre_segment=True,
+        has_post_segment=True,
+    )
+    assert "fade=t=in" in fc
+    assert "fade=t=out" not in fc
+
+
+def test_build_adapt_filter_fade_audio_when_has_audio():
+    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.2), (3.0, 4.0, 1.0)]
+    fc, maps, codec = _build_adapt_filter(
+        segs,
+        has_audio=True,
+        fade_duration_s=0.5,
+        has_pre_segment=True,
+        has_post_segment=True,
+    )
+    assert "afade=t=in" in fc
+    assert "afade=t=out" in fc
+    assert ",fade=t=out:" not in fc
+    assert maps == ["-map", "[vout]", "-map", "[aout]"]
+    assert "-c:a" in codec
+
+
+def test_fade_duration_clamped_to_segment_duration():
+    segs = [(0.0, 0.2, 1.0), (0.2, 2.0, 1.5), (2.0, 2.5, 1.0)]
+    fc, _, _ = _build_adapt_filter(
+        segs,
+        has_audio=False,
+        fade_duration_s=0.5,
+        has_pre_segment=True,
+        has_post_segment=True,
+    )
+    assert "d=0.160000" in fc
+
+
+def test_adapt_video_to_bpm_accepts_fade_duration_param(tmp_path):
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1", "nb_frames": "250"}],
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 1000.0, "frame_number": 25},
+        {"timestamp_ms": 3000.0, "frame_number": 75},
+    ]
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.uuid.uuid4") as mock_uuid, \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)), \
+         patch("app.services.video_service._build_adapt_filter", return_value=("fc", ["-map", "[vout]"], ["-c:v", "libx264"])) as mock_build:
+        mock_uuid.return_value.hex = "fixed"
+        result = adapt_video_to_bpm(
+            "/fake/input.mp4",
+            annotations,
+            target_bpm=120.0,
+            fade_duration_s=0.5,
+        )
+
+    assert result.endswith(".mp4")
+    assert Path(result).name == "adapted_fixed.mp4"
+    _, kwargs = mock_build.call_args
+    assert kwargs["fade_duration_s"] == pytest.approx(0.5)
+    assert kwargs["has_pre_segment"] is True
+    assert kwargs["has_post_segment"] is True
