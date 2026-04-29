@@ -28,3 +28,4 @@ class VideoRead(BaseModel):
     codec: str = ""
     uploaded_at: str = ""
     annotations: list[Any] = []
+    adapted_preview: dict[str, Any] | None = None

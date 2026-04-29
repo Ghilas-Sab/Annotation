@@ -148,24 +148,41 @@ def generate_project_zip(
 
                 if "video" in formats and video.get("filepath"):
                     target_bpm_val = (video_bpm or {}).get(video["id"])
-                    if target_bpm_val and len(annotations) >= 2:
-                        from app.services.video_service import adapt_video_to_bpm
+                    saved_preview = video.get("adapted_preview")
 
-                        # Sous-progression ffmpeg mappée sur la tranche de cette vidéo
-                        base = int(idx / total_videos * 100)
-                        share = int(1 / total_videos * 100)
+                    if (
+                        target_bpm_val is None
+                        and saved_preview
+                        and saved_preview.get("path")
+                        and os.path.exists(saved_preview["path"])
+                    ):
+                        zf.write(saved_preview["path"], f"{stem}_adapted.mp4")
+                    elif target_bpm_val and len(annotations) >= 2:
+                        # Réutiliser le preview sauvegardé si BPM correspond et fichier existe
+                        if (
+                            saved_preview
+                            and abs(saved_preview.get("bpm", -1) - target_bpm_val) < 0.01
+                            and saved_preview.get("path")
+                            and os.path.exists(saved_preview["path"])
+                        ):
+                            zf.write(saved_preview["path"], f"{stem}_adapted.mp4")
+                        else:
+                            from app.services.video_service import adapt_video_to_bpm
 
-                        def _video_progress(pct: int, _b: int = base, _s: int = share) -> None:
-                            if progress_cb:
-                                progress_cb(min(99, _b + int(pct / 100 * _s)))
+                            base = int(idx / total_videos * 100)
+                            share = int(1 / total_videos * 100)
 
-                        clip_path = adapt_video_to_bpm(
-                            video["filepath"], annotations, target_bpm_val,
-                            progress_cb=_video_progress,
-                            cancel_event=cancel_event,
-                        )
-                        tmp_files.append(clip_path)
-                        zf.write(clip_path, f"{stem}_adapted.mp4")
+                            def _video_progress(pct: int, _b: int = base, _s: int = share) -> None:
+                                if progress_cb:
+                                    progress_cb(min(99, _b + int(pct / 100 * _s)))
+
+                            clip_path = adapt_video_to_bpm(
+                                video["filepath"], annotations, target_bpm_val,
+                                progress_cb=_video_progress,
+                                cancel_event=cancel_event,
+                            )
+                            tmp_files.append(clip_path)
+                            zf.write(clip_path, f"{stem}_adapted.mp4")
                     else:
                         zf.write(video["filepath"], f"{stem}_adapted.mp4")
 

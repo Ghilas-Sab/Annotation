@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-17T10:00:00
+last_updated: 2026-04-21T00:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -110,5 +110,5 @@ development_status:
   6-7-fix-video-plein-espace: done
   6-8-formulaire-plage-apercu-video: ready-for-dev
   6-9-export-par-projet-complet: ready-for-dev
-  6-10-adaptation-bpm-intelligente-previsualisation: ready-for-dev
+  6-10-adaptation-bpm-intelligente-previsualisation: done
   epic-6-retrospective: optional

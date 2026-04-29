@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.storage.json_store import update_video
 
 
 @pytest.mark.asyncio
@@ -70,3 +71,22 @@ async def test_delete_project(client):
 async def test_get_project_not_found(client):
     res = await client.get("/api/v1/projects/00000000-0000-0000-0000-000000000000")
     assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_project_detail_includes_adapted_preview(client, uploaded_video_id):
+    update_video(
+        uploaded_video_id,
+        adapted_preview={
+            "path": "/tmp/preview.mp4",
+            "bpm": 120.0,
+            "created_at": "2026-04-27T09:22:25.091376",
+        },
+    )
+
+    video_res = await client.get(f"/api/v1/videos/{uploaded_video_id}")
+    project_id = video_res.json()["project_id"]
+
+    detail = await client.get(f"/api/v1/projects/{project_id}")
+    assert detail.status_code == 200
+    assert detail.json()["videos"][0]["adapted_preview"]["bpm"] == 120.0

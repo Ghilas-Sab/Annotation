@@ -148,6 +148,7 @@ def adapt_video_to_bpm(
     target_bpm: float,
     progress_cb: "Callable[[int], None] | None" = None,
     cancel_event: "threading.Event | None" = None,
+    max_height: "int | None" = None,
 ) -> str:
     """
     Adapte la vidéo pour que chaque segment inter-annotation corresponde exactement
@@ -236,6 +237,21 @@ def adapt_video_to_bpm(
         raise RuntimeError("Export annulé par l'utilisateur")
     if proc.returncode != 0:
         raise RuntimeError("ffmpeg adapt_video_to_bpm a échoué (returncode non-zéro)")
+
+    if max_height:
+        scaled_path = output_path.replace(".mp4", "_scaled.mp4")
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", output_path,
+                "-vf", f"scale=-2:min({max_height}\\,ih)",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "28",
+                "-c:a", "copy", scaled_path,
+            ],
+            check=True, capture_output=True,
+        )
+        os.replace(scaled_path, output_path)
+
+    return output_path
 
     if progress_cb:
         progress_cb(100)

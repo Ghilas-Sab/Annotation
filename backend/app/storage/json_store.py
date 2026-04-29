@@ -117,7 +117,8 @@ def update_video(video_id: str, **kwargs) -> dict | None:
     for project in data["projects"]:
         for video in project.get("videos", []):
             if video["id"] == video_id:
-                video.update({k: v for k, v in kwargs.items() if k in ("original_name",)})
+                _allowed = {"original_name", "adapted_preview"}
+                video.update({k: v for k, v in kwargs.items() if k in _allowed})
                 _save(data)
                 return video
     return None

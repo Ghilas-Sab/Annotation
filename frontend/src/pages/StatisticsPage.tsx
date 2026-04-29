@@ -3,13 +3,12 @@ import { useParams, Link } from 'react-router-dom'
 import { useVideo } from '../api/projects'
 import { useVideoStatistics } from '../api/statistics'
 import { useAnnotations } from '../api/annotations'
-import { useVideoStore } from '../stores/videoStore'
 import BpmMetrics from '../components/statistics/BpmMetrics'
 import BpmTimeline from '../components/statistics/BpmTimeline'
 import IntervalHistogram from '../components/statistics/IntervalHistogram'
 import PoincareChart from '../components/statistics/PoincareChart'
-import BpmAdjuster from '../components/statistics/BpmAdjuster'
 import ExportBundleModal from '../components/exports/ExportBundleModal'
+import PreviewPanel from '../components/exports/PreviewPanel'
 
 const panel: React.CSSProperties = {
   background: 'var(--color-panel, #13132a)',
@@ -23,7 +22,6 @@ function StatisticsPage() {
   const { videoId = '' } = useParams<{ videoId: string }>()
   const { data: video, isLoading } = useVideo(videoId)
   const { data: stats } = useVideoStatistics(videoId)
-  const setPlaybackRate = useVideoStore(s => s.setPlaybackRate)
   const [showExportModal, setShowExportModal] = useState(false)
   const { data: annotations = [] } = useAnnotations(videoId)
 
@@ -82,7 +80,16 @@ function StatisticsPage() {
         <BpmMetrics videoId={videoId} />
       </div>
 
-      {/* 2 — Évolution du BPM */}
+      {/* 2 — Prévisualisation BPM (adapter + exporter) */}
+      <div style={panel}>
+        <PreviewPanel
+          videoId={videoId}
+          currentBpm={stats?.bpm_global ?? 0}
+          annotationCount={annotationCount}
+        />
+      </div>
+
+      {/* 3 — Évolution du BPM */}
       <div style={panel}>
         <BpmTimeline
           segments={segments}
@@ -91,7 +98,7 @@ function StatisticsPage() {
         />
       </div>
 
-      {/* 3 — Distribution des intervalles */}
+      {/* 4 — Distribution des intervalles */}
       <div style={panel}>
         <IntervalHistogram
           distribution={dist}
@@ -100,18 +107,9 @@ function StatisticsPage() {
         />
       </div>
 
-      {/* 4 — Diagramme de Poincaré */}
+      {/* 5 — Diagramme de Poincaré */}
       <div style={panel}>
         <PoincareChart distribution={dist} />
-      </div>
-
-      {/* 5 — Ajusteur vitesse de lecture */}
-      <div style={panel}>
-        <BpmAdjuster
-          videoId={videoId}
-          currentBpm={stats?.bpm_global ?? 0}
-          onSpeedChange={setPlaybackRate}
-        />
       </div>
 
     </div>

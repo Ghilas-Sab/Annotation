@@ -114,4 +114,33 @@ describe('ProjectDetailPage', () => {
     const videoList = await screen.findByTestId('video-list-column')
     expect(videoList).toHaveStyle({ overflowY: 'auto' })
   })
+
+  it('shows saved adapted preview as an embedded project video section', async () => {
+    server.use(http.get('*/api/v1/projects/1', () =>
+      HttpResponse.json(mockProject({
+        videos: [
+          {
+            id: 'v1',
+            project_id: '1',
+            filename: 'video1.mp4',
+            original_name: 'video1.mp4',
+            duration_seconds: 10,
+            fps: 25,
+            total_frames: 250,
+            width: 1920,
+            height: 1080,
+            codec: 'h264',
+            uploaded_at: new Date().toISOString(),
+            annotations: [],
+            adapted_preview: { bpm: 120, created_at: new Date().toISOString() },
+          },
+        ],
+      }))
+    ))
+
+    renderWithProviders('1')
+
+    expect(await screen.findByText(/vidéo adaptée sauvegardée/i)).toBeInTheDocument()
+    expect(screen.getByTestId('adapted-preview-player-v1')).toBeInTheDocument()
+  })
 })

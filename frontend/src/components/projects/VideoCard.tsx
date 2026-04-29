@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react'
 import type { Video } from '../../types/project'
 import { useVideoStatistics } from '../../api/statistics'
 import { useRenameVideo } from '../../api/projects'
+import { downloadSavedPreview, getSavedPreviewStreamUrl } from '../../api/exports'
 
 interface VideoCardProps {
   video: Video
   onAnnotate: (video: Video) => void
   onDelete: (videoId: string, filename: string) => void
   onStats: (videoId: string) => void
+  onDeletePreview?: (videoId: string) => void
 }
 
-const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onStats }) => {
+const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onStats, onDeletePreview }) => {
   const annotationCount = video.annotations?.length || 0
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(video.original_name)
@@ -26,116 +28,175 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
     if (editing) inputRef.current?.focus()
   }, [editing])
 
-  const startEdit = () => {
-    setEditValue(video.original_name)
-    setEditing(true)
-  }
+  const startEdit = () => { setEditValue(video.original_name); setEditing(true) }
 
   const commitEdit = () => {
     const trimmed = editValue.trim()
-    if (!trimmed) {
-      setEditValue(video.original_name)
-      setEditing(false)
-      return
-    }
+    if (!trimmed) { setEditValue(video.original_name); setEditing(false); return }
     renameMutation.mutate({ videoId: video.id, originalName: trimmed })
     setEditing(false)
   }
 
-  const cancelEdit = () => {
-    setEditValue(video.original_name)
-    setEditing(false)
-  }
+  const cancelEdit = () => { setEditValue(video.original_name); setEditing(false) }
 
   return (
-    <div 
+    <div
       role="listitem"
       style={{
         backgroundColor: 'var(--color-panel)',
-        padding: '1rem 1.5rem',
         borderRadius: '8px',
+        border: '1px solid var(--color-surface)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Ligne principale */}
+      <div style={{
+        padding: '1rem 1.5rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        border: '1px solid var(--color-surface)'
-      }}
-    >
-      <div>
-        {editing ? (
-          <input
-            ref={inputRef}
-            type="text"
-            aria-label="Nom de la vidéo"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitEdit()
-              if (e.key === 'Escape') cancelEdit()
-            }}
-            style={{
-              margin: '0 0 0.25rem 0',
-              fontSize: '1rem',
-              color: 'var(--color-text)',
-              background: 'var(--color-panel)',
-              border: '1px solid var(--color-accent)',
-              borderRadius: '4px',
-              padding: '0.1rem 0.4rem',
-              width: '100%',
-            }}
-          />
-        ) : (
-          <h3
-            onClick={startEdit}
-            title="Cliquer pour renommer"
-            style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--color-text)', cursor: 'pointer' }}
-          >
-            {video.original_name}
-          </h3>
-        )}
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
-          <span>{Math.round(video.duration_seconds)}s</span>
-          <span>{video.fps} FPS</span>
-          <span style={{ color: 'var(--color-accent2)' }}>
-            {annotationCount} {annotationCount <= 1 ? 'annotation' : 'annotations'}
-          </span>
-          {annotationCount >= 2 && stats?.bpm_global && (
-            <span style={{ color: 'var(--color-accent)', fontWeight: 'bold' }}>
-              {stats.bpm_global.toFixed(2)} BPM
-            </span>
+      }}>
+        <div>
+          {editing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              aria-label="Nom de la vidéo"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEdit()
+                if (e.key === 'Escape') cancelEdit()
+              }}
+              style={{
+                margin: '0 0 0.25rem 0', fontSize: '1rem',
+                color: 'var(--color-text)', background: 'var(--color-panel)',
+                border: '1px solid var(--color-accent)', borderRadius: '4px',
+                padding: '0.1rem 0.4rem', width: '100%',
+              }}
+            />
+          ) : (
+            <h3
+              onClick={startEdit}
+              title="Cliquer pour renommer"
+              style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--color-text)', cursor: 'pointer' }}
+            >
+              {video.original_name}
+            </h3>
           )}
+          <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
+            <span>{Math.round(video.duration_seconds)}s</span>
+            <span>{video.fps} FPS</span>
+            <span style={{ color: 'var(--color-accent2)' }}>
+              {annotationCount} {annotationCount <= 1 ? 'annotation' : 'annotations'}
+            </span>
+            {annotationCount >= 2 && stats?.bpm_global && (
+              <span style={{ color: 'var(--color-accent)', fontWeight: 'bold' }}>
+                {stats.bpm_global.toFixed(2)} BPM
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-primary" onClick={() => onAnnotate(video)} style={{ fontSize: '0.85rem' }}>
+            Annoter →
+          </button>
+          <button className="btn-secondary" onClick={() => onStats(video.id)} style={{ fontSize: '0.85rem' }}>
+            Stats
+          </button>
+          <button
+            aria-label="Supprimer la vidéo"
+            onClick={() => onDelete(video.id, video.original_name)}
+            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.5rem' }}
+          >
+            🗑️
+          </button>
         </div>
       </div>
-      
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <button
-          className="btn-primary"
-          onClick={() => onAnnotate(video)}
-          style={{ fontSize: '0.85rem' }}
-        >
-          Annoter →
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={() => onStats(video.id)}
-          style={{ fontSize: '0.85rem' }}
-        >
-          Stats
-        </button>
-        <button 
-          aria-label="Supprimer la vidéo"
-          onClick={() => onDelete(video.id, video.original_name)}
-          style={{ 
-            background: 'none', 
-            border: 'none', 
-            color: 'var(--color-danger)', 
-            cursor: 'pointer',
-            padding: '0.5rem'
-          }}
-        >
-          🗑️
-        </button>
-      </div>
+
+      {/* Sous-section : aperçu adapté */}
+      {video.adapted_preview && (
+        <div style={{
+          borderTop: '1px solid rgba(100,255,218,0.15)',
+          background: 'rgba(100,255,218,0.04)',
+          padding: '0.85rem 1.5rem 0.9rem 2.2rem',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(220px, 320px) 1fr',
+          gap: '0.9rem',
+          alignItems: 'start',
+        }}>
+          <video
+            data-testid={`adapted-preview-player-${video.id}`}
+            src={getSavedPreviewStreamUrl(video.id)}
+            controls
+            preload="metadata"
+            style={{
+              width: '100%',
+              maxWidth: 320,
+              background: '#000',
+              borderRadius: 8,
+              border: '1px solid rgba(100,255,218,0.14)',
+            }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: 'rgba(100,255,218,0.5)' }}>↳</span>
+              <span style={{ fontSize: '0.82rem', color: '#64ffda', fontWeight: 600 }}>
+                Vidéo adaptée sauvegardée
+              </span>
+              <span style={{
+                fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: 10,
+                background: 'rgba(100,255,218,0.12)', border: '1px solid rgba(100,255,218,0.3)',
+                color: '#64ffda',
+              }}>
+                {video.adapted_preview.bpm} BPM
+              </span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)' }}>
+                {new Date(video.adapted_preview.created_at).toLocaleDateString('fr-FR')}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted, #8892b0)', lineHeight: 1.45 }}>
+              Cette version a ete generee depuis les statistiques et reste rattachee a la video source.
+              Elle est visible ici, reutilisable dans l'export projet, et exportable seule.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => void downloadSavedPreview(video.id)}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.28rem 0.55rem',
+                  borderRadius: 6,
+                  border: '1px solid rgba(100,255,218,0.25)',
+                  background: 'rgba(100,255,218,0.08)',
+                  color: '#64ffda',
+                  cursor: 'pointer',
+                }}
+              >
+                Exporter la video adaptee
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => onStats(video.id)}
+                style={{ fontSize: '0.72rem', padding: '0.28rem 0.55rem' }}
+              >
+                Ouvrir les stats
+              </button>
+              {onDeletePreview && (
+                <button
+                  aria-label="Supprimer l'aperçu adapté"
+                  onClick={() => onDeletePreview(video.id)}
+                  title="Supprimer l'aperçu adapté"
+                  style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.25rem', fontSize: '0.85rem' }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

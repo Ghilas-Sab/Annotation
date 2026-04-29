@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import type { Video } from '../types/project'
-import { createExportJob, type ProjectExportRequest } from '../api/exports'
+import { createExportJob, downloadSavedPreview, type ProjectExportRequest } from '../api/exports'
 import { useExportJobs } from '../contexts/ExportJobsContext'
 
 interface ExportPageProps {
@@ -61,6 +61,20 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
   const [queued, setQueued]           = useState(false)
+
+  useEffect(() => {
+    setVideoBpm(prev => {
+      const next = { ...prev }
+      let changed = false
+      videos.forEach((video) => {
+        if (video.adapted_preview && !next[video.id]) {
+          next[video.id] = String(video.adapted_preview.bpm)
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [videos])
 
   const allSelected = videos.length > 0 && selectedIds.size === videos.length
   const noneSelected = selectedIds.size === 0
@@ -187,12 +201,15 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
 
         {/* Liste des vidéos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-          {videos.map((v, i) => (
+          {videos.map((v, i) => {
+            const bpmVal = Number(videoBpm[v.id])
+            const previewMatchesBpm = v.adapted_preview && bpmVal > 0 && bpmVal === v.adapted_preview.bpm
+            return (
             <div key={v.id} style={{
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-              padding: '0.7rem 0',
               borderBottom: i < videos.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
             }}>
+              {/* Ligne principale */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0' }}>
               <input
                 type="checkbox"
                 aria-label={v.original_name}
@@ -225,8 +242,67 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
                   />
                 </div>
               )}
+              </div>{/* fin ligne principale */}
+
+              {/* Sous-entrée : aperçu sauvegardé */}
+              {v.adapted_preview && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.6rem',
+                  paddingLeft: '2.5rem', paddingBottom: '0.55rem',
+                  position: 'relative',
+                }}>
+                  {/* Connecteur visuel */}
+                  <div style={{
+                    position: 'absolute', left: '1.15rem', top: '-0.4rem',
+                    width: 1, height: 'calc(100% - 0.2rem)',
+                    background: 'rgba(100,255,218,0.2)',
+                  }} />
+                  <div style={{
+                    position: 'absolute', left: '1.15rem', top: '50%',
+                    width: '0.7rem', height: 1,
+                    background: 'rgba(100,255,218,0.2)',
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#64ffda', fontWeight: 500 }}>
+                        Aperçu adapté
+                      </span>
+                      <span style={{
+                        fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: 10,
+                        background: 'rgba(100,255,218,0.1)', border: '1px solid rgba(100,255,218,0.25)',
+                        color: '#64ffda',
+                      }}>
+                        {v.adapted_preview.bpm} BPM
+                      </span>
+                      <button
+                        onClick={() => void downloadSavedPreview(v.id)}
+                        style={{
+                          fontSize: '0.68rem',
+                          padding: '0.12rem 0.45rem',
+                          borderRadius: 10,
+                          border: '1px solid rgba(100,255,218,0.25)',
+                          background: 'rgba(100,255,218,0.08)',
+                          color: '#64ffda',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Télécharger
+                      </button>
+                      {previewMatchesBpm && (
+                        <span style={{ fontSize: '0.68rem', color: '#64ffda' }}>
+                          ✓ sera réutilisé (pas de retraitement)
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted, #8892b0)', marginTop: 1 }}>
+                      Sauvegardé le {new Date(v.adapted_preview.created_at).toLocaleDateString('fr-FR')}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {noneSelected && (
@@ -276,7 +352,7 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
 
         {formats.has('video') && (
           <div style={{ marginTop: '1rem', padding: '0.65rem 0.9rem', borderRadius: 6, background: 'rgba(100,255,218,0.05)', border: '1px solid rgba(100,255,218,0.15)', fontSize: '0.78rem', color: 'var(--color-text-muted, #8892b0)' }}>
-            La vidéo adaptée nécessite un BPM cible par vidéo (défini dans la section ci-dessus). Sans BPM, un clip brut sera inclus.
+            Si une vidéo adaptée a déjà été sauvegardée, son BPM est prérempli et cette version sera réutilisée automatiquement. Sans preview sauvegardé ni BPM, un clip brut sera inclus.
           </div>
         )}
       </div>

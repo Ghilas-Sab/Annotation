@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject, useDeleteVideo } from '../api/projects'
+import { useQueryClient } from '@tanstack/react-query'
 import VideoUpload from '../components/projects/VideoUpload'
 import VideoTrimModal from '../components/video/VideoTrimModal'
 import VideoCard from '../components/projects/VideoCard'
+import { deletePreview } from '../api/exports'
 import type { Video } from '../types/project'
 
 function useIsMobile(breakpoint = 768): boolean {
@@ -21,6 +23,7 @@ function useIsMobile(breakpoint = 768): boolean {
 const ProjectDetailPage: React.FC = () => {
   const { id: projectId = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: project, isLoading, error } = useProject(projectId)
   const deleteMutation = useDeleteVideo(projectId)
   const [trimVideo, setTrimVideo] = useState<Video | null>(null)
@@ -33,6 +36,16 @@ const ProjectDetailPage: React.FC = () => {
       } catch (err) {
         console.error(err)
       }
+    }
+  }
+
+  const handleDeletePreview = async (videoId: string) => {
+    if (!window.confirm('Supprimer l\'aperçu adapté sauvegardé ?')) return
+    try {
+      await deletePreview(videoId)
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -134,6 +147,7 @@ const ProjectDetailPage: React.FC = () => {
                   onAnnotate={(v) => setTrimVideo(v)}
                   onStats={(id) => navigate(`/statistics/${id}`)}
                   onDelete={handleDeleteVideo}
+                  onDeletePreview={handleDeletePreview}
                 />
               ))}
             </div>
