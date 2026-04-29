@@ -55,6 +55,35 @@ describe('useAnnotations', () => {
     const { result } = renderHook(() => useAnnotations(''), { wrapper: wrapper(makeClient()) })
     expect(result.current.fetchStatus).toBe('idle')
   })
+
+  it('refetch au remontage meme avec cache frais', async () => {
+    let requestCount = 0
+    server.use(http.get(`${API}/videos/v1/annotations`, () => {
+      requestCount += 1
+      return HttpResponse.json(requestCount === 1 ? [mockAnnotation] : [])
+    }))
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          gcTime: 0,
+          staleTime: 5 * 60 * 1000,
+        },
+      },
+    })
+
+    const firstRender = renderHook(() => useAnnotations('v1'), { wrapper: wrapper(client) })
+    await waitFor(() => expect(firstRender.result.current.isSuccess).toBe(true))
+    expect(requestCount).toBe(1)
+    expect(firstRender.result.current.data).toHaveLength(1)
+
+    firstRender.unmount()
+
+    const secondRender = renderHook(() => useAnnotations('v1'), { wrapper: wrapper(client) })
+    await waitFor(() => expect(requestCount).toBe(2))
+    await waitFor(() => expect(secondRender.result.current.fetchStatus).toBe('idle'))
+    expect(client.getQueryData(['annotations', 'v1'])).toEqual([])
+  })
 })
 
 // ─── useCreateAnnotation ──────────────────────────────────────────────────────

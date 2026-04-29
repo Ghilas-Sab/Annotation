@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-21T00:00:00
+last_updated: 2026-04-29T00:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -112,3 +112,19 @@ development_status:
   6-9-export-par-projet-complet: ready-for-dev
   6-10-adaptation-bpm-intelligente-previsualisation: done
   epic-6-retrospective: optional
+
+  # ─────────────────────────────────────────
+  # EPIC 7 — Améliorations V1.1 + Page Assemblage
+  # ─────────────────────────────────────────
+  epic-7: in-progress
+  7-1-bug-compteur-annotations: ready-for-dev
+  7-2-transitions-fluides-adaptation-bpm: ready-for-dev
+  7-3-bouton-adapter-carte-video: ready-for-dev
+  7-4-masquer-afficher-video-adaptee: ready-for-dev
+  7-5-refonte-icones-navigation-annotation: ready-for-dev
+  7-6-page-assemblage-timeline-videos: ready-for-dev
+  7-7-page-assemblage-timeline-musique-waveform: ready-for-dev
+  7-8-page-assemblage-calage-annotations: ready-for-dev
+  7-9-page-assemblage-transitions-fade: ready-for-dev
+  7-10-page-assemblage-export-final: ready-for-dev
+  epic-7-retrospective: optional

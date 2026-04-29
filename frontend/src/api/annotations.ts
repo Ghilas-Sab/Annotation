@@ -12,6 +12,7 @@ export function useAnnotations(videoId: string) {
       return res.json() as Promise<Annotation[]>
     },
     enabled: !!videoId,
+    refetchOnMount: 'always',
   })
 }
 
