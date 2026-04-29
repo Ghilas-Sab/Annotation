@@ -1132,6 +1132,179 @@ frontend/src/api/exports.ts
 
 ---
 
+---
+
+## EPIC 7 — Améliorations V1.1 + Page Assemblage
+
+---
+
+### S7.1 — Bug Compteur Annotations (Synchronisation Temps Réel)
+
+**En tant qu'** utilisateur,
+**Je veux** que le compteur d'annotations se mette à jour immédiatement après ajout ou suppression,
+**Afin de** ne plus voir un nombre obsolète (ex : 6 sur une vidéo vide).
+
+#### Critères d'acceptation
+- [ ] Le libellé de l'onglet `Liste (N)` reflète le total réel en moins d'une seconde après chaque mutation
+- [ ] Naviguer vers une vidéo sans annotation affiche `Liste (0)`
+- [ ] Pas de doublons dans la liste
+
+#### Dépendances
+- S3.8
+
+---
+
+### S7.2 — Transitions Fluides Adaptation BPM (Début/Fin)
+
+**En tant qu'** utilisateur,
+**Je veux** que la vidéo adaptée démarre et se termine avec un fondu progressif,
+**Afin d'** éviter l'effet brusque à la jonction entre zone normale et zone adaptée.
+
+#### Critères d'acceptation
+- [ ] Fondu vidéo + audio en entrée (0.5 s, configurable) si segment pré-annotation > 0
+- [ ] Fondu vidéo + audio en sortie (0.5 s, configurable) si segment post-annotation > 0
+- [ ] Durée du fade clampée à la durée du segment si segment trop court
+
+#### Dépendances
+- S6.10
+
+---
+
+### S7.3 — Bouton "Adapter la Vidéo" Déplacé → Carte Vidéo Projets
+
+**En tant qu'** utilisateur,
+**Je veux** accéder au bouton "Adapter" directement depuis la carte vidéo,
+**Afin de** ne pas avoir à passer par la page statistiques pour lancer l'adaptation BPM.
+
+#### Critères d'acceptation
+- [ ] Bouton "Adapter" visible dans `VideoCard` si `annotationCount >= 2`
+- [ ] Cliquer ouvre `PreviewPanel` (BPM cible + génération)
+- [ ] `PreviewPanel` retiré de `StatisticsPage`
+
+#### Dépendances
+- S6.10, S7.4
+
+---
+
+### S7.4 — Masquer/Afficher la Vidéo Adaptée dans la Liste
+
+**En tant qu'** utilisateur,
+**Je veux** que la vidéo adaptée soit masquée par défaut dans la carte vidéo,
+**Afin de** gagner de l'espace visuel dans la page projet.
+
+#### Critères d'acceptation
+- [ ] Section "aperçu adapté" masquée par défaut
+- [ ] Bouton "▼ Voir l'aperçu adapté" / "▲ Masquer l'aperçu adapté" visible
+- [ ] État local par carte, indépendant des autres
+
+#### Dépendances
+- S6.10
+
+---
+
+### S7.5 — Refonte Icônes Boutons Navigation Page Annotation
+
+**En tant qu'** utilisateur,
+**Je veux** que les boutons de navigation reflètent clairement leur fonction,
+**Afin de** distinguer visuellement "début/fin vidéo" et "saut inter-annotation".
+
+#### Critères d'acceptation
+- [ ] Boutons début/fin : icône `⏮`/`⏭`
+- [ ] Boutons annotation préc./suiv. : icône `◀`/`▶` avec couleur jaune (`#FFD700`)
+- [ ] Fonctions et raccourcis inchangés
+
+#### Dépendances
+- S3.8
+
+---
+
+### S7.6 — Page Assemblage : Structure + Import + Timeline Vidéos
+
+**En tant qu'** utilisateur,
+**Je veux** une page dédiée à l'assemblage où je peux importer des vidéos de mes projets et les disposer sur une timeline,
+**Afin de** préparer l'assemblage de plusieurs vidéos bout à bout.
+
+#### Critères d'acceptation
+- [ ] Route `/assemblage` accessible depuis la navigation
+- [ ] Import de vidéos depuis n'importe quel projet (adapté ou brut)
+- [ ] Timeline horizontale avec blocs proportionnels à la durée
+- [ ] Drag & drop pour réordonner les clips
+- [ ] Bouton ✕ pour supprimer un clip
+
+#### Dépendances
+- S2.5 (accès aux vidéos des projets)
+
+---
+
+### S7.7 — Page Assemblage : Import Musique + Timeline + Waveform
+
+**En tant qu'** utilisateur,
+**Je veux** importer des pistes musicales et les voir avec leur forme d'onde,
+**Afin de** caler mes vidéos sur les moments forts de la musique.
+
+#### Critères d'acceptation
+- [ ] Import de fichiers audio (mp3, wav, ogg)
+- [ ] Waveform rendue via WaveSurfer.js (chargement local)
+- [ ] Timeline musique sous la timeline vidéos, même échelle temporelle
+- [ ] Bouton ✕ par piste pour supprimer
+
+#### Dépendances
+- S7.6
+
+---
+
+### S7.8 — Page Assemblage : Calage Annotations sur Timeline
+
+**En tant qu'** utilisateur,
+**Je veux** voir les annotations de chaque vidéo comme marqueurs sur la timeline,
+**Afin de** caler précisément les beats des vidéos sur les moments forts de la musique.
+
+#### Critères d'acceptation
+- [ ] Marqueurs verticaux sur chaque clip, proportionnels au timestamp
+- [ ] Couleur par catégorie d'annotation
+- [ ] Infobulle au survol (label + timestamp)
+- [ ] Annotations chargées via API à l'ajout du clip
+
+#### Dépendances
+- S7.6, S7.7
+
+---
+
+### S7.9 — Page Assemblage : Transitions Fade In/Out Entre Clips
+
+**En tant qu'** utilisateur,
+**Je veux** activer des fondus enchaînés entre les clips assemblés,
+**Afin d'** obtenir des transitions fluides dans la vidéo finale.
+
+#### Critères d'acceptation
+- [ ] Toggle "Transitions en fondu" (défaut : désactivé)
+- [ ] Champ durée de transition (défaut : 0.5 s)
+- [ ] Indicateur visuel sur la timeline aux jonctions
+- [ ] Filtre FFmpeg `xfade` utilisé à l'export
+
+#### Dépendances
+- S7.6
+
+---
+
+### S7.10 — Page Assemblage : Export Vidéo Assemblée
+
+**En tant qu'** utilisateur,
+**Je veux** exporter ma timeline assemblée en une seule vidéo,
+**Afin de** la télécharger ou la sauvegarder dans un projet.
+
+#### Critères d'acceptation
+- [ ] Endpoint `POST /api/v1/assemblage/export` retourne un `job_id` (202)
+- [ ] Génération en arrière-plan via `job_manager` + progression affichée
+- [ ] Téléchargement du résultat via `GET /exports/jobs/{id}/download`
+- [ ] Option sauvegarde dans un projet existant
+- [ ] Bouton désactivé si aucun clip dans la timeline
+
+#### Dépendances
+- S7.6, S7.9
+
+---
+
 ## Tableau de Bord des Stories
 
 | ID | Story | Epic | Dépend de |
