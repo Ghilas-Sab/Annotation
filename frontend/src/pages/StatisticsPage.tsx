@@ -8,7 +8,6 @@ import BpmTimeline from '../components/statistics/BpmTimeline'
 import IntervalHistogram from '../components/statistics/IntervalHistogram'
 import PoincareChart from '../components/statistics/PoincareChart'
 import ExportBundleModal from '../components/exports/ExportBundleModal'
-import PreviewPanel from '../components/exports/PreviewPanel'
 
 const panel: React.CSSProperties = {
   background: 'var(--color-panel, #13132a)',
@@ -80,16 +79,7 @@ function StatisticsPage() {
         <BpmMetrics videoId={videoId} />
       </div>
 
-      {/* 2 — Prévisualisation BPM (adapter + exporter) */}
-      <div style={panel}>
-        <PreviewPanel
-          videoId={videoId}
-          currentBpm={stats?.bpm_global ?? 0}
-          annotationCount={annotationCount}
-        />
-      </div>
-
-      {/* 3 — Évolution du BPM */}
+      {/* 2 — Évolution du BPM */}
       <div style={panel}>
         <BpmTimeline
           segments={segments}
@@ -98,7 +88,7 @@ function StatisticsPage() {
         />
       </div>
 
-      {/* 4 — Distribution des intervalles */}
+      {/* 3 — Distribution des intervalles */}
       <div style={panel}>
         <IntervalHistogram
           distribution={dist}
@@ -107,7 +97,7 @@ function StatisticsPage() {
         />
       </div>
 
-      {/* 5 — Diagramme de Poincaré */}
+      {/* 4 — Diagramme de Poincaré */}
       <div style={panel}>
         <PoincareChart distribution={dist} />
       </div>

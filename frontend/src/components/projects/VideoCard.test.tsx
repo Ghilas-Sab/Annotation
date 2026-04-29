@@ -115,6 +115,54 @@ describe('VideoCard', () => {
     expect(await screen.findByText('90.00 BPM')).toBeInTheDocument()
   })
 
+  it('adapter button is visible when annotation count >= 2', async () => {
+    server.use(
+      http.get('*/api/v1/videos/uuid-v1/statistics', () =>
+        HttpResponse.json({ bpm_global: 120, bpm_mean: 120, bpm_median: 120, bpm_variation: 0 })
+      )
+    )
+    const video = buildVideo({
+      annotations: [{ id: 'a1', frame: 0, timestamp: 0 }, { id: 'a2', frame: 25, timestamp: 1 }],
+    })
+    renderVideoCard(video)
+    expect(await screen.findByRole('button', { name: /adapter/i })).toBeInTheDocument()
+  })
+
+  it('adapter button is absent when annotation count < 2', () => {
+    const video = buildVideo({ annotations: [{ id: 'a1', frame: 0, timestamp: 0 }] })
+    renderVideoCard(video)
+    expect(screen.queryByRole('button', { name: /adapter/i })).not.toBeInTheDocument()
+  })
+
+  it('clicking adapter button shows PreviewPanel', async () => {
+    server.use(
+      http.get('*/api/v1/videos/uuid-v1/statistics', () =>
+        HttpResponse.json({ bpm_global: 120, bpm_mean: 120, bpm_median: 120, bpm_variation: 0 })
+      )
+    )
+    const video = buildVideo({
+      annotations: [{ id: 'a1', frame: 0, timestamp: 0 }, { id: 'a2', frame: 25, timestamp: 1 }],
+    })
+    renderVideoCard(video)
+    await userEvent.click(await screen.findByRole('button', { name: /adapter/i }))
+    expect(screen.getByTestId('bpm-preview-panel')).toBeInTheDocument()
+  })
+
+  it('PreviewPanel can be closed from VideoCard', async () => {
+    server.use(
+      http.get('*/api/v1/videos/uuid-v1/statistics', () =>
+        HttpResponse.json({ bpm_global: 120, bpm_mean: 120, bpm_median: 120, bpm_variation: 0 })
+      )
+    )
+    const video = buildVideo({
+      annotations: [{ id: 'a1', frame: 0, timestamp: 0 }, { id: 'a2', frame: 25, timestamp: 1 }],
+    })
+    renderVideoCard(video)
+    await userEvent.click(await screen.findByRole('button', { name: /adapter/i }))
+    await userEvent.click(screen.getByRole('button', { name: /fermer/i }))
+    expect(screen.queryByTestId('bpm-preview-panel')).not.toBeInTheDocument()
+  })
+
   // Renommage inline
   it('click on name shows editable input with current name', async () => {
     const video = buildVideo()
