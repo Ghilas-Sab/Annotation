@@ -14,6 +14,7 @@ interface TestState {
 }
 
 interface PreviewPanelProps {
+  projectId?: string
   videoId: string
   currentBpm: number
   annotationCount: number
@@ -25,7 +26,7 @@ interface PreviewPanelProps {
 }
 
 const PreviewPanel: React.FC<PreviewPanelProps> = ({
-  videoId, currentBpm, annotationCount, onClose, onCreateJob, onSave, onCancel, _testState,
+  projectId, videoId, currentBpm, annotationCount, onClose, onCreateJob, onSave, onCancel, _testState,
 }) => {
   const [targetBpm, setTargetBpm] = useState(currentBpm)
   const [launching, setLaunching] = useState(false)
@@ -71,8 +72,8 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
     try {
       const createFn = onCreateJob ?? createPreviewJob
       const newJobId = await createFn(videoId, targetBpm)
-      if (!onCreateJob) {
-        startPreviewJob(videoId, newJobId, `Prévisualisation ${targetBpm} BPM`, targetBpm)
+      if (!onCreateJob && projectId) {
+        startPreviewJob(projectId, videoId, newJobId, `Prévisualisation ${targetBpm} BPM`, targetBpm)
       }
     } catch (e) {
       setLaunchError(e instanceof Error ? e.message : 'Erreur lors du lancement')

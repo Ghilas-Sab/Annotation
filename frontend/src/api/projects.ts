@@ -3,7 +3,7 @@ import { Project, Video } from '../types/project'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
-export function useProjects() {
+export function useProjects(enabled = true) {
   return useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
@@ -11,6 +11,7 @@ export function useProjects() {
       if (!res.ok) throw new Error('Erreur chargement projets')
       return res.json() as Promise<Project[]>
     },
+    enabled,
   })
 }
 

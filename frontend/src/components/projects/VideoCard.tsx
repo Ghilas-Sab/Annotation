@@ -44,12 +44,14 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
 
   return (
     <div
+      id={`video-${video.id}`}
       role="listitem"
       style={{
         backgroundColor: 'var(--color-panel)',
         borderRadius: '8px',
         border: '1px solid var(--color-surface)',
         overflow: 'hidden',
+        scrollMarginTop: '1rem',
       }}
     >
       {/* Ligne principale */}
@@ -135,6 +137,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
           padding: '1rem 1.5rem',
         }}>
           <PreviewPanel
+            projectId={video.project_id}
             videoId={video.id}
             currentBpm={stats?.bpm_global ?? 0}
             annotationCount={annotationCount}

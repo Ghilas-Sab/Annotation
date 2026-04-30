@@ -198,67 +198,34 @@ class TestAdaptVideoToBpmCommand:
                 adapt_video_to_bpm("/fake.mp4", [{"timestamp_ms": 0, "frame_number": 0}], 120.0)
 
 
-def test_build_adapt_filter_no_fade_when_no_pre_segment():
+def test_build_adapt_filter_no_fade_filters():
+    """_build_adapt_filter ne doit jamais insérer de filtre fade/afade — la transition
+    est assurée par la continuité des vitesses, pas par un fondu visuel."""
     segs = [(0.0, 1.0, 1.2), (1.0, 2.0, 0.8)]
-    fc, maps, codec = _build_adapt_filter(
-        segs,
-        has_audio=False,
-        fade_duration_s=0.5,
-        has_pre_segment=False,
-        has_post_segment=False,
-    )
+    fc, maps, codec = _build_adapt_filter(segs, has_audio=False)
     assert "fade=" not in fc
     assert maps == ["-map", "[vout]"]
     assert "-c:v" in codec
 
 
-def test_build_adapt_filter_fade_in_applied_when_pre_segment():
-    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.3), (3.0, 5.0, 1.0)]
-    fc, _, _ = _build_adapt_filter(
-        segs,
-        has_audio=False,
-        fade_duration_s=0.5,
-        has_pre_segment=True,
-        has_post_segment=True,
-    )
-    assert "fade=t=in" in fc
-    assert "fade=t=out" not in fc
-
-
-def test_build_adapt_filter_fade_audio_when_has_audio():
-    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.2), (3.0, 4.0, 1.0)]
-    fc, maps, codec = _build_adapt_filter(
-        segs,
-        has_audio=True,
-        fade_duration_s=0.5,
-        has_pre_segment=True,
-        has_post_segment=True,
-    )
-    assert "afade=t=in" in fc
-    assert "afade=t=out" in fc
-    assert ",fade=t=out:" not in fc
+def test_build_adapt_filter_with_audio_no_fade_filters():
+    segs = [(0.0, 1.0, 1.2), (1.0, 3.0, 0.9), (3.0, 4.0, 1.1)]
+    fc, maps, codec = _build_adapt_filter(segs, has_audio=True)
+    assert "fade=" not in fc
+    assert "afade=" not in fc
     assert maps == ["-map", "[vout]", "-map", "[aout]"]
     assert "-c:a" in codec
 
 
-def test_fade_duration_clamped_to_segment_duration():
-    segs = [(0.0, 0.2, 1.0), (0.2, 2.0, 1.5), (2.0, 2.5, 1.0)]
-    fc, _, _ = _build_adapt_filter(
-        segs,
-        has_audio=False,
-        fade_duration_s=0.5,
-        has_pre_segment=True,
-        has_post_segment=True,
-    )
-    assert "d=0.160000" in fc
-
-
-def test_adapt_video_to_bpm_accepts_fade_duration_param(tmp_path):
+def test_adapt_video_pre_segment_uses_first_speed_factor(tmp_path):
+    """Le segment avant la première annotation doit utiliser speed_factors[0],
+    pas 1.0, pour éviter un saut de vitesse à la jonction."""
     probe_result = {
         "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
                      "avg_frame_rate": "25/1", "nb_frames": "250"}],
         "format": {"duration": "5.0"},
     }
+    # Annotations à t=1s et t=3s → speed_factors[0] calculé par compute_segment_speeds
     annotations = [
         {"timestamp_ms": 1000.0, "frame_number": 25},
         {"timestamp_ms": 3000.0, "frame_number": 75},
@@ -271,22 +238,62 @@ def test_adapt_video_to_bpm_accepts_fade_duration_param(tmp_path):
         mock_proc.wait.return_value = 0
         return mock_proc
 
+    captured_segs = []
+
+    def capture_build(segs, has_audio):
+        captured_segs.extend(segs)
+        return ("fc", ["-map", "[vout]"], ["-c:v", "libx264"])
+
     with patch("ffmpeg.probe", return_value=probe_result), \
          patch("subprocess.Popen", side_effect=fake_popen), \
          patch("app.services.video_service.uuid.uuid4") as mock_uuid, \
          patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)), \
-         patch("app.services.video_service._build_adapt_filter", return_value=("fc", ["-map", "[vout]"], ["-c:v", "libx264"])) as mock_build:
+         patch("app.services.video_service._build_adapt_filter", side_effect=capture_build):
         mock_uuid.return_value.hex = "fixed"
-        result = adapt_video_to_bpm(
-            "/fake/input.mp4",
-            annotations,
-            target_bpm=120.0,
-            fade_duration_s=0.5,
-        )
+        adapt_video_to_bpm("/fake/input.mp4", annotations, target_bpm=120.0)
 
-    assert result.endswith(".mp4")
-    assert Path(result).name == "adapted_fixed.mp4"
-    _, kwargs = mock_build.call_args
-    assert kwargs["fade_duration_s"] == pytest.approx(0.5)
-    assert kwargs["has_pre_segment"] is True
-    assert kwargs["has_post_segment"] is True
+    # Premier segment (pré-annotation, 0→1s) doit avoir la même vitesse que le
+    # segment adapté [1s→3s]
+    assert len(captured_segs) == 3  # pré + adapté + post
+    pre_speed = captured_segs[0][2]
+    first_adapted_speed = captured_segs[1][2]
+    post_speed = captured_segs[2][2]
+    last_adapted_speed = captured_segs[1][2]
+    assert pre_speed == pytest.approx(first_adapted_speed)
+    assert post_speed == pytest.approx(last_adapted_speed)
+
+
+def test_adapt_video_no_pre_post_if_annotations_at_bounds(tmp_path):
+    """Si les annotations sont aux bornes de la vidéo, pas de segment pré/post."""
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1", "nb_frames": "125"}],
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 0.0, "frame_number": 0},
+        {"timestamp_ms": 5000.0, "frame_number": 125},
+    ]
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    captured_segs = []
+
+    def capture_build(segs, has_audio):
+        captured_segs.extend(segs)
+        return ("fc", ["-map", "[vout]"], ["-c:v", "libx264"])
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.uuid.uuid4") as mock_uuid, \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)), \
+         patch("app.services.video_service._build_adapt_filter", side_effect=capture_build):
+        mock_uuid.return_value.hex = "fixed"
+        adapt_video_to_bpm("/fake/input.mp4", annotations, target_bpm=120.0)
+
+    assert len(captured_segs) == 1  # uniquement le segment adapté, pas de pré/post

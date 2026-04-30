@@ -1,6 +1,6 @@
 # Story 7.6: Page Assemblage — Structure + Import + Timeline Vidéos
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -11,14 +11,15 @@ Afin de préparer l'assemblage de plusieurs vidéos adaptées bout à bout.
 ## Acceptance Criteria
 
 ### AC1 — Route et navigation
-- La route `/assemblage` est accessible depuis l'application
-- Un lien "Assemblage" est visible dans la navigation principale (header ou sidebar)
+- La route `/assemblage/{projectId}` est accessible depuis la page d'un projet
+- Un bouton "Assemblage" est visible dans la page projet, à côté de l'action d'export
 - La page s'intitule "Assemblage" dans le titre `<h1>`
 
 ### AC2 — Import vidéos depuis projets
 - Un bouton "+ Ajouter des vidéos" ouvre un modal de sélection
-- Le modal liste tous les projets disponibles avec leurs vidéos
-- Chaque vidéo est sélectionnable (checkbox)
+- Le modal liste les vidéos du projet courant
+- Les vidéos adaptées sauvegardées sont aussi proposées comme sources distinctes
+- Chaque source vidéo est sélectionnable (checkbox)
 - Cliquer "Ajouter la sélection" ferme le modal et ajoute les vidéos à la timeline
 
 ### AC3 — Timeline vidéos
@@ -62,8 +63,8 @@ test('add videos button opens import modal', async () => {
 })
 
 test('selecting video in modal and confirming adds it to timeline', async () => {
-  const mockProjects = [buildProject({ videos: [buildVideo({ original_name: 'clip1.mp4' })] })]
-  render(<AssemblagePage projects={mockProjects} />)
+  const mockProject = buildProject({ videos: [buildVideo({ original_name: 'clip1.mp4' })] })
+  render(<AssemblagePage project={mockProject} />)
   await userEvent.click(screen.getByRole('button', { name: /ajouter des vidéos/i }))
   await userEvent.click(screen.getByRole('checkbox', { name: /clip1\.mp4/i }))
   await userEvent.click(screen.getByRole('button', { name: /ajouter la sélection/i }))
@@ -83,9 +84,9 @@ test('shows total duration of assembled clips', () => {
   expect(screen.getByText(/durée totale.*15/i)).toBeInTheDocument()
 })
 
-test('assemblage link appears in app navigation', () => {
-  render(<App />)
-  expect(screen.getByRole('link', { name: /assemblage/i })).toBeInTheDocument()
+test('assemblage button appears in project detail actions', async () => {
+  render(<ProjectDetailPage />)
+  expect(await screen.findByRole('button', { name: /assemblage/i })).toBeInTheDocument()
 })
 ```
 
@@ -111,13 +112,13 @@ async def test_get_project_videos_returns_video_list(client, project_with_videos
 
 ### Backend
 
-- [ ] Écrire les 2 tests backend → GREEN (les endpoints existent déjà, les tests vérifient leur disponibilité)
-- [ ] Aucun nouvel endpoint nécessaire pour cette story — utiliser `GET /api/v1/projects` et `GET /api/v1/projects/{id}/videos`
+- [x] Écrire les 2 tests backend → GREEN (les endpoints existent déjà, les tests vérifient leur disponibilité)
+- [x] Aucun nouvel endpoint nécessaire pour cette story — utiliser `GET /api/v1/projects` et `GET /api/v1/projects/{id}/videos`
 
 ### Frontend
 
-- [ ] Écrire les 7 tests → RED
-- [ ] Créer store Zustand `frontend/src/stores/assemblageStore.ts` :
+- [x] Écrire les 7 tests → RED
+- [x] Créer store Zustand `frontend/src/stores/assemblageStore.ts` :
   ```ts
   interface AssemblageClip {
     id: string          // uuid local
@@ -134,23 +135,23 @@ async def test_get_project_videos_returns_video_list(client, project_with_videos
     reorderClips: (newOrder: AssemblageClip[]) => void
   }
   ```
-- [ ] Créer `frontend/src/pages/AssemblagePage.tsx` :
-  - [ ] Section header : titre + bouton "+ Ajouter des vidéos" + durée totale
-  - [ ] Section timeline : `<AssemblageTimeline>` (créer composant séparé)
-  - [ ] État vide si `clips.length === 0`
-- [ ] Créer `frontend/src/components/assemblage/VideoImportModal.tsx` :
-  - [ ] Fetch tous les projets via `useProjects()`
-  - [ ] Pour chaque projet, fetch ses vidéos (ou dériver depuis le store projet)
-  - [ ] Checkboxes de sélection multiple
-  - [ ] Bouton "Ajouter la sélection" → `addClips(selectedVideos)`
-- [ ] Créer `frontend/src/components/assemblage/AssemblageTimeline.tsx` :
-  - [ ] Axe temporel
-  - [ ] Blocs clips proportionnels à leur durée
-  - [ ] Drag & drop (utiliser `@dnd-kit/core` déjà installé ou HTML5 drag API)
-  - [ ] Bouton ✕ par clip
-- [ ] Ajouter la route `/assemblage` dans `App.tsx`
-- [ ] Ajouter le lien "Assemblage" dans la navigation
-- [ ] Passer tous les tests → GREEN
+- [x] Créer `frontend/src/pages/AssemblagePage.tsx` :
+  - [x] Section header : titre + bouton "+ Ajouter des vidéos" + durée totale
+  - [x] Section timeline : `<AssemblageTimeline>` (créer composant séparé)
+  - [x] État vide si `clips.length === 0`
+- [x] Créer `frontend/src/components/assemblage/VideoImportModal.tsx` :
+  - [x] Réutiliser les vidéos du projet courant
+  - [x] Exposer les sources adaptées sauvegardées comme variantes distinctes
+  - [x] Checkboxes de sélection multiple
+  - [x] Bouton "Ajouter la sélection" → `addClips(selectedVideos)`
+- [x] Créer `frontend/src/components/assemblage/AssemblageTimeline.tsx` :
+  - [x] Axe temporel
+  - [x] Blocs clips proportionnels à leur durée
+  - [x] Drag & drop via API HTML5 native
+  - [x] Bouton ✕ par clip
+- [x] Ajouter la route `/assemblage/:projectId` dans `App.tsx`
+- [x] Ajouter le bouton "Assemblage" dans `ProjectDetailPage`
+- [x] Passer tous les tests → GREEN
 
 ## Dev Notes
 
@@ -210,17 +211,38 @@ backend/tests/test_assemblage.py                    ← 2 tests (endpoints exist
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+`npm run test -- src/pages/AssemblagePage.test.tsx`
+`npm run test -- src/App.test.tsx`
+`pytest backend/tests/test_assemblage.py -q`
+`npm run test`
+`npm run build`
 
 ### Completion Notes List
-_à remplir_
+- Route `/assemblage/:projectId` ajoutée et accessible depuis la page projet.
+- Page Assemblage créée avec état vide, durée totale, bouton d'import et timeline horizontale, dans le contexte d'un seul projet.
+- Modal d'import recentré sur le projet courant avec cartes plus lisibles pour les vidéos source et les versions adaptées sauvegardées.
+- Timeline avec largeur proportionnelle à la durée, axe temporel, suppression par clip et réordonnancement drag & drop natif.
+- Store Zustand dédié ajouté pour garder la liste des clips côté client sans persistance backend.
+- Endpoints backend existants vérifiés par tests dédiés, sans création de nouvelle API.
+- Validation complète OK: `44` fichiers de tests frontend verts (`429` tests), build frontend OK, `2` tests backend 7.6 verts.
 
 ### File List
-_à remplir_
+- `frontend/src/stores/assemblageStore.ts`
+- `frontend/src/components/assemblage/VideoImportModal.tsx`
+- `frontend/src/components/assemblage/AssemblageTimeline.tsx`
+- `frontend/src/pages/AssemblagePage.tsx`
+- `frontend/src/pages/AssemblagePage.test.tsx`
+- `frontend/src/api/projects.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/pages/ProjectDetailPage.tsx`
+- `frontend/src/pages/ProjectDetailPage.test.tsx`
+- `backend/tests/test_assemblage.py`
 
 ## Change Log
 
 - 2026-04-29 : Story créée par SM (Bob) — Epic 7, première story de la page Assemblage
+- 2026-04-29 : Implémentation dev terminée, route Assemblage et timeline vidéos validées
+- 2026-04-29 : Recentrage UX validé sur un assemblage par projet avec sources adaptées visibles dans le modal

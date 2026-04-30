@@ -5,6 +5,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage'
 import { AnnotationPage } from './pages/AnnotationPage'
 import StatisticsPage from './pages/StatisticsPage'
 import ExportPageRoute from './pages/ExportPageRoute'
+import AssemblagePage from './pages/AssemblagePage'
 import { ExportJobsProvider } from './contexts/ExportJobsContext'
 import ExportJobsWidget from './components/exports/ExportJobsWidget'
 
@@ -33,6 +34,7 @@ function App() {
             <Route path="/annotation/:videoId" element={<AnnotationPageRoute />} />
             <Route path="/statistics/:videoId" element={<StatisticsPage />} />
             <Route path="/export/:projectId" element={<ExportPageRoute />} />
+            <Route path="/assemblage/:projectId" element={<AssemblagePage />} />
             <Route path="*" element={<Navigate to="/projects" replace />} />
           </Routes>
           <ExportJobsWidget />
