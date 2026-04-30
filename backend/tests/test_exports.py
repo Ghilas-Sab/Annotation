@@ -357,6 +357,7 @@ async def test_save_preview_updates_video_record(client, video_id_with_annotatio
     """POST /preview-adapted/save persiste adapted_preview dans le record vidéo."""
     import time
     from app.services.job_manager import job_manager
+    from unittest.mock import patch
 
     tmp_file = tmp_path / "fake_preview.mp4"
     tmp_file.write_bytes(b"fakevideo")
@@ -365,10 +366,12 @@ async def test_save_preview_updates_video_record(client, video_id_with_annotatio
     job_manager.update(job.id, status="done", progress=100,
                        result_path=str(tmp_file), finished_at=time.time())
 
-    resp = await client.post(
-        f"/api/v1/videos/{video_id_with_annotations}/preview-adapted/save",
-        json={"job_id": job.id, "target_bpm": 120.0}
-    )
+    with patch("app.routers.exports.settings") as mock_settings:
+        mock_settings.DATA_DIR = str(tmp_path)
+        resp = await client.post(
+            f"/api/v1/videos/{video_id_with_annotations}/preview-adapted/save",
+            json={"job_id": job.id, "target_bpm": 120.0}
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert "adapted_preview" in data

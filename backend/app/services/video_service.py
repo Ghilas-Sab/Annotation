@@ -93,9 +93,6 @@ def adjust_video_speed(
 def _build_adapt_filter(
     segs: list[tuple[float, float, float]],
     has_audio: bool,
-    fade_duration_s: float = 0.5,
-    has_pre_segment: bool = False,
-    has_post_segment: bool = False,
 ) -> tuple[str, list[str], list[str]]:
     """
     Construit le filter_complex ffmpeg pour l'adaptation BPM segment par segment.
@@ -108,9 +105,6 @@ def _build_adapt_filter(
     n = len(segs)
     parts: list[str] = []
 
-    def _clamp_fade(segment_duration: float) -> float:
-        return max(0.1, min(fade_duration_s, segment_duration * 0.8))
-
     # split video en n copies
     v_labels = "".join(f"[vin{i}]" for i in range(n))
     parts.append(f"[0:v]split={n}{v_labels}")
@@ -122,13 +116,7 @@ def _build_adapt_filter(
     # Traitement par segment
     for i, (start, end, sf) in enumerate(segs):
         pts = 1.0 / sf
-        segment_duration = end - start
         video_filters = [f"trim=start={start:.6f}:end={end:.6f}", f"setpts={pts:.6f}*(PTS-STARTPTS)"]
-
-        if has_pre_segment and i == 0:
-            fade_in = _clamp_fade(segment_duration)
-            video_filters.append(f"fade=t=in:st=0:d={fade_in:.6f}")
-
         parts.append(
             f"[vin{i}]{','.join(video_filters)}[v{i}]"
         )
@@ -140,15 +128,6 @@ def _build_adapt_filter(
                 atempo,
                 "asetpts=PTS-STARTPTS",
             ]
-
-            if has_pre_segment and i == 0:
-                fade_in = _clamp_fade(segment_duration)
-                audio_filters.append(f"afade=t=in:st=0:d={fade_in:.6f}")
-
-            if has_post_segment and i == n - 1:
-                fade_out = _clamp_fade(segment_duration)
-                audio_filters.append(f"afade=t=out:st={max(0.0, segment_duration - fade_out):.6f}:d={fade_out:.6f}")
-
             parts.append(
                 f"[ain{i}]{','.join(audio_filters)}[a{i}]"
             )
@@ -172,7 +151,6 @@ def adapt_video_to_bpm(
     input_path: str,
     annotations: list[dict],
     target_bpm: float,
-    fade_duration_s: float = 0.5,
     progress_cb: "Callable[[int], None] | None" = None,
     cancel_event: "threading.Event | None" = None,
     max_height: "int | None" = None,
@@ -211,28 +189,21 @@ def adapt_video_to_bpm(
     speed_factors = compute_segment_speeds(sorted_anns, fps=0, target_bpm=target_bpm)
     target_interval_s = 60.0 / target_bpm
 
-    # Construire la liste des segments
+    # Construire la liste des segments.
+    # Les segments pré/post annotation reprennent la vitesse du segment adapté adjacent
+    # pour éviter tout saut de vitesse à la jonction.
     segs: list[tuple[float, float, float]] = []
-    has_pre_segment = timestamps[0] > 0.001
-    has_post_segment = timestamps[-1] < video_duration - 0.001
-
-    if has_pre_segment:
-        segs.append((0.0, timestamps[0], 1.0))
+    if timestamps[0] > 0.001:
+        segs.append((0.0, timestamps[0], speed_factors[0]))
     for i, sf in enumerate(speed_factors):
         segs.append((timestamps[i], timestamps[i + 1], sf))
-    if has_post_segment:
-        segs.append((timestamps[-1], video_duration, 1.0))
+    if timestamps[-1] < video_duration - 0.001:
+        segs.append((timestamps[-1], video_duration, speed_factors[-1]))
 
     # Durée totale attendue en sortie (pour estimer la progression)
     out_duration_s = sum((end - start) / sf for start, end, sf in segs)
 
-    filter_complex, maps, codec = _build_adapt_filter(
-        segs,
-        has_audio=has_audio,
-        fade_duration_s=fade_duration_s,
-        has_pre_segment=has_pre_segment,
-        has_post_segment=has_post_segment,
-    )
+    filter_complex, maps, codec = _build_adapt_filter(segs, has_audio=has_audio)
 
     Path(settings.TEMP_DIR).mkdir(parents=True, exist_ok=True)
     output_path = os.path.join(settings.TEMP_DIR, f"adapted_{uuid.uuid4().hex}.mp4")

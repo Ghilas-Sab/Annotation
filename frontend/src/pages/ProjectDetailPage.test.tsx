@@ -147,4 +147,19 @@ describe('ProjectDetailPage', () => {
     expect(await screen.findByText(/vidéo adaptée sauvegardée/i)).toBeInTheDocument()
     expect(screen.getByTestId('adapted-preview-player-v1')).toBeInTheDocument()
   })
+
+  it('shows assemblage button next to export when project has videos', async () => {
+    server.use(http.get('*/api/v1/projects/1', () =>
+      HttpResponse.json(mockProject({
+        videos: [
+          { id: 'v1', original_name: 'video1.mp4', duration_seconds: 10, fps: 25, annotations: [] },
+        ],
+      }))
+    ))
+
+    renderWithProviders('1')
+
+    expect(await screen.findByRole('button', { name: /assemblage/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /exporter le projet/i })).toBeInTheDocument()
+  })
 })

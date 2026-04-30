@@ -12,6 +12,7 @@ export interface ExportJob {
   estimated_remaining_s: number | null
   error: string | null
   // preview only
+  projectId?: string
   videoId?: string
   targetBpm?: number
   previewUrl?: string | null
@@ -21,7 +22,7 @@ export interface ExportJob {
 interface ExportJobsCtx {
   jobs: ExportJob[]
   startJob: (projectId: string, jobId: string, label: string) => void
-  startPreviewJob: (videoId: string, jobId: string, label: string, targetBpm: number) => void
+  startPreviewJob: (projectId: string, videoId: string, jobId: string, label: string, targetBpm: number) => void
   savePreviewJob: (jobId: string) => Promise<void>
   dismissJob: (jobId: string) => void
   cancelJob: (jobId: string) => void
@@ -110,12 +111,12 @@ export const ExportJobsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }])
   }, [])
 
-  const startPreviewJob = useCallback((videoId: string, jobId: string, label: string, targetBpm: number) => {
+  const startPreviewJob = useCallback((projectId: string, videoId: string, jobId: string, label: string, targetBpm: number) => {
     setJobs(prev => [...prev, {
       job_id: jobId, label, type: 'preview',
       status: 'pending', progress: 0,
       estimated_remaining_s: null, error: null,
-      videoId, targetBpm, previewUrl: null, saved: false,
+      projectId, videoId, targetBpm, previewUrl: null, saved: false,
     }])
   }, [])
 

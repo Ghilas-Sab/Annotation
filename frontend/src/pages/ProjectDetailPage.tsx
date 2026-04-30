@@ -128,13 +128,22 @@ const ProjectDetailPage: React.FC = () => {
               Vidéos du projet ({project.videos?.length || 0})
             </h2>
             {(project.videos?.length ?? 0) > 0 && (
-              <button
-                onClick={() => navigate(`/export/${projectId}`)}
-                className="btn-secondary"
-                style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
-              >
-                ⬇ Exporter le projet
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => navigate(`/assemblage/${projectId}`)}
+                  className="btn-secondary"
+                  style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
+                >
+                  Assemblage
+                </button>
+                <button
+                  onClick={() => navigate(`/export/${projectId}`)}
+                  className="btn-secondary"
+                  style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
+                >
+                  ⬇ Exporter le projet
+                </button>
+              </div>
             )}
           </div>
 

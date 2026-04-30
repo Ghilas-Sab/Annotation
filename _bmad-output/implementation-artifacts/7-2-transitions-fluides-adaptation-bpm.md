@@ -5,165 +5,145 @@ Status: review
 ## Story
 
 En tant qu'utilisateur,
-Je veux que la vidéo adaptée BPM démarre et se termine de façon fluide,
-Afin d'éviter l'effet brusque à la jonction entre la zone de vitesse normale et la zone adaptée.
+Je veux que la vidéo adaptée BPM démarre et se termine sans saut de vitesse brusque,
+Afin que la transition entre la zone non-annotée et la zone adaptée soit imperceptible.
 
 ## Acceptance Criteria
 
-### AC1 — Fondu audio/vidéo en entrée
-- La vidéo adaptée commence par un fondu progressif (fade-in) sur les 0.5 premières secondes du segment pré-annotation (avant la première annotation)
-- Si le segment pré-annotation dure moins de 0.5 s, le fade s'adapte à la durée disponible (min 0.1 s)
+### AC1 — Continuité de vitesse au début
+- Le segment pré-annotation (avant la première annotation) est joué à la même vitesse que le premier segment adapté
+- Aucun changement de vitesse à la jonction entre le segment pré et le premier segment adapté
 
-### AC2 — Fondu audio/vidéo en sortie
-- La vidéo adaptée se termine par un fondu progressif (fade-out) sur les 0.5 dernières secondes du segment post-annotation (après la dernière annotation)
-- Même règle que AC1 si le segment est très court
+### AC2 — Continuité de vitesse à la fin
+- Le segment post-annotation (après la dernière annotation) est joué à la même vitesse que le dernier segment adapté
+- Aucun changement de vitesse à la jonction entre le dernier segment adapté et le segment post
 
-### AC3 — Transition uniquement si segment pré/post existe
-- Si la première annotation est à t=0 (pas de segment pré), aucun fade-in n'est appliqué
-- Si la dernière annotation est à la fin exacte de la vidéo, aucun fade-out n'est appliqué
+### AC3 — Pas de fondu visuel
+- Aucun filtre `fade` ou `afade` n'est inséré dans le filter_complex
+- La transition est assurée par la continuité des vitesses, pas par un fondu vers le noir
 
-### AC4 — Qualité inchangée
-- Le reste de la vidéo (segments adaptés entre annotations) n'est pas modifié
+### AC4 — Pas de segment pré/post si annotations aux bornes
+- Si la première annotation est à t=0 (tolérance < 0.001 s), aucun segment pré n'est créé
+- Si la dernière annotation est à la fin exacte de la vidéo, aucun segment post n'est créé
+
+### AC5 — Qualité inchangée
 - Les tests existants `test_compute_segment_speeds_*` continuent de passer
-
-### AC5 — Paramètre configurable
-- La durée du fade est configurable via un paramètre `fade_duration_s: float = 0.5` dans `adapt_video_to_bpm`
-- Valeur par défaut : 0.5 secondes
+- Le reste du comportement d'`adapt_video_to_bpm` est inchangé
 
 ## MANDAT TESTS — COUVERTURE MAXIMALE OBLIGATOIRE
 
-> TDD STRICT. Écrire les tests AVANT de modifier `video_service.py`.
+> TDD STRICT. Les tests ci-dessous définissent le comportement attendu.
 
-### Tests backend à écrire EN PREMIER
+### Tests backend
 
 ```python
-# backend/tests/test_video_service.py (nouveau ou ajouts dans test_exports.py)
+# backend/tests/test_video_service.py
 
-import pytest
-from unittest.mock import patch, MagicMock
-from app.services.video_service import adapt_video_to_bpm, _build_adapt_filter
-
-def test_build_adapt_filter_no_fade_when_no_pre_segment():
-    """Pas de fade si la première annotation est à t=0."""
+def test_build_adapt_filter_no_fade_filters():
+    """_build_adapt_filter ne doit jamais insérer de filtre fade/afade."""
     segs = [(0.0, 1.0, 1.2), (1.0, 2.0, 0.8)]
-    fc, maps, codec = _build_adapt_filter(segs, has_audio=False, fade_duration_s=0.5,
-                                           has_pre_segment=False, has_post_segment=False)
-    assert "fade" not in fc
+    fc, maps, codec = _build_adapt_filter(segs, has_audio=False)
+    assert "fade=" not in fc
+    assert maps == ["-map", "[vout]"]
+    assert "-c:v" in codec
 
-def test_build_adapt_filter_fade_in_applied_when_pre_segment():
-    """Fade-in présent dans filter_complex si segment pré-annotation existe."""
-    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.3), (3.0, 5.0, 1.0)]
-    fc, maps, codec = _build_adapt_filter(segs, has_audio=False, fade_duration_s=0.5,
-                                           has_pre_segment=True, has_post_segment=True)
-    assert "fade=t=in" in fc
-    assert "fade=t=out" in fc
+def test_build_adapt_filter_with_audio_no_fade_filters():
+    segs = [(0.0, 1.0, 1.2), (1.0, 3.0, 0.9), (3.0, 4.0, 1.1)]
+    fc, maps, codec = _build_adapt_filter(segs, has_audio=True)
+    assert "fade=" not in fc
+    assert "afade=" not in fc
+    assert maps == ["-map", "[vout]", "-map", "[aout]"]
+    assert "-c:a" in codec
 
-def test_build_adapt_filter_fade_audio_when_has_audio():
-    """afade présent si la vidéo a une piste audio et segments pré/post."""
-    segs = [(0.0, 1.0, 1.0), (1.0, 3.0, 1.2), (3.0, 4.0, 1.0)]
-    fc, maps, codec = _build_adapt_filter(segs, has_audio=True, fade_duration_s=0.5,
-                                           has_pre_segment=True, has_post_segment=True)
-    assert "afade=t=in" in fc
-    assert "afade=t=out" in fc
+def test_adapt_video_pre_segment_uses_first_speed_factor(tmp_path):
+    """Le segment pré-annotation doit utiliser speed_factors[0], pas 1.0."""
+    # Premier segment (0→1s) doit avoir la même vitesse que le segment adapté [1s→3s]
+    pre_speed = captured_segs[0][2]
+    first_adapted_speed = captured_segs[1][2]
+    assert pre_speed == pytest.approx(first_adapted_speed)
 
-def test_fade_duration_clamped_to_segment_duration():
-    """Si le segment pré dure 0.2 s, le fade est limité à 0.2 s (pas 0.5 s)."""
-    segs = [(0.0, 0.2, 1.0), (0.2, 2.0, 1.5), (2.0, 2.5, 1.0)]
-    fc, _, _ = _build_adapt_filter(segs, has_audio=False, fade_duration_s=0.5,
-                                    has_pre_segment=True, has_post_segment=True)
-    assert "d=0.2" in fc or "d=0.1" in fc  # clamped à la durée du segment
-
-def test_adapt_video_to_bpm_accepts_fade_duration_param(tmp_video_path, annotations_2):
-    """adapt_video_to_bpm accepte un paramètre fade_duration_s sans erreur."""
-    result = adapt_video_to_bpm(
-        tmp_video_path, annotations_2, target_bpm=120.0, fade_duration_s=0.5
-    )
-    assert result.endswith(".mp4")
-    import os; os.unlink(result)
+def test_adapt_video_no_pre_post_if_annotations_at_bounds(tmp_path):
+    """Si les annotations sont aux bornes, pas de segment pré/post."""
+    # annotations à t=0 et t=5s sur une vidéo de 5s → 1 seul segment
+    assert len(captured_segs) == 1
 ```
 
 ## Tasks / Subtasks
 
 ### Backend
 
-- [x] Écrire les 5 tests ci-dessus → RED
-- [x] Modifier la signature de `_build_adapt_filter` dans `video_service.py` :
-  - [x] Ajouter `fade_duration_s: float = 0.5`, `has_pre_segment: bool`, `has_post_segment: bool`
-- [x] Modifier `_build_adapt_filter` pour appliquer le fade :
-  - [x] **Fade-in vidéo** : ajouter `,fade=t=in:st=0:d={clamped_fade}` au filtre du segment pré-annotation (si `has_pre_segment`)
-  - [x] **Fade-out vidéo** : ajouter `,fade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` au dernier segment (si `has_post_segment`)
-  - [x] **Fade-in audio** : ajouter `,afade=t=in:st=0:d={clamped_fade}` sur le flux audio du premier segment (si `has_audio` et `has_pre_segment`)
-  - [x] **Fade-out audio** : ajouter `,afade=t=out:st={seg_duration - clamped_fade}:d={clamped_fade}` sur le flux audio du dernier segment (si `has_audio` et `has_post_segment`)
-  - [x] Calcul de `clamped_fade = min(fade_duration_s, segment_duration * 0.8)` avec minimum 0.1 s
-- [x] Modifier `adapt_video_to_bpm` :
-  - [x] Ajouter paramètre `fade_duration_s: float = 0.5`
-  - [x] Détecter `has_pre_segment = timestamps[0] > 0.001` et `has_post_segment = timestamps[-1] < video_duration - 0.001`
-  - [x] Passer ces infos à `_build_adapt_filter`
-- [x] Passer tous les tests → GREEN
-- [x] Vérifier que les tests existants (`test_compute_segment_speeds_*`) passent toujours
+- [x] Supprimer tous les filtres `fade`/`afade` de `_build_adapt_filter`
+- [x] Simplifier la signature de `_build_adapt_filter` : supprimer `fade_duration_s`, `has_pre_segment`, `has_post_segment`
+- [x] Modifier `adapt_video_to_bpm` — segments pré/post :
+  - [x] Segment pré : `(0.0, timestamps[0], speed_factors[0])` (était `1.0`)
+  - [x] Segment post : `(timestamps[-1], video_duration, speed_factors[-1])` (était `1.0`)
+- [x] Supprimer le paramètre `fade_duration_s` de `adapt_video_to_bpm`
+- [x] Écrire les 4 tests ci-dessus → GREEN
+- [x] Vérifier que les tests existants passent toujours
 
 ### Frontend (aucune modification nécessaire)
 
-- `adapt_video_to_bpm` est appelé côté backend uniquement — pas d'impact frontend
-
 ## Dev Notes
 
-### Implémentation fade dans filter_complex
+### Approche retenue : continuité de vitesse
 
-Le filtre `fade` de FFmpeg s'applique après `setpts` sur le même flux. Pattern :
+L'effet brusque venait du fait que les segments pré/post (avant/après les annotations)
+étaient joués à vitesse 1.0x alors que le premier/dernier segment adapté pouvait être
+à 0.7x ou 1.5x — créant un saut de vitesse visible à la jonction.
 
-```
-# Fade-in sur le premier segment (pré-annotation, index 0) :
-[vin0]trim=start=0:end=T0,setpts=PTS-STARTPTS,fade=t=in:st=0:d=FADE_D[v0]
+Solution : utiliser `speed_factors[0]` pour le segment pré et `speed_factors[-1]`
+pour le segment post. La vidéo entière change de vitesse de façon uniforme sans
+discontinuité perceptible.
 
-# Fade-out sur le dernier segment (post-annotation, index N-1) :
-[vinN]trim=start=TN:end=END,setpts=PTS-STARTPTS,fade=t=out:st=SEG_DUR-FADE_D:d=FADE_D[vN]
-
-# Idem pour audio avec afade :
-[ainN]atrim=...,atempo=...,asetpts=PTS-STARTPTS,afade=t=out:st=SEG_DUR-FADE_D:d=FADE_D[aN]
-```
-
-Important : `st` dans `fade` est relatif au début du segment trimé (après `setpts=PTS-STARTPTS`).
-
-### Durée du fade clamped
+### Implémentation dans adapt_video_to_bpm
 
 ```python
-pre_seg_duration = timestamps[0]  # durée du segment pré-annotation
-clamped_fade_in = max(0.1, min(fade_duration_s, pre_seg_duration * 0.8))
-
-post_seg_duration = video_duration - timestamps[-1]
-clamped_fade_out = max(0.1, min(fade_duration_s, post_seg_duration * 0.8))
+segs: list[tuple[float, float, float]] = []
+if timestamps[0] > 0.001:
+    segs.append((0.0, timestamps[0], speed_factors[0]))   # même vitesse que le premier segment adapté
+for i, sf in enumerate(speed_factors):
+    segs.append((timestamps[i], timestamps[i + 1], sf))
+if timestamps[-1] < video_duration - 0.001:
+    segs.append((timestamps[-1], video_duration, speed_factors[-1]))  # même vitesse que le dernier segment adapté
 ```
 
-### Fichiers à modifier
+### Signature _build_adapt_filter (simplifiée)
+
+```python
+def _build_adapt_filter(
+    segs: list[tuple[float, float, float]],
+    has_audio: bool,
+) -> tuple[str, list[str], list[str]]:
+```
+
+### Fichiers modifiés
 
 ```
 backend/app/services/video_service.py  ← _build_adapt_filter + adapt_video_to_bpm
-backend/tests/test_video_service.py    ← créer avec 5 nouveaux tests
+backend/tests/test_video_service.py    ← 4 nouveaux tests (remplacent les tests fade)
 ```
 
 ### Anti-patterns à éviter
 
-- Ne PAS appliquer le fade sur les segments adaptés (entre annotations) — seulement sur pré/post
-- Ne PAS utiliser `xfade` (cross-fade entre deux clips) — utiliser `fade` (fondu vers/depuis noir) qui est plus simple et ne nécessite pas de modifier la structure concat
+- Ne PAS utiliser `fade` / `afade` — l'utilisateur ne veut pas de fondu vers le noir
+- Ne PAS jouer les segments pré/post à vitesse 1.0 — cela crée un saut de vitesse
 - Ne PAS modifier `compute_segment_speeds` — elle n'est pas concernée
 
 ## Dev Agent Record
 
 ### Agent Model Used
-GPT-5 Codex
+claude-sonnet-4-6
 
 ### Debug Log References
-- `backend/app/services/video_service.py`: ajout des paramètres de fade dans `_build_adapt_filter` et `adapt_video_to_bpm`
-- `backend/tests/test_video_service.py`: ajout de la couverture RED/GREEN sur fade vidéo, fade audio, clamp et transmission de paramètres
-- `backend/tests/test_exports.py`: validation conservée des `test_compute_segment_speeds_*`
+- `pytest backend/tests/test_video_service.py -q` → 27 passed
+- `pytest backend/tests/ -q` → 143 passed
 
 ### Completion Notes List
-- Ajout d'un nouveau fichier de tests `backend/tests/test_video_service.py` couvrant le parsing fps existant et la story 7.2
-- Implémentation des fades uniquement sur les segments pré/post annotation, jamais sur les segments adaptés intermédiaires
-- Clamp appliqué avec la règle `max(0.1, min(fade_duration_s, segment_duration * 0.8))`
-- Vérifications exécutées : `pytest backend/tests/test_video_service.py -q` puis `pytest backend/tests/test_exports.py -q -k compute_segment_speeds`
-- Tentative de `pytest backend/tests -q` lancée mais non concluante dans cette session non interactive
+- Approche fade complètement abandonnée suite à la correction de Ghilas : "je veux pas que la video s'estompe à la fin, je veux juste que le dernier segment suit le rythme de la dernière video"
+- `_build_adapt_filter` simplifiée : plus de paramètres fade, plus aucun filtre `fade`/`afade`
+- Segments pré/post utilisent désormais `speed_factors[0]`/`speed_factors[-1]` pour une continuité parfaite
+- 4 nouveaux tests vérifient l'absence de fade et la continuité de vitesse aux jonctions
+- Suite complète 143/143 verte
 
 ### File List
 - `backend/app/services/video_service.py`
@@ -172,3 +152,4 @@ GPT-5 Codex
 ## Change Log
 
 - 2026-04-29 : Story créée par SM (Bob) — Epic 7, retour Ghilas sur effet brusque début/fin
+- 2026-04-29 : Rewrite complet — approche fade → continuité de vitesse, suite 143 tests verte

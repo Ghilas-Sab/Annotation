@@ -4,8 +4,8 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import datetime
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from datetime import datetime, timezone
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from app.storage.json_store import get_video, get_project, update_video
 from app.services.export_service import build_json_export, build_csv_export, build_statistics_csv, generate_project_zip
@@ -173,7 +173,7 @@ async def save_preview(video_id: str, body: SavePreviewRequest):
     if not job.result_path or not os.path.exists(job.result_path):
         raise HTTPException(status_code=410, detail="Result file no longer available")
 
-    previews_dir = os.path.join(settings.TEMP_DIR, "previews")
+    previews_dir = os.path.join(settings.DATA_DIR, "previews")
     os.makedirs(previews_dir, exist_ok=True)
     dest_path = os.path.join(previews_dir, f"{video_id}_preview.mp4")
     shutil.copy2(job.result_path, dest_path)
@@ -181,7 +181,7 @@ async def save_preview(video_id: str, body: SavePreviewRequest):
     adapted_preview = {
         "path": dest_path,
         "bpm": body.target_bpm,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     updated = update_video(video_id, adapted_preview=adapted_preview)
     if updated is None:
@@ -231,8 +231,8 @@ async def download_saved_preview(video_id: str):
 
 
 @router.get("/videos/{video_id}/preview-adapted/stream")
-async def stream_saved_preview(video_id: str):
-    """Lit directement la version adaptée sauvegardée dans l'UI projet/export."""
+async def stream_saved_preview(video_id: str, request: Request):
+    """Lit directement la version adaptée sauvegardée, avec support des Range requests."""
     video = get_video(video_id)
     if video is None:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -242,7 +242,33 @@ async def stream_saved_preview(video_id: str):
     if not preview_path or not os.path.exists(preview_path):
         raise HTTPException(status_code=404, detail="Saved preview not found")
 
-    return FileResponse(path=preview_path, media_type="video/mp4")
+    file_size = os.path.getsize(preview_path)
+    range_header = request.headers.get("Range")
+
+    if range_header:
+        range_spec = range_header.replace("bytes=", "")
+        start_str, end_str = range_spec.split("-")
+        start = int(start_str)
+        end = int(end_str) if end_str else file_size - 1
+        end = min(end, file_size - 1)
+        chunk_size = end - start + 1
+        with open(preview_path, "rb") as f:
+            f.seek(start)
+            payload = f.read(chunk_size)
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(len(payload)),
+        }
+        return Response(content=payload, status_code=206, media_type="video/mp4", headers=headers)
+    else:
+        with open(preview_path, "rb") as f:
+            payload = f.read()
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+        }
+        return Response(content=payload, status_code=200, media_type="video/mp4", headers=headers)
 
 
 @router.get("/videos/{video_id}/export/json")
