@@ -1,6 +1,11 @@
 /// <reference types="vitest/globals" />
 import '@testing-library/jest-dom'
 
+// Mock HTMLMediaElement (jsdom ne supporte pas la lecture vidéo/audio)
+Object.defineProperty(HTMLMediaElement.prototype, 'load', { writable: true, value: vi.fn() })
+Object.defineProperty(HTMLMediaElement.prototype, 'play', { writable: true, value: vi.fn().mockResolvedValue(undefined) })
+Object.defineProperty(HTMLMediaElement.prototype, 'pause', { writable: true, value: vi.fn() })
+
 // Mock HTMLCanvasElement.getContext (jsdom ne supporte pas canvas)
 const noop = () => {}
 // @ts-expect-error jsdom mock — types partiels intentionnels

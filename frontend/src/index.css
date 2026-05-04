@@ -81,3 +81,19 @@ input:focus, textarea:focus {
   outline: 2px solid var(--color-accent);
   border-color: transparent;
 }
+
+.assemblage-video-player:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  object-fit: contain !important;
+  background: #050710 !important;
+  border-radius: 0 !important;
+}
+
+.assemblage-video-player:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  object-fit: contain !important;
+  background: #050710 !important;
+  border-radius: 0 !important;
+}
