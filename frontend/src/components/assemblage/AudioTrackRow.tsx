@@ -38,10 +38,12 @@ const AudioTrackRow: React.FC<AudioTrackRowProps> = ({
   const trimEndRef     = useRef(track.trimEnd > 0 ? track.trimEnd : track.duration)
   const playingRef     = useRef(false)
   const currentTimeRef = useRef(0)
+  const isGloballyPlayingRef = useRef(false)
 
   useEffect(() => { trimEndRef.current = track.trimEnd > 0 ? track.trimEnd : track.duration }, [track.trimEnd, track.duration])
   useEffect(() => { playingRef.current = playing }, [playing])
   useEffect(() => { currentTimeRef.current = currentTime }, [currentTime])
+  useEffect(() => { isGloballyPlayingRef.current = isGloballyPlaying }, [isGloballyPlaying])
 
   const duration        = track.duration
   const trimStart       = track.trimStart
@@ -68,8 +70,14 @@ const AudioTrackRow: React.FC<AudioTrackRowProps> = ({
       interact: false, normalize: true,
     })
     wsRef.current = ws
-    ws.on('ready', (dur: number) => { onDurationReady(track.id, dur) })
-    ws.on('play',  () => setPlaying(true))
+    ws.on('ready', (dur: number) => {
+      onDurationReady(track.id, dur)
+      if (!isGloballyPlayingRef.current) ws.pause()
+    })
+    ws.on('play',  () => {
+      setPlaying(true)
+      if (!isGloballyPlayingRef.current) ws.pause()
+    })
     ws.on('pause', () => { setPlaying(false); endedByTrimRef.current = false })
     ws.on('finish', () => setPlaying(false))
     ws.on('timeupdate', (time: number) => {
@@ -100,10 +108,15 @@ const AudioTrackRow: React.FC<AudioTrackRowProps> = ({
       const expectedWsTime = track.trimStart + (globalTimelineTime - track.startOffset)
       const clamped = Math.max(0, Math.min(duration, expectedWsTime))
       const drift   = Math.abs(currentTimeRef.current - clamped)
-      if (drift > 0.4) ws.seekTo(Math.max(0, Math.min(1, clamped / duration)))
-      if (!playingRef.current) void ws.play()
+      if (!playingRef.current) {
+        // Always seek to the correct position before starting audio to avoid initial desync
+        ws.seekTo(Math.max(0, Math.min(1, clamped / duration)))
+        void ws.play()
+      } else if (drift > 0.15) {
+        ws.seekTo(Math.max(0, Math.min(1, clamped / duration)))
+      }
     } else {
-      if (playingRef.current) ws.pause()
+      ws.pause()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGloballyPlaying, globalTimelineTime, track.startOffset, track.trimStart, duration])
@@ -134,19 +147,19 @@ const AudioTrackRow: React.FC<AudioTrackRowProps> = ({
   // ── Move drag (via glisser directement le clip) ─────────────────────────
   const startMoveDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     if (safeTotalDuration === 0) return
     const startX    = e.clientX
     const rowWidth  = rowRef.current?.getBoundingClientRect().width ?? 1
     const timePerPx = safeTotalDuration / rowWidth
     const initOffset = track.startOffset
-    const maxOffset  = Math.max(0, safeTotalDuration - effectiveDuration)
     const onMove = (ev: MouseEvent) => {
-      onOffsetChange(track.id, Math.max(0, Math.min(maxOffset, initOffset + (ev.clientX - startX) * timePerPx)))
+      onOffsetChange(track.id, Math.max(0, initOffset + (ev.clientX - startX) * timePerPx))
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [effectiveDuration, onOffsetChange, safeTotalDuration, track.id, track.startOffset])
+  }, [onOffsetChange, safeTotalDuration, track.id, track.startOffset])
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', userSelect: 'none', pointerEvents: 'none' }}>
@@ -205,19 +218,6 @@ const AudioTrackRow: React.FC<AudioTrackRowProps> = ({
           }}>
             {track.name}
           </div>
-
-          {/* Curseur de lecture */}
-          {effectiveDuration > 0 && currentTime >= trimStart && currentTime <= trimEnd && (
-            <div style={{
-              position: 'absolute',
-              left: `${((currentTime - trimStart) / effectiveDuration) * 100}%`,
-              top: 5, bottom: 5, width: 2,
-              background: '#d1fae5',
-              boxShadow: '0 0 0 1px rgba(8,12,28,0.35)',
-              transform: 'translateX(-50%)',
-              zIndex: 7, pointerEvents: 'none',
-            }} />
-          )}
 
           {/* Poignée trim gauche */}
           <div

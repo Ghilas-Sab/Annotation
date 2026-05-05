@@ -16,6 +16,7 @@ import ShiftForm from '../components/annotations/ShiftForm'
 import { KeyboardShortcutsModal } from '../components/KeyboardShortcutsModal'
 import ExportButtons from '../components/exports/ExportButtons'
 import type { Annotation } from '../types/annotation'
+import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
 
 type Tab = 'annotations' | 'categories' | 'placement' | 'decalage'
 
@@ -139,9 +140,9 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        const tag = (e.target as HTMLElement).tagName
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+        if (isTextEditingTarget(e.target)) return
         e.preventDefault()
+        blurNonTextFocus(e.target)
         const hist = historyRef.current
         if (hist.length === 0) return
         const last = hist[hist.length - 1]
@@ -162,8 +163,8 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
         }
       }
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => window.removeEventListener('keydown', handler, { capture: true })
   }, [])
 
   const seek = useCallback((frame: number) => {

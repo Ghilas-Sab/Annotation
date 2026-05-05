@@ -1,21 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  getClipEffectiveDuration,
+  getClipTimelineEnd,
+  getClipTimelineStart,
+  getClipTrimEnd,
   getAudioTrackTimelineEnd,
   type AssemblageClip,
   type AudioTrack,
 } from '../../stores/assemblageStore'
-import type { Video } from '../../types/project'
+import type { Annotation } from '../../types/annotation'
 import AudioTrackRow from './AudioTrackRow'
 
 interface AssemblageTimelineProps {
   clips: AssemblageClip[]
   onRemoveClip: (id: string) => void
   onReorderClips: (clips: AssemblageClip[]) => void
+  onVideoTrimChange?: (id: string, trimStart: number, trimEnd: number) => void
+  onVideoOffsetChange?: (id: string, startOffset: number) => void
   audioTracks?: AudioTrack[]
   onAudioDurationReady?: (id: string, duration: number) => void
   onAudioTrimChange?: (id: string, trimStart: number, trimEnd: number) => void
   onAudioOffsetChange?: (id: string, startOffset: number) => void
-  videos?: Video[]
+  annotations?: Record<string, Annotation[]>
   isGloballyPlaying?: boolean
   globalTimelineTime?: number
   videoVolume?: number
@@ -25,6 +31,14 @@ interface AssemblageTimelineProps {
   onPlayFromTime?: (time: number) => void
 }
 
+const formatTimestamp = (ms: number): string => {
+  const totalSec = Math.floor(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  const frames = Math.floor((ms % 1000) / (1000 / 25))
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(frames).padStart(2, '0')}`
+}
+
 const LABEL_COL       = 136
 const TRACK_HEIGHT    = 58
 const RULER_HEIGHT    = 22
@@ -32,6 +46,9 @@ const AUDIO_LANE_HEIGHT = 48
 const AUDIO_GAP       = 8
 const MIN_ZOOM        = 1
 const MAX_ZOOM        = 8
+const MIN_VIDEO_TRIM_DURATION = 0.1
+const EMPTY_AUDIO_TRACKS: AudioTrack[] = []
+const EMPTY_ANNOTATIONS: Record<string, Annotation[]> = {}
 
 const CLIP_COLORS = [
   { bg: 'rgba(59,130,246,0.22)',  accent: '#3b82f6' },
@@ -167,11 +184,13 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
   clips,
   onRemoveClip,
   onReorderClips,
-  audioTracks = [],
+  onVideoTrimChange,
+  onVideoOffsetChange,
+  audioTracks = EMPTY_AUDIO_TRACKS,
   onAudioDurationReady,
   onAudioTrimChange,
   onAudioOffsetChange,
-  videos = [],
+  annotations = EMPTY_ANNOTATIONS,
   isGloballyPlaying = false,
   globalTimelineTime = 0,
   videoVolume = 1,
@@ -184,11 +203,13 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [zoom,         setZoom]         = useState(1)
   const [audioMix, setAudioMix] = useState<Record<string, { volume: number; muted: boolean }>>({})
+  const [hoveredAnnotation, setHoveredAnnotation] = useState<{ clipId: string; annotationId: string } | null>(null)
   const dragOverRef = useRef<string | null>(null)
   const scrollRef   = useRef<HTMLDivElement>(null)
+  const videoLaneRef = useRef<HTMLDivElement>(null)
 
   const videoDuration = useMemo(
-    () => clips.reduce((sum, c) => sum + c.duration, 0),
+    () => clips.reduce((max, c) => Math.max(max, getClipTimelineEnd(c)), 0),
     [clips],
   )
   const maxAudioDuration = useMemo(
@@ -209,12 +230,6 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
       return next
     })
   }, [sortedAudioTracks])
-
-  const videoDataMap = useMemo(() => {
-    const map = new Map<string, Video>()
-    videos.forEach(v => map.set(v.id, v))
-    return map
-  }, [videos])
 
   const ticks = useMemo(() => {
     if (totalDuration <= 0) return []
@@ -244,11 +259,12 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
     return () => el.removeEventListener('wheel', handler)
   }, [])
 
-  const handleDrop = useCallback((targetId: string) => {
-    if (!draggedId || draggedId === targetId) {
+  const handleDrop = useCallback((targetId: string, droppedId?: string) => {
+    const sourceId = droppedId || draggedId
+    if (!sourceId || sourceId === targetId) {
       setDraggedId(null); setDropTargetId(null); return
     }
-    const srcIdx = clips.findIndex((c) => c.id === draggedId)
+    const srcIdx = clips.findIndex((c) => c.id === sourceId)
     const tgtIdx = clips.findIndex((c) => c.id === targetId)
     if (srcIdx < 0 || tgtIdx < 0) { setDraggedId(null); setDropTargetId(null); return }
     const next = [...clips]
@@ -259,16 +275,92 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
     setDropTargetId(null)
   }, [draggedId, clips, onReorderClips])
 
+  const handleReorderDragStart = useCallback((e: React.DragEvent, clipId: string) => {
+    e.stopPropagation()
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', clipId)
+    setDraggedId(clipId)
+  }, [])
+
   const zoomIn    = useCallback(() => setZoom(z => Math.min(MAX_ZOOM, +(z * 1.5).toFixed(2))), [])
   const zoomOut   = useCallback(() => setZoom(z => Math.max(MIN_ZOOM, +(z / 1.5).toFixed(2))), [])
   const zoomReset = useCallback(() => setZoom(1), [])
 
-  const handleRulerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const seekFromClientX = useCallback((clientX: number, element: HTMLElement) => {
     if (!onPlayFromTime || totalDuration === 0) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
+    const rect = element.getBoundingClientRect()
+    const ratio = (clientX - rect.left) / rect.width
     onPlayFromTime(Math.max(0, Math.min(totalDuration, ratio * totalDuration)))
   }, [onPlayFromTime, totalDuration])
+
+  const startTimelineScrub = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (!onPlayFromTime || totalDuration === 0) return
+    e.preventDefault()
+    const target = e.currentTarget
+    seekFromClientX(e.clientX, target)
+
+    const onMove = (ev: MouseEvent) => seekFromClientX(ev.clientX, target)
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [onPlayFromTime, seekFromClientX, totalDuration])
+
+  const startVideoMoveDrag = useCallback((e: React.MouseEvent, clip: AssemblageClip) => {
+    if (!onVideoOffsetChange) return
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const rowWidth = videoLaneRef.current?.getBoundingClientRect().width ?? 1
+    const safeTotalDuration = Math.max(totalDuration, 0.5)
+    const timePerPx = safeTotalDuration / rowWidth
+    const initOffset = getClipTimelineStart(clip)
+    const onMove = (ev: MouseEvent) => {
+      onVideoOffsetChange(clip.id, Math.max(0, initOffset + (ev.clientX - startX) * timePerPx))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [onVideoOffsetChange, totalDuration])
+
+  const startVideoTrimDrag = useCallback((e: React.MouseEvent, clip: AssemblageClip, handle: 'start' | 'end') => {
+    if (!onVideoTrimChange) return
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const rowWidth = videoLaneRef.current?.getBoundingClientRect().width ?? 1
+    const safeTotalDuration = Math.max(totalDuration, 0.5)
+    const timePerPx = safeTotalDuration / rowWidth
+    const initStart = clip.trimStart ?? 0
+    const initEnd = getClipTrimEnd(clip)
+    const onMove = (ev: MouseEvent) => {
+      const delta = (ev.clientX - startX) * timePerPx
+      if (handle === 'start') {
+        onVideoTrimChange(
+          clip.id,
+          Math.max(0, Math.min(initEnd - MIN_VIDEO_TRIM_DURATION, initStart + delta)),
+          initEnd,
+        )
+      } else {
+        onVideoTrimChange(
+          clip.id,
+          initStart,
+          Math.min(clip.duration, Math.max(initStart + MIN_VIDEO_TRIM_DURATION, initEnd + delta)),
+        )
+      }
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [onVideoTrimChange, totalDuration])
 
   const playheadPct = totalDuration > 0 ? (globalTimelineTime / totalDuration) * 100 : -1
 
@@ -424,7 +516,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
 
             {/* ── Règle temporelle ──────────────────────────────────────── */}
             <div
-              onClick={handleRulerClick}
+              onMouseDown={startTimelineScrub}
               style={{
                 position: 'relative', height: RULER_HEIGHT,
                 background: 'rgba(255,255,255,0.025)',
@@ -455,12 +547,16 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
 
             {/* ── Piste clips vidéo ──────────────────────────────────────── */}
             <div
+              ref={videoLaneRef}
               data-testid="assemblage-timeline"
+              onMouseDown={startTimelineScrub}
               style={{
-                display: 'flex', height: TRACK_HEIGHT,
+                height: TRACK_HEIGHT,
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderTop: 'none', borderRadius: '0 0 8px 8px',
                 background: 'rgba(8,12,28,0.85)',
+                backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.035) 1px, transparent 1px)',
+                backgroundSize: '48px 100%',
                 overflow: 'hidden', position: 'relative',
               }}
             >
@@ -472,32 +568,46 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                   Aucun clip
                 </div>
               ) : clips.map((clip, index) => {
-                const widthPct  = totalDuration > 0 ? (clip.duration / totalDuration) * 100 : 100 / clips.length
+                const effectiveDuration = getClipEffectiveDuration(clip)
+                const clipStart = getClipTimelineStart(clip)
+                const trimStart = clip.trimStart ?? 0
+                const trimEnd = getClipTrimEnd(clip)
+                const widthPct  = totalDuration > 0 ? (effectiveDuration / totalDuration) * 100 : 100 / clips.length
+                const leftPct = totalDuration > 0 ? (clipStart / totalDuration) * 100 : 0
                 const color     = getClipColor(clip, index)
                 const isDragged = draggedId    === clip.id
                 const isDropTarget = dropTargetId === clip.id
-                const videoData = videoDataMap.get(clip.videoId)
-                const annots    = videoData?.annotations ?? []
-                const fps       = videoData?.fps ?? 25
+                const annots    = annotations[clip.videoId] ?? []
+                const hoveredAnn = hoveredAnnotation?.clipId === clip.id
+                  ? annots.find(a => a.id === hoveredAnnotation.annotationId) ?? null
+                  : null
 
                 return (
                   <div
                     key={clip.id}
-                    draggable
-                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDraggedId(clip.id) }}
+                    data-testid={`video-clip-${clip.id}`}
+                    onMouseDown={(e) => startVideoMoveDrag(e, clip)}
                     onDragEnter={() => { dragOverRef.current = clip.id; setDropTargetId(clip.id) }}
                     onDragOver={(e) => e.preventDefault()}
                     onDragLeave={() => { if (dragOverRef.current === clip.id) setDropTargetId(null) }}
-                    onDrop={() => handleDrop(clip.id)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      handleDrop(clip.id, e.dataTransfer.getData('text/plain'))
+                    }}
                     onDragEnd={() => { setDraggedId(null); setDropTargetId(null) }}
                     style={{
-                      width: `${widthPct}%`, minWidth: 80, height: '100%', flexShrink: 0,
-                      position: 'relative',
+                      left: `${leftPct}%`,
+                      width: `${Math.max(widthPct, 0)}%`,
+                      minWidth: 28,
+                      height: '100%',
+                      position: 'absolute',
+                      top: 0,
                       background: isDragged ? 'rgba(255,255,255,0.06)' : color.bg,
-                      borderRight: index < clips.length - 1 ? '1px solid rgba(255,255,255,0.12)' : 'none',
+                      borderRight: '1px solid rgba(255,255,255,0.12)',
                       borderLeft: isDropTarget ? `2px solid ${color.accent}` : 'none',
                       opacity: isDragged ? 0.45 : 1,
-                      cursor: 'grab', overflow: 'hidden',
+                      cursor: onVideoOffsetChange ? 'grab' : 'default',
+                      overflow: 'visible',
                       transition: 'opacity 0.15s, border-left 0.1s',
                     }}
                   >
@@ -506,28 +616,50 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
 
                     {/* Marqueurs d'annotation */}
                     {annots.map(ann => {
-                      const timeSec = ann.frame_number / fps
-                      if (timeSec < 0 || timeSec > clip.duration) return null
-                      const leftPct = clip.duration > 0 ? (timeSec / clip.duration) * 100 : 0
+                      const annotationTime = ann.timestamp_ms / 1000
+                      const markerLeftPct = effectiveDuration > 0 ? ((annotationTime - trimStart) / effectiveDuration) * 100 : 0
+                      if (annotationTime < trimStart || annotationTime > trimEnd || markerLeftPct < 0 || markerLeftPct > 100) return null
                       return (
                         <div
                           key={ann.id}
-                          title={`${ann.label || 'Sans label'} — frame ${ann.frame_number}`}
+                          data-testid={`annotation-marker-${ann.id}`}
                           style={{
-                            position: 'absolute', left: `${leftPct}%`,
-                            top: 4, bottom: 4, width: 1.5,
-                            background: ann.category?.color ?? '#e94560',
-                            opacity: 0.8, zIndex: 4, pointerEvents: 'none',
+                            position: 'absolute', left: `${markerLeftPct}%`,
+                            top: 4, bottom: 4, width: 2,
+                            backgroundColor: ann.category?.color ?? 'rgba(255,255,255,0.6)',
+                            zIndex: 4, cursor: 'pointer',
                           }}
+                          onMouseEnter={() => setHoveredAnnotation({ clipId: clip.id, annotationId: ann.id })}
+                          onMouseLeave={() => setHoveredAnnotation(null)}
                         />
                       )
                     })}
+
+                    {/* Tooltip annotation au survol */}
+                    {hoveredAnn && (
+                      <div style={{
+                        position: 'absolute',
+                        left: `${effectiveDuration > 0 ? (((hoveredAnn.timestamp_ms / 1000) - trimStart) / effectiveDuration) * 100 : 0}%`,
+                        top: -36, zIndex: 20,
+                        background: 'rgba(15,20,40,0.95)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 6, padding: '0.25rem 0.5rem',
+                        fontSize: '0.7rem', color: '#e8ecf8', whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                        transform: 'translateX(-50%)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                      }}>
+                        <span>{hoveredAnn.label || 'Sans label'}</span>
+                        <span> — {formatTimestamp(hoveredAnn.timestamp_ms)}</span>
+                      </div>
+                    )}
 
                     {/* Contenu clip */}
                     <div style={{
                       position: 'absolute', inset: 0,
                       padding: '0.5rem 0.5rem 0.4rem 0.75rem',
                       display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                      overflow: 'hidden',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.35rem', minWidth: 0 }}>
                         <span style={{
@@ -537,6 +669,34 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                         }}>
                           {index + 1}
                         </span>
+                        <button
+                          type="button"
+                          draggable
+                          data-testid={`video-reorder-handle-${clip.id}`}
+                          aria-label={`Déplacer ${clip.name}`}
+                          title="Glisser pour changer l'ordre"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onDragStart={(e) => handleReorderDragStart(e, clip.id)}
+                          onDragEnd={() => { setDraggedId(null); setDropTargetId(null) }}
+                          style={{
+                            flexShrink: 0,
+                            width: 18,
+                            height: 18,
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: 4,
+                            background: 'rgba(255,255,255,0.06)',
+                            color: 'rgba(255,255,255,0.68)',
+                            cursor: 'grab',
+                            fontSize: '0.72rem',
+                            lineHeight: 1,
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          ⋮
+                        </button>
                         <span style={{
                           flex: 1, minWidth: 0, fontSize: '0.78rem', fontWeight: 700,
                           color: '#e8ecf8', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -547,6 +707,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                         <button
                           type="button"
                           aria-label={`Supprimer ${clip.name}`}
+                          onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => { e.stopPropagation(); onRemoveClip(clip.id) }}
                           style={{
                             flexShrink: 0, border: 'none', background: 'rgba(255,255,255,0.1)',
@@ -558,8 +719,18 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)' }}>
-                          {fmtTime(clip.duration)}
+                          {fmtTime(effectiveDuration)}
                         </span>
+                        {clipStart > 0 && (
+                          <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.38)', fontFamily: 'monospace' }}>
+                            @{fmtTime(clipStart)}
+                          </span>
+                        )}
+                        {(trimStart > 0 || trimEnd < clip.duration - 0.01) && (
+                          <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                            {fmtTime(trimStart)}-{fmtTime(trimEnd)}
+                          </span>
+                        )}
                         {annots.length > 0 && (
                           <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
                             {annots.length} ann.
@@ -573,6 +744,28 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                           }}>ADAPTÉ</span>
                         )}
                       </div>
+                    </div>
+                    <div
+                      data-testid="video-trim-start-handle"
+                      onMouseDown={(e) => startVideoTrimDrag(e, clip, 'start')}
+                      style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0, width: 10,
+                        background: `${color.accent}cc`, cursor: 'ew-resize',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12,
+                      }}
+                    >
+                      <div style={{ width: 2, height: 22, background: 'rgba(0,0,0,0.35)', borderRadius: 1 }} />
+                    </div>
+                    <div
+                      data-testid="video-trim-end-handle"
+                      onMouseDown={(e) => startVideoTrimDrag(e, clip, 'end')}
+                      style={{
+                        position: 'absolute', right: 0, top: 0, bottom: 0, width: 10,
+                        background: `${color.accent}cc`, cursor: 'ew-resize',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12,
+                      }}
+                    >
+                      <div style={{ width: 2, height: 22, background: 'rgba(0,0,0,0.35)', borderRadius: 1 }} />
                     </div>
                   </div>
                 )
@@ -588,6 +781,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                 <div style={{ height: AUDIO_GAP }} />
                 <div
                   data-testid="assemblage-audio-lane"
+                  onMouseDown={startTimelineScrub}
                   style={{
                     height: AUDIO_LANE_HEIGHT,
                     border: '1px solid rgba(100,255,218,0.15)',

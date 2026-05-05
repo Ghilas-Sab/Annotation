@@ -172,10 +172,40 @@ describe('useVideoKeyboard', () => {
     const seek = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, seek }))
     const input = document.createElement('input')
+    input.type = 'text'
     document.body.appendChild(input)
     fireEvent.keyDown(input, { key: 'ArrowRight' })
     expect(seek).not.toHaveBeenCalled()
     document.body.removeChild(input)
+  })
+
+  test('Space works and clears focus when a button is focused', () => {
+    const togglePlayPause = vi.fn()
+    renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), togglePlayPause }))
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    button.focus()
+
+    fireEvent.keyDown(button, { key: ' ', code: 'Space' })
+
+    expect(togglePlayPause).toHaveBeenCalledOnce()
+    expect(document.activeElement).not.toBe(button)
+    document.body.removeChild(button)
+  })
+
+  test('Arrow shortcuts work and clear focus when a range slider is focused', () => {
+    const seek = vi.fn()
+    renderHook(() => useVideoKeyboard({ ...defaultOpts, seek }))
+    const range = document.createElement('input')
+    range.type = 'range'
+    document.body.appendChild(range)
+    range.focus()
+
+    fireEvent.keyDown(range, { key: 'ArrowRight' })
+
+    expect(seek).toHaveBeenCalledWith(11)
+    expect(document.activeElement).not.toBe(range)
+    document.body.removeChild(range)
   })
 
   test('ignores keys when focus is in a textarea', () => {

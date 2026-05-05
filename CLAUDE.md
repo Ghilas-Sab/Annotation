@@ -11,7 +11,6 @@ Méthode : BMAD + TDD + CI/CD GitHub Actions.
 - Un commit Git par story terminée
 - Ne jamais casser les tests existants
 - Variables d'environnement dans .env, jamais en dur dans le code
-- Lire _bmad-output/architecture.md avant toute implémentation
 
 ## Contexte étendu (charger uniquement si besoin)
 - Architecture complète : _bmad-output/architecture.md
