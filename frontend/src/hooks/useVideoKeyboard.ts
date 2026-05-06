@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { getInterAnnotationStep, Annotation } from '../utils/bpmUtils'
+import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
 
 interface UseVideoKeyboardOptions {
   currentFrame: number
@@ -77,36 +78,40 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHa
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+      if (isTextEditingTarget(e.target)) return
 
       const h = handlersRef.current
+      const runShortcut = (fn: () => void) => {
+        e.preventDefault()
+        blurNonTextFocus(e.target)
+        fn()
+      }
 
       if (e.key === 'ArrowRight' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault(); h.seekNextFrame()
+        runShortcut(h.seekNextFrame)
       } else if (e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault(); h.seekPrevFrame()
+        runShortcut(h.seekPrevFrame)
       } else if (e.key === 'ArrowRight' && e.shiftKey) {
-        e.preventDefault(); h.seek5Forward()
+        runShortcut(h.seek5Forward)
       } else if (e.key === 'ArrowLeft' && e.shiftKey) {
-        e.preventDefault(); h.seek5Back()
+        runShortcut(h.seek5Back)
       } else if (e.key === 'ArrowRight' && e.altKey) {
-        e.preventDefault(); h.seekEnd()
+        runShortcut(h.seekEnd)
       } else if (e.key === 'ArrowLeft' && e.altKey) {
-        e.preventDefault(); h.seekStart()
+        runShortcut(h.seekStart)
       } else if (e.key === 'ArrowRight' && e.ctrlKey) {
-        e.preventDefault(); h.seekNextAnnotation()
+        runShortcut(h.seekNextAnnotation)
       } else if (e.key === 'ArrowLeft' && e.ctrlKey) {
-        e.preventDefault(); h.seekPrevAnnotation()
+        runShortcut(h.seekPrevAnnotation)
       } else if (e.key === 'Enter') {
-        e.preventDefault(); h.annotate()
-      } else if (e.key === ' ') {
-        e.preventDefault(); h.togglePlayPause()
+        runShortcut(h.annotate)
+      } else if (e.key === ' ' || e.code === 'Space') {
+        runShortcut(h.togglePlayPause)
       }
     }
 
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => window.removeEventListener('keydown', handler, { capture: true })
   }, []) // Stable — tout passe par les refs
 
   return handlers

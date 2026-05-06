@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { Video } from '../types/project'
+import type { Annotation } from '../types/annotation'
 import { loadAudioTrackBlobUrl } from '../utils/audioPersistence'
 
 export interface AssemblageClip {
@@ -9,8 +10,17 @@ export interface AssemblageClip {
   projectId: string
   name: string
   duration: number
+  trimStart?: number
+  trimEnd?: number
+  startOffset?: number
+  autoPlaced?: boolean
   filePath?: string
   sourceType?: 'original' | 'adapted'
+  fadeIn?: boolean
+  fadeOut?: boolean
+  fadeDurationS?: number
+  fadeInDurationS?: number
+  fadeOutDurationS?: number
 }
 
 export interface AudioTrack {
@@ -25,10 +35,28 @@ export interface AudioTrack {
   autoPlaced?: boolean
 }
 
-interface AssemblageState {
+interface ProjectSlice {
   clips: AssemblageClip[]
+  audioTracks: AudioTrack[]
+}
+
+interface AssemblageState {
+  activeProjectId: string | null
+  savedProjects: Record<string, ProjectSlice>
+  switchProject: (projectId: string) => void
+  clips: AssemblageClip[]
+  updateClipFade: (
+    id: string,
+    fadeIn: boolean | undefined,
+    fadeOut: boolean | undefined,
+    fadeInDurationS: number | undefined,
+    fadeOutDurationS?: number | undefined,
+  ) => void
   addClips: (clips: AssemblageClip[]) => void
   removeClip: (id: string) => void
+  updateClipDuration: (id: string, duration: number) => void
+  updateClipTrim: (id: string, trimStart: number, trimEnd: number) => void
+  updateClipOffset: (id: string, startOffset: number) => void
   reorderClips: (newOrder: AssemblageClip[]) => void
   replaceClips: (clips: AssemblageClip[]) => void
   audioTracks: AudioTrack[]
@@ -39,6 +67,8 @@ interface AssemblageState {
   updateAudioTrackTrim: (id: string, trimStart: number, trimEnd: number) => void
   updateAudioTrackOffset: (id: string, startOffset: number) => void
   restoreAudioTrackUrls: () => Promise<void>
+  annotations: Record<string, Annotation[]>
+  setAnnotations: (videoId: string, annotations: Annotation[]) => void
 }
 
 const createLocalId = () => {
@@ -49,6 +79,7 @@ const createLocalId = () => {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+const MIN_CLIP_EFFECTIVE_DURATION = 0.1
 
 export const getAudioTrackTrimEnd = (track: AudioTrack) =>
   track.trimEnd > 0 ? track.trimEnd : track.duration
@@ -58,6 +89,61 @@ export const getAudioTrackEffectiveDuration = (track: AudioTrack) =>
 
 export const getAudioTrackTimelineEnd = (track: AudioTrack) =>
   track.startOffset + getAudioTrackEffectiveDuration(track)
+
+export const getClipTrimEnd = (clip: AssemblageClip) =>
+  clip.trimEnd && clip.trimEnd > 0 ? clip.trimEnd : clip.duration
+
+export const getClipEffectiveDuration = (clip: AssemblageClip) =>
+  Math.max(0, getClipTrimEnd(clip) - (clip.trimStart ?? 0))
+
+export const getClipTimelineStart = (clip: AssemblageClip) =>
+  clip.startOffset ?? 0
+
+export const getClipTimelineEnd = (clip: AssemblageClip) =>
+  getClipTimelineStart(clip) + getClipEffectiveDuration(clip)
+
+export const getClipMediaTimeAtTimeline = (clip: AssemblageClip, timelineTime: number) =>
+  (clip.trimStart ?? 0) + Math.max(0, timelineTime - getClipTimelineStart(clip))
+
+const getBoundedClipFadeDuration = (clip: AssemblageClip, duration: number | undefined) => {
+  const effectiveDuration = getClipEffectiveDuration(clip)
+  const rawDuration = Number.isFinite(duration) ? duration ?? 0.5 : 0.5
+  const maxDuration = Math.max(0.1, Math.min(5, effectiveDuration / 2))
+  return clamp(rawDuration, 0.1, maxDuration)
+}
+
+export const getClipFadeDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeDurationS)
+
+export const getClipFadeInDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeInDurationS ?? clip.fadeDurationS)
+
+export const getClipFadeOutDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeOutDurationS ?? clip.fadeDurationS)
+
+export const getClipFadeOpacity = (clip: AssemblageClip, localTime: number) => {
+  const effectiveDuration = getClipEffectiveDuration(clip)
+  if (effectiveDuration <= 0) return 1
+
+  const clampedTime = clamp(localTime, 0, effectiveDuration)
+  let opacity = 1
+
+  if (clip.fadeIn) {
+    const fadeInDuration = getClipFadeInDuration(clip)
+    if (clampedTime < fadeInDuration) {
+      opacity = Math.min(opacity, clampedTime / fadeInDuration)
+    }
+  }
+
+  if (clip.fadeOut) {
+    const fadeOutDuration = getClipFadeOutDuration(clip)
+    if (effectiveDuration - clampedTime < fadeOutDuration) {
+      opacity = Math.min(opacity, (effectiveDuration - clampedTime) / fadeOutDuration)
+    }
+  }
+
+  return clamp(opacity, 0, 1)
+}
 
 const normalizeAudioTracks = (tracks: AudioTrack[]) => {
   let previousEnd = 0
@@ -77,6 +163,43 @@ const normalizeAudioTracks = (tracks: AudioTrack[]) => {
   })
 }
 
+const normalizeClips = (clips: AssemblageClip[]) => {
+  let previousEnd = 0
+  return clips.map((clip) => {
+    const trimStart = clamp(clip.trimStart ?? 0, 0, Math.max(0, clip.duration - MIN_CLIP_EFFECTIVE_DURATION))
+    const rawTrimEnd = clip.trimEnd && clip.trimEnd > 0 ? clip.trimEnd : clip.duration
+    const trimEnd = clamp(rawTrimEnd, Math.min(clip.duration, trimStart + MIN_CLIP_EFFECTIVE_DURATION), clip.duration)
+    const autoPlaced = clip.autoPlaced ?? clip.startOffset == null
+    const startOffset = autoPlaced ? previousEnd : Math.max(previousEnd, clip.startOffset ?? 0)
+    const nextClip = { ...clip, trimStart, trimEnd, startOffset, autoPlaced }
+    previousEnd = getClipTimelineEnd(nextClip)
+    return nextClip
+  })
+}
+
+const getClipOffsetBounds = (clips: AssemblageClip[], id: string, effectiveDuration?: number) => {
+  const index = clips.findIndex((clip) => clip.id === id)
+  if (index < 0) return { minStart: 0, maxStart: Infinity }
+
+  const clipDuration = effectiveDuration ?? getClipEffectiveDuration(clips[index])
+  const previous = index > 0 ? clips[index - 1] : null
+  const next = index < clips.length - 1 ? clips[index + 1] : null
+  const minStart = previous ? getClipTimelineEnd(previous) : 0
+  const nextStart = next ? getClipTimelineStart(next) : Infinity
+  const maxStart = Number.isFinite(nextStart)
+    ? Math.max(minStart, nextStart - clipDuration)
+    : Infinity
+
+  return { minStart, maxStart }
+}
+
+const stripRuntimeAudioUrls = (tracks: AudioTrack[] | null | undefined) => (
+  Array.isArray(tracks) ? tracks : []
+).map((track) => ({
+  ...track,
+  url: track.storageKey ? '' : track.url,
+}))
+
 export const buildAssemblageClipFromVideo = (
   video: Video,
   sourceType: 'original' | 'adapted' = 'original',
@@ -88,6 +211,8 @@ export const buildAssemblageClipFromVideo = (
     ? `${video.original_name} · Adaptée ${Math.round(video.adapted_preview.bpm)} BPM`
     : video.original_name,
   duration: video.duration_seconds,
+  trimStart: 0,
+  trimEnd: video.duration_seconds,
   filePath: sourceType === 'adapted' ? video.adapted_preview?.path : undefined,
   sourceType,
 })
@@ -95,11 +220,98 @@ export const buildAssemblageClipFromVideo = (
 export const useAssemblageStore = create<AssemblageState>()(
   persist(
     (set, get) => ({
+      activeProjectId: null,
+      savedProjects: {},
+      switchProject: (projectId) => set((state) => {
+        if (state.activeProjectId === projectId) return {}
+
+        const nextSaved = { ...state.savedProjects }
+        if (state.activeProjectId !== null) {
+          nextSaved[state.activeProjectId] = {
+            clips: state.clips,
+            audioTracks: stripRuntimeAudioUrls(state.audioTracks),
+          }
+        }
+
+        const restored = nextSaved[projectId] ?? { clips: [], audioTracks: [] }
+        return {
+          activeProjectId: projectId,
+          savedProjects: nextSaved,
+          clips: normalizeClips(restored.clips),
+          audioTracks: restored.audioTracks,
+          annotations: {},
+        }
+      }),
       clips: [],
-      addClips: (clips) => set((state) => ({ clips: [...state.clips, ...clips] })),
+      updateClipFade: (id, fadeIn, fadeOut, fadeInDurationS, fadeOutDurationS) =>
+        set((state) => ({
+          clips: state.clips.map((c) => (
+            c.id !== id
+              ? c
+              : {
+                  ...c,
+                  fadeIn: !!fadeIn,
+                  fadeOut: !!fadeOut,
+                  fadeInDurationS: getBoundedClipFadeDuration(c, fadeInDurationS),
+                  fadeOutDurationS: getBoundedClipFadeDuration(c, fadeOutDurationS ?? fadeInDurationS),
+                }
+          )),
+        })),
+      addClips: (clips) => set((state) => ({ clips: normalizeClips([...state.clips, ...clips]) })),
       removeClip: (id) => set((state) => ({ clips: state.clips.filter((clip) => clip.id !== id) })),
-      reorderClips: (newOrder) => set({ clips: newOrder }),
-      replaceClips: (clips) => set({ clips }),
+      updateClipDuration: (id, duration) => {
+        if (!Number.isFinite(duration) || duration <= 0) return
+        set((state) => {
+          let changed = false
+          const index = state.clips.findIndex((clip) => clip.id === id)
+          const nextClip = index >= 0 && index < state.clips.length - 1 ? state.clips[index + 1] : null
+          const nextStart = nextClip ? getClipTimelineStart(nextClip) : Infinity
+          const currentStart = index >= 0 ? getClipTimelineStart(state.clips[index]) : 0
+          const maxEffectiveDuration = Number.isFinite(nextStart)
+            ? Math.max(MIN_CLIP_EFFECTIVE_DURATION, nextStart - currentStart)
+            : Infinity
+
+          const clips = state.clips.map((clip) => {
+            if (clip.id !== id || Math.abs(clip.duration - duration) <= 0.025) return clip
+            changed = true
+            const shouldExtendTrim = !clip.trimEnd || clip.trimEnd >= clip.duration - 0.025
+            const trimStart = clip.trimStart ?? 0
+            const requestedTrimEnd = shouldExtendTrim ? duration : Math.min(clip.trimEnd ?? duration, duration)
+            const trimEnd = Math.min(requestedTrimEnd, trimStart + maxEffectiveDuration, duration)
+            return { ...clip, duration, trimEnd }
+          })
+          return changed ? { clips: normalizeClips(clips) } : state
+        })
+      },
+      updateClipTrim: (id, trimStart, trimEnd) =>
+        set((state) => ({
+          clips: normalizeClips(state.clips.map((clip) => {
+            if (clip.id !== id) return clip
+            const index = state.clips.findIndex((c) => c.id === id)
+            const nextClip = index >= 0 && index < state.clips.length - 1 ? state.clips[index + 1] : null
+            const nextStart = nextClip ? getClipTimelineStart(nextClip) : Infinity
+            const maxEffectiveDuration = Number.isFinite(nextStart)
+              ? Math.max(MIN_CLIP_EFFECTIVE_DURATION, nextStart - getClipTimelineStart(clip))
+              : Infinity
+            const nextTrimStart = clamp(trimStart, 0, Math.max(0, clip.duration - MIN_CLIP_EFFECTIVE_DURATION))
+            const maxTrimEnd = Math.min(clip.duration, nextTrimStart + maxEffectiveDuration)
+            const nextTrimEnd = clamp(trimEnd, nextTrimStart + MIN_CLIP_EFFECTIVE_DURATION, maxTrimEnd)
+            return { ...clip, trimStart: nextTrimStart, trimEnd: nextTrimEnd, autoPlaced: false }
+          })),
+        })),
+      updateClipOffset: (id, startOffset) =>
+        set((state) => ({
+          clips: normalizeClips(state.clips.map((clip) => {
+            if (clip.id !== id) return clip
+            const { minStart, maxStart } = getClipOffsetBounds(state.clips, id)
+            const nextStartOffset = Number.isFinite(maxStart)
+              ? clamp(startOffset, minStart, maxStart)
+              : Math.max(minStart, startOffset)
+            return { ...clip, startOffset: nextStartOffset, autoPlaced: false }
+          })),
+        })),
+      reorderClips: (newOrder) => set({ clips: normalizeClips(newOrder) }),
+      replaceClips: (clips) => set({ clips: normalizeClips(clips) }),
       audioTracks: [],
       addAudioTrack: (track) => set((state) => ({
         audioTracks: normalizeAudioTracks([...state.audioTracks, { ...track, autoPlaced: track.autoPlaced ?? true }]),
@@ -138,6 +350,9 @@ export const useAssemblageStore = create<AssemblageState>()(
             t.id === id ? { ...t, startOffset: Math.max(0, startOffset), autoPlaced: false } : t
           ))),
         })),
+      annotations: {},
+      setAnnotations: (videoId, anns) =>
+        set((state) => ({ annotations: { ...state.annotations, [videoId]: anns } })),
       restoreAudioTrackUrls: async () => {
         const tracks = get().audioTracks
         if (tracks.length === 0 || tracks.every((t) => !t.storageKey || t.url)) return
@@ -155,11 +370,18 @@ export const useAssemblageStore = create<AssemblageState>()(
       name: 'assemblage-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        activeProjectId: state.activeProjectId,
+        savedProjects: Object.fromEntries(
+          Object.entries(state.savedProjects ?? {}).map(([pid, slice]) => [
+            pid,
+            {
+              clips: slice?.clips ?? [],
+              audioTracks: stripRuntimeAudioUrls(slice?.audioTracks),
+            },
+          ]),
+        ),
         clips: state.clips,
-        audioTracks: state.audioTracks.map((track) => ({
-          ...track,
-          url: track.storageKey ? '' : track.url,
-        })),
+        audioTracks: stripRuntimeAudioUrls(state.audioTracks),
       }),
     },
   ),

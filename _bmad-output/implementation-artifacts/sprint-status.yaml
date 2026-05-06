@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-09
-last_updated: 2026-04-29T00:00:00
+last_updated: 2026-05-04T00:00:00
 project: Annotation
 project_key: NOKEY
 tracking_system: file-system
@@ -124,7 +124,7 @@ development_status:
   7-5-refonte-icones-navigation-annotation: review
   7-6-page-assemblage-timeline-videos: review
   7-7-page-assemblage-timeline-musique-waveform: ready-for-dev
-  7-8-page-assemblage-calage-annotations: ready-for-dev
+  7-8-page-assemblage-calage-annotations: review
   7-9-page-assemblage-transitions-fade: ready-for-dev
   7-10-page-assemblage-export-final: ready-for-dev
   epic-7-retrospective: optional

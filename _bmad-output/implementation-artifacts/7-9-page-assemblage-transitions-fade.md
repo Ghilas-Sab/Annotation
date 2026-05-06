@@ -1,6 +1,6 @@
 # Story 7.9: Page Assemblage — Transitions Fade In/Out Entre Clips
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -101,31 +101,31 @@ def test_build_concat_filter_single_clip_no_transition():
 
 ### Frontend
 
-- [ ] Écrire les 4 tests → RED
-- [ ] Modifier `assemblageStore.ts` :
-  - [ ] Ajouter `useTransitions: boolean` (défaut `false`)
-  - [ ] Ajouter `transitionDurationS: number` (défaut `0.5`)
-  - [ ] Ajouter `setUseTransitions`, `setTransitionDuration`
-- [ ] Modifier `AssemblagePage.tsx` :
-  - [ ] Ajouter toggle + champ durée dans la barre d'outils
-  - [ ] Afficher `<FadeIndicator data-testid="fade-indicator-{id1}-{id2}">` entre clips consécutifs quand `useTransitions=true`
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les 4 tests → RED
+- [x] Modifier `assemblageStore.ts` :
+  - [x] Ajouter `useTransitions: boolean` (défaut `false`)
+  - [x] Ajouter `transitionDurationS: number` (défaut `0.5`)
+  - [x] Ajouter `setUseTransitions`, `setTransitionDuration`
+- [x] Modifier `AssemblagePage.tsx` :
+  - [x] Ajouter toggle + champ durée dans la barre d'outils
+  - [x] Afficher `<FadeIndicator data-testid="fade-indicator-{id1}-{id2}">` entre clips consécutifs quand `useTransitions=true`
+- [x] Passer tous les tests → GREEN
 
 ### Backend
 
-- [ ] Écrire les 3 tests backend → RED
-- [ ] Créer `backend/app/services/assemblage_service.py` :
-  - [ ] Implémenter `build_concat_filter(clips, use_transitions, transition_duration_s) → (filter_complex, maps)` :
-    - [ ] **Sans transitions** : concat simple `[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]`
-    - [ ] **Avec transitions** (xfade chaîné) :
+- [x] Écrire les 3 tests backend → RED
+- [x] Créer `backend/app/services/assemblage_service.py` :
+  - [x] Implémenter `build_concat_filter(clips, use_transitions, transition_duration_s) → (filter_complex, maps)` :
+    - [x] **Sans transitions** : concat simple `[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]`
+    - [x] **Avec transitions** (xfade chaîné) :
       ```
       # Pour 3 clips avec xfade :
       [0:v][1:v]xfade=transition=fade:duration=D:offset=DUR0-D[v01];
       [v01][2:v]xfade=transition=fade:duration=D:offset=DUR0+DUR1-2D[v012]
       # Idem pour audio avec acrossfade
       ```
-    - [ ] Calcul de `offset = somme des durées précédentes - (n_transitions * fade_duration)`
-- [ ] Passer les tests backend → GREEN
+    - [x] Calcul de `offset = somme des durées précédentes - (n_transitions * fade_duration)`
+- [x] Passer les tests backend → GREEN
 
 ## Dev Notes
 
@@ -167,17 +167,28 @@ backend/tests/test_assemblage.py                ← 3 tests
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+claude-sonnet-4-6
 
 ### Debug Log References
-_à remplir_
+Aucun blocage — implémentation directe TDD.
 
 ### Completion Notes List
-_à remplir_
+- Toggle "Transitions en fondu" ajouté dans la barre supérieure (checkbox accessible, name = "Transitions en fondu")
+- Champ durée (spinbutton, accessible, name = "Durée transition") affiché conditionnellement
+- FadeIndicator span avec `data-testid="fade-indicator-{id1}-{id2}"` rendu pour chaque paire consécutive quand `useTransitions=true`
+- `assemblageStore.ts` étendu : `useTransitions`, `transitionDurationS`, `setUseTransitions`, `setTransitionDuration`
+- `assemblage_service.py` créé : `build_concat_filter` gère concat simple et xfade chaîné avec acrossfade audio
+- beforeEach test file mis à jour pour reset `useTransitions: false, transitionDurationS: 0.5`
+- 4 tests frontend + 3 tests backend — tous GREEN. 36 frontend / 146 backend, zéro régression.
 
 ### File List
-_à remplir_
+- frontend/src/stores/assemblageStore.ts
+- frontend/src/pages/AssemblagePage.tsx
+- frontend/src/pages/AssemblagePage.test.tsx
+- backend/app/services/assemblage_service.py
+- backend/tests/test_assemblage.py
 
 ## Change Log
 
 - 2026-04-29 : Story créée par SM (Bob) — Epic 7, transitions xfade entre clips assemblés
+- 2026-05-06 : Implémentée par Amelia (claude-sonnet-4-6) — TDD, 4 tests frontend + 3 tests backend, tous GREEN

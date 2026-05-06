@@ -1,6 +1,6 @@
 # Story 7.8: Page Assemblage — Calage Annotations sur Timeline
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -102,19 +102,19 @@ test('annotations are fetched for each clip added', async () => {
 
 ### Frontend
 
-- [ ] Écrire les 5 tests ci-dessus → RED
-- [ ] Modifier `assemblageStore.ts` :
-  - [ ] Ajouter `annotations: Record<videoId, Annotation[]>` dans le state
-  - [ ] Ajouter `setAnnotations: (videoId: string, annotations: Annotation[]) => void`
-- [ ] Modifier `AssemblagePage.tsx` :
-  - [ ] Dans le callback `addClips`, pour chaque clip ajouté : appeler `fetchAnnotations(clip.videoId)` et stocker dans le store
-  - [ ] Utiliser `useAnnotations(videoId)` ou un fetch direct
-- [ ] Modifier `AssemblageTimeline.tsx` / créer `AssemblageClip.tsx` :
-  - [ ] Lire `annotations` du store pour chaque clip
-  - [ ] Calculer la position de chaque marqueur : `left = (annotation.timestamp_ms / (clip.duration * 1000)) * 100 + '%'`
-  - [ ] Rendre `<div data-testid="annotation-marker-{id}" style={{ left, backgroundColor: category?.color ?? 'rgba(255,255,255,0.6)' }}>` en position absolue sur le bloc
-  - [ ] Tooltip au hover (state local `hoveredAnnotationId`)
-- [ ] Passer tous les tests → GREEN
+- [x] Écrire les 5 tests ci-dessus → RED
+- [x] Modifier `assemblageStore.ts` :
+  - [x] Ajouter `annotations: Record<videoId, Annotation[]>` dans le state
+  - [x] Ajouter `setAnnotations: (videoId: string, annotations: Annotation[]) => void`
+- [x] Modifier `AssemblagePage.tsx` :
+  - [x] Dans le callback `addClips`, pour chaque clip ajouté : appeler `fetchAnnotations(clip.videoId)` et stocker dans le store
+  - [x] Utiliser `useAnnotations(videoId)` ou un fetch direct
+- [x] Modifier `AssemblageTimeline.tsx` / créer `AssemblageClip.tsx` :
+  - [x] Lire `annotations` du store pour chaque clip
+  - [x] Calculer la position de chaque marqueur : `left = (annotation.timestamp_ms / (clip.duration * 1000)) * 100 + '%'`
+  - [x] Rendre `<div data-testid="annotation-marker-{id}" style={{ left, backgroundColor: category?.color ?? 'rgba(255,255,255,0.6)' }}>` en position absolue sur le bloc
+  - [x] Tooltip au hover (state local `hoveredAnnotationId`)
+- [x] Passer tous les tests → GREEN
 
 ### Backend (aucune modification)
 
@@ -186,17 +186,30 @@ frontend/src/pages/AssemblagePage.tsx                  ← fetch annotations à 
 ## Dev Agent Record
 
 ### Agent Model Used
-_à remplir_
+GPT-5 Codex
 
 ### Debug Log References
-_à remplir_
+- `npm test -- --run src/components/assemblage/AssemblageTimeline.test.tsx --reporter dot` — 6 tests passés
+- `npm test -- --run src/pages/AssemblagePage.test.tsx --reporter dot` — 24 tests passés
+- `npm test -- --run --reporter dot` — 46 fichiers, 454 tests passés
+- `npm run build` — build frontend passé
 
 ### Completion Notes List
-_à remplir_
+- Ajout d'un state `annotations` dédié à l'assemblage, séparé du store annotation global.
+- Chargement non bloquant des annotations par `videoId` lors de l'apparition d'un clip dans la timeline, avec injection `onFetchAnnotations` pour test.
+- Rendu des marqueurs par timestamp avec couleur de catégorie, couleur par défaut semi-transparente et tooltip label + timestamp.
+- Correction d'une boucle de render dans `AssemblageTimeline` quand `audioTracks` n'est pas fourni, via constantes vides stables.
 
 ### File List
-_à remplir_
+- `_bmad-output/implementation-artifacts/7-8-page-assemblage-calage-annotations.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `frontend/src/stores/assemblageStore.ts`
+- `frontend/src/components/assemblage/AssemblageTimeline.tsx`
+- `frontend/src/components/assemblage/AssemblageTimeline.test.tsx`
+- `frontend/src/pages/AssemblagePage.tsx`
+- `frontend/src/pages/AssemblagePage.test.tsx`
 
 ## Change Log
 
 - 2026-04-29 : Story créée par SM (Bob) — Epic 7, calage annotations sur timeline assemblage
+- 2026-05-04 : Implémentation terminée par Amelia — marqueurs annotations, chargement API, tests et validation complète
