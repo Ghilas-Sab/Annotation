@@ -8,7 +8,7 @@ import WaveSurfer from 'wavesurfer.js'
 import AssemblagePage from './AssemblagePage'
 import type { Project, Video } from '../types/project'
 import type { AssemblageClip } from '../stores/assemblageStore'
-import { useAssemblageStore } from '../stores/assemblageStore'
+import { getClipTimelineStart, useAssemblageStore } from '../stores/assemblageStore'
 
 vi.mock('wavesurfer.js', () => ({
   default: {
@@ -147,6 +147,21 @@ describe('AssemblagePage', () => {
     renderWithProviders(<AssemblagePage project={buildProject()} initialClips={[buildClip({ name: 'clip1.mp4' })]} />)
     await userEvent.click(screen.getAllByRole('button', { name: /supprimer clip1\.mp4/i })[0])
     expect(screen.queryAllByText('clip1.mp4')).toHaveLength(0)
+  })
+
+  test('reorders clips from the side panel and updates timeline placement', async () => {
+    const clips = [
+      buildClip({ id: 'c1', name: 'clip1.mp4', duration: 10 }),
+      buildClip({ id: 'c2', name: 'clip2.mp4', duration: 5 }),
+    ]
+    renderWithProviders(<AssemblagePage project={buildProject()} initialClips={clips} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /monter clip2\.mp4/i }))
+
+    const reordered = useAssemblageStore.getState().clips
+    expect(reordered.map((clip) => clip.id)).toEqual(['c2', 'c1'])
+    expect(getClipTimelineStart(reordered[0])).toBe(0)
+    expect(getClipTimelineStart(reordered[1])).toBe(5)
   })
 
   test('shows total duration of assembled clips', () => {
@@ -489,6 +504,62 @@ describe('Isolation par projet', () => {
 
     renderWithProviders(<AssemblagePage project={buildProject({ id: 'p2' })} />)
     expect(screen.queryAllByText('p1-track.mp3')).toHaveLength(0)
+  })
+})
+
+describe('S7.9 — Fondus par clip', () => {
+  test('fade-in and fade-out toggles visible for the active clip', () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} initialClips={[buildClip()]} />)
+    expect(screen.getByRole('checkbox', { name: /fondu d.entrée/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /fondu de sortie/i })).toBeInTheDocument()
+  })
+
+  test('fade-in toggle is unchecked by default', () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} initialClips={[buildClip()]} />)
+    expect(screen.getByRole('checkbox', { name: /fondu d.entrée/i })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /fondu de sortie/i })).not.toBeChecked()
+  })
+
+  test('enabling fade-in shows duration field', async () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} initialClips={[buildClip()]} />)
+    await userEvent.click(screen.getByRole('checkbox', { name: /fondu d.entrée/i }))
+    expect(screen.getByRole('spinbutton', { name: /durée fondu d.entrée/i })).toBeInTheDocument()
+  })
+
+  test('fade-in and fade-out can use different durations', async () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} initialClips={[buildClip()]} />)
+    await userEvent.click(screen.getByRole('checkbox', { name: /fondu d.entrée/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /fondu de sortie/i }))
+
+    const fadeInDuration = screen.getByRole('spinbutton', { name: /durée fondu d.entrée/i })
+    const fadeOutDuration = screen.getByRole('spinbutton', { name: /durée fondu de sortie/i })
+    fireEvent.change(fadeInDuration, { target: { value: '2' } })
+    fireEvent.change(fadeOutDuration, { target: { value: '3' } })
+
+    const clip = useAssemblageStore.getState().clips[0]
+    expect(clip.fadeInDurationS).toBe(2)
+    expect(clip.fadeOutDurationS).toBe(3)
+  })
+
+  test('fade-in changes the active preview opacity', async () => {
+    renderWithProviders(
+      <AssemblagePage
+        project={buildProject()}
+        initialClips={[buildClip({ fadeIn: true, fadeDurationS: 2 })]}
+      />
+    )
+    const activeVideo = screen.getByTestId('assemblage-video-player-active') as HTMLVideoElement
+    expect(activeVideo.style.opacity).toBe('0')
+
+    activeVideo.currentTime = 1
+    fireEvent.timeUpdate(activeVideo)
+
+    await waitFor(() => expect(activeVideo.style.opacity).toBe('0.5'))
+  })
+
+  test('fade controls not visible when no clips are present', () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} />)
+    expect(screen.queryByRole('checkbox', { name: /fondu/i })).not.toBeInTheDocument()
   })
 })
 

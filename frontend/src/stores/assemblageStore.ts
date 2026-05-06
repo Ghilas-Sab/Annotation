@@ -16,6 +16,11 @@ export interface AssemblageClip {
   autoPlaced?: boolean
   filePath?: string
   sourceType?: 'original' | 'adapted'
+  fadeIn?: boolean
+  fadeOut?: boolean
+  fadeDurationS?: number
+  fadeInDurationS?: number
+  fadeOutDurationS?: number
 }
 
 export interface AudioTrack {
@@ -40,6 +45,13 @@ interface AssemblageState {
   savedProjects: Record<string, ProjectSlice>
   switchProject: (projectId: string) => void
   clips: AssemblageClip[]
+  updateClipFade: (
+    id: string,
+    fadeIn: boolean | undefined,
+    fadeOut: boolean | undefined,
+    fadeInDurationS: number | undefined,
+    fadeOutDurationS?: number | undefined,
+  ) => void
   addClips: (clips: AssemblageClip[]) => void
   removeClip: (id: string) => void
   updateClipDuration: (id: string, duration: number) => void
@@ -92,6 +104,46 @@ export const getClipTimelineEnd = (clip: AssemblageClip) =>
 
 export const getClipMediaTimeAtTimeline = (clip: AssemblageClip, timelineTime: number) =>
   (clip.trimStart ?? 0) + Math.max(0, timelineTime - getClipTimelineStart(clip))
+
+const getBoundedClipFadeDuration = (clip: AssemblageClip, duration: number | undefined) => {
+  const effectiveDuration = getClipEffectiveDuration(clip)
+  const rawDuration = Number.isFinite(duration) ? duration ?? 0.5 : 0.5
+  const maxDuration = Math.max(0.1, Math.min(5, effectiveDuration / 2))
+  return clamp(rawDuration, 0.1, maxDuration)
+}
+
+export const getClipFadeDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeDurationS)
+
+export const getClipFadeInDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeInDurationS ?? clip.fadeDurationS)
+
+export const getClipFadeOutDuration = (clip: AssemblageClip) =>
+  getBoundedClipFadeDuration(clip, clip.fadeOutDurationS ?? clip.fadeDurationS)
+
+export const getClipFadeOpacity = (clip: AssemblageClip, localTime: number) => {
+  const effectiveDuration = getClipEffectiveDuration(clip)
+  if (effectiveDuration <= 0) return 1
+
+  const clampedTime = clamp(localTime, 0, effectiveDuration)
+  let opacity = 1
+
+  if (clip.fadeIn) {
+    const fadeInDuration = getClipFadeInDuration(clip)
+    if (clampedTime < fadeInDuration) {
+      opacity = Math.min(opacity, clampedTime / fadeInDuration)
+    }
+  }
+
+  if (clip.fadeOut) {
+    const fadeOutDuration = getClipFadeOutDuration(clip)
+    if (effectiveDuration - clampedTime < fadeOutDuration) {
+      opacity = Math.min(opacity, (effectiveDuration - clampedTime) / fadeOutDuration)
+    }
+  }
+
+  return clamp(opacity, 0, 1)
+}
 
 const normalizeAudioTracks = (tracks: AudioTrack[]) => {
   let previousEnd = 0
@@ -191,6 +243,20 @@ export const useAssemblageStore = create<AssemblageState>()(
         }
       }),
       clips: [],
+      updateClipFade: (id, fadeIn, fadeOut, fadeInDurationS, fadeOutDurationS) =>
+        set((state) => ({
+          clips: state.clips.map((c) => (
+            c.id !== id
+              ? c
+              : {
+                  ...c,
+                  fadeIn: !!fadeIn,
+                  fadeOut: !!fadeOut,
+                  fadeInDurationS: getBoundedClipFadeDuration(c, fadeInDurationS),
+                  fadeOutDurationS: getBoundedClipFadeDuration(c, fadeOutDurationS ?? fadeInDurationS),
+                }
+          )),
+        })),
       addClips: (clips) => set((state) => ({ clips: normalizeClips([...state.clips, ...clips]) })),
       removeClip: (id) => set((state) => ({ clips: state.clips.filter((clip) => clip.id !== id) })),
       updateClipDuration: (id, duration) => {

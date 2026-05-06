@@ -8,6 +8,9 @@ import VideoImportModal from '../components/assemblage/VideoImportModal'
 import {
   buildAssemblageClipFromVideo,
   getClipEffectiveDuration,
+  getClipFadeInDuration,
+  getClipFadeOpacity,
+  getClipFadeOutDuration,
   getClipMediaTimeAtTimeline,
   getClipTimelineEnd,
   getClipTimelineStart,
@@ -109,6 +112,23 @@ const deleteBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
+const reorderClipBtn: React.CSSProperties = {
+  flexShrink: 0,
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.045)',
+  color: 'rgba(232,236,248,0.56)',
+  borderRadius: 4,
+  width: 18,
+  height: 18,
+  fontSize: '0.58rem',
+  cursor: 'pointer',
+  lineHeight: 1,
+  padding: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+
 const navBtn: React.CSSProperties = {
   border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
   color: 'var(--color-text-muted, #8892b0)', borderRadius: 6,
@@ -127,6 +147,69 @@ const videoLayerStyle: React.CSSProperties = {
   display: 'block',
   background: '#050710',
   boxShadow: '0 18px 48px rgba(0,0,0,0.32)',
+}
+
+const fadeControlPanel: React.CSSProperties = {
+  marginTop: '0.55rem',
+  paddingTop: '0.5rem',
+  borderTop: '1px solid rgba(255,255,255,0.08)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.45rem',
+}
+
+const fadeControlsHeader: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '0.45rem',
+}
+
+const fadeControlsTitle: React.CSSProperties = {
+  fontSize: '0.62rem',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'rgba(232,236,248,0.58)',
+}
+
+const fadeStatusBadge: React.CSSProperties = {
+  flexShrink: 0,
+  borderRadius: 999,
+  padding: '0.12rem 0.38rem',
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  color: 'rgba(232,236,248,0.58)',
+  fontSize: '0.58rem',
+  fontWeight: 700,
+  lineHeight: 1.1,
+}
+
+const fadeToggleGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '0.35rem',
+}
+
+const fadeCheckbox: React.CSSProperties = {
+  width: 14,
+  height: 14,
+  margin: 0,
+  padding: 0,
+  flexShrink: 0,
+  accentColor: 'var(--color-accent, #e94560)',
+}
+
+const fadeDurationInput: React.CSSProperties = {
+  width: 58,
+  marginTop: 0,
+  padding: '0.22rem 0.32rem',
+  borderRadius: 4,
+  border: '1px solid rgba(255,255,255,0.14)',
+  background: 'rgba(5,7,16,0.45)',
+  color: '#e8ecf8',
+  fontSize: '0.72rem',
+  fontWeight: 700,
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -170,6 +253,8 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
   const updateAudioTrackOffset = useAssemblageStore((s) => s.updateAudioTrackOffset)
   const restoreAudioTrackUrls  = useAssemblageStore((s) => s.restoreAudioTrackUrls)
   const switchProject          = useAssemblageStore((s) => s.switchProject)
+
+  const updateClipFade        = useAssemblageStore((s) => s.updateClipFade)
 
   const audioInputRef         = useRef<HTMLInputElement>(null)
   const fetchedVideoIdsRef    = useRef<Set<string>>(new Set())
@@ -248,6 +333,9 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
   }, [clips.length, currentClipIndex])
 
   const currentClip = clips[currentClipIndex] ?? null
+  const currentVideoOpacity = currentClip
+    ? getClipFadeOpacity(currentClip, videoCurrentTime)
+    : 1
 
   const sortedClipEntries = useMemo(
     () => clips
@@ -701,6 +789,23 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
     switchToClipWithoutBlackFrame(index, 0, true)
   }, [clips.length, currentClipIndex, getActiveVideo, playVideo, switchToClipWithoutBlackFrame])
 
+  const moveClipInList = useCallback((index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= clips.length) return
+
+    const activeClipId = currentClip?.id
+    const nextClips = [...clips]
+    const movedClip = nextClips[index]
+    nextClips[index] = nextClips[targetIndex]
+    nextClips[targetIndex] = movedClip
+    reorderClips(nextClips)
+
+    if (activeClipId) {
+      const nextActiveIndex = nextClips.findIndex((clip) => clip.id === activeClipId)
+      if (nextActiveIndex >= 0) setCurrentClipIndex(nextActiveIndex)
+    }
+  }, [clips, currentClip?.id, reorderClips])
+
   const playFromTimelineTime = useCallback((targetTime: number) => {
     if (clips.length === 0) return
 
@@ -790,6 +895,28 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           Assemblage
         </h1>
         <div style={{ flex: 1 }} />
+
+        {/* Pill fondus */}
+        {clips.length > 0 && (() => {
+          const n = clips.filter((c) => c.fadeIn || c.fadeOut).length
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.3rem',
+              padding: '0.18rem 0.55rem', borderRadius: 999,
+              background: n > 0 ? 'rgba(233,69,96,0.12)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${n > 0 ? 'rgba(233,69,96,0.35)' : 'rgba(255,255,255,0.1)'}`,
+              fontSize: '0.65rem',
+              color: n > 0 ? '#f43f5e' : 'rgba(255,255,255,0.28)',
+              fontWeight: n > 0 ? 600 : 400,
+              transition: 'all 0.25s',
+              letterSpacing: '0.04em',
+              userSelect: 'none',
+            }}>
+              ✦ {n > 0 ? `${n} fondu${n > 1 ? 's' : ''}` : 'Fondus'}
+            </div>
+          )
+        })()}
+
         <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted, #8892b0)', fontFamily: 'monospace' }}>
           {clips.length} clip{clips.length !== 1 ? 's' : ''}
           {audioTracks.length > 0 && ` · ${audioTracks.length} piste${audioTracks.length !== 1 ? 's' : ''}`}
@@ -838,7 +965,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                 flex: 1,
                 minHeight: 0,
                 position: 'relative',
-                background: 'radial-gradient(circle at center, rgba(32,42,68,0.95), #050710 72%)',
+                background: '#000',
               }}>
                 {([0, 1] as const).map((slot) => {
                   const isActiveSlot = slot === activeVideoSlot
@@ -869,7 +996,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                       }}
                       style={{
                         ...videoLayerStyle,
-                        opacity: isActiveSlot && !isBlackGapActive ? 1 : 0,
+                        opacity: isActiveSlot && !isBlackGapActive ? currentVideoOpacity : 0,
                         zIndex: isActiveSlot ? 2 : 1,
                         pointerEvents: isActiveSlot ? 'auto' : 'none',
                       }}
@@ -1014,12 +1141,17 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {clips.map((clip, i) => {
                   const isActive = i === currentClipIndex
+                  const activeFadeCount = Number(!!clip.fadeIn) + Number(!!clip.fadeOut)
+                  const fadeInDuration = getClipFadeInDuration(clip)
+                  const fadeOutDuration = getClipFadeOutDuration(clip)
                   return (
                     <div
                       key={clip.id}
                       onClick={() => goToClip(i)}
                       style={{
                         ...rowItem,
+                        flexDirection: 'column', alignItems: 'stretch', gap: 0,
+                        padding: '0.4rem 0.5rem',
                         background: isActive ? 'rgba(233,69,96,0.13)' : 'rgba(255,255,255,0.03)',
                         border: isActive
                           ? '1px solid rgba(233,69,96,0.35)'
@@ -1027,33 +1159,160 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                         cursor: 'pointer',
                       }}
                     >
-                      <span style={{
-                        flexShrink: 0, width: 18, height: 18, borderRadius: 999,
-                        background: isActive ? 'var(--color-accent, #e94560)' : 'rgba(255,255,255,0.1)',
-                        color: '#fff', fontSize: '0.58rem', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        {isActive ? '▶' : i + 1}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: isActive ? 700 : 400, color: isActive ? '#e8ecf8' : '#b0bcd4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {clip.name}
+                      {/* Ligne principale */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span style={{
+                          flexShrink: 0, width: 18, height: 18, borderRadius: 999,
+                          background: isActive ? 'var(--color-accent, #e94560)' : 'rgba(255,255,255,0.1)',
+                          color: '#fff', fontSize: '0.58rem', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {isActive ? '▶' : i + 1}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: isActive ? 700 : 400, color: isActive ? '#e8ecf8' : '#b0bcd4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {clip.name}
+                          </div>
+                          <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+                            {fmtTime(clip.duration)}
+                            {clip.sourceType === 'adapted' && (
+                              <span style={{ marginLeft: 4, color: '#f43f5e', fontWeight: 700 }}>ADAPTÉ</span>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-                          {fmtTime(clip.duration)}
-                          {clip.sourceType === 'adapted' && (
-                            <span style={{ marginLeft: 4, color: '#f43f5e', fontWeight: 700 }}>ADAPTÉ</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            aria-label={`Monter ${clip.name}`}
+                            title="Monter"
+                            disabled={i === 0}
+                            onClick={(e) => { e.stopPropagation(); moveClipInList(i, -1) }}
+                            style={{ ...reorderClipBtn, opacity: i === 0 ? 0.35 : 1 }}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Descendre ${clip.name}`}
+                            title="Descendre"
+                            disabled={i === clips.length - 1}
+                            onClick={(e) => { e.stopPropagation(); moveClipInList(i, 1) }}
+                            style={{ ...reorderClipBtn, opacity: i === clips.length - 1 ? 0.35 : 1 }}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Supprimer ${clip.name}`}
+                          onClick={(e) => { e.stopPropagation(); removeClip(clip.id) }}
+                          style={deleteBtn}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Contrôles fondus — visibles quand le clip est actif */}
+                      {isActive && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={fadeControlPanel}
+                        >
+                          <div style={fadeControlsHeader}>
+                            <div style={fadeControlsTitle}>Fondus</div>
+                            <div
+                              style={{
+                                ...fadeStatusBadge,
+                                background: activeFadeCount > 0 ? 'rgba(233,69,96,0.12)' : fadeStatusBadge.background,
+                                border: activeFadeCount > 0 ? '1px solid rgba(233,69,96,0.28)' : fadeStatusBadge.border,
+                                color: activeFadeCount > 0 ? '#f4a6b4' : fadeStatusBadge.color,
+                              }}
+                            >
+                              {activeFadeCount > 0 ? `${activeFadeCount}/2` : 'Off'}
+                            </div>
+                          </div>
+                          <div style={fadeToggleGrid}>
+                            {([
+                              ['in', 'Entrée', !!clip.fadeIn],
+                              ['out', 'Sortie', !!clip.fadeOut],
+                            ] as const).map(([kind, label, checked]) => (
+                              <label
+                                key={kind}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.34rem',
+                                  minHeight: 30,
+                                  padding: '0.34rem 0.42rem',
+                                  borderRadius: 5,
+                                  border: checked ? '1px solid rgba(233,69,96,0.36)' : '1px solid rgba(255,255,255,0.08)',
+                                  background: checked ? 'rgba(233,69,96,0.12)' : 'rgba(255,255,255,0.035)',
+                                  color: checked ? '#f2d5db' : 'rgba(232,236,248,0.68)',
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  aria-label={kind === 'in' ? 'Fondu d’entrée' : 'Fondu de sortie'}
+                                  onChange={(e) => {
+                                    const nextFadeIn = kind === 'in' ? e.target.checked : !!clip.fadeIn
+                                    const nextFadeOut = kind === 'out' ? e.target.checked : !!clip.fadeOut
+                                    updateClipFade(clip.id, nextFadeIn, nextFadeOut, fadeInDuration, fadeOutDuration)
+                                  }}
+                                  style={fadeCheckbox}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {(clip.fadeIn || clip.fadeOut) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                              {clip.fadeIn && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <label htmlFor={`fade-in-dur-${clip.id}`} style={{ flex: 1, minWidth: 0, fontSize: '0.68rem', color: 'rgba(232,236,248,0.56)', whiteSpace: 'nowrap' }}>
+                                    Entrée
+                                  </label>
+                                  <input
+                                    id={`fade-in-dur-${clip.id}`}
+                                    type="number"
+                                    min={0.1}
+                                    max={5}
+                                    step={0.1}
+                                    value={fadeInDuration}
+                                    aria-label="Durée fondu d’entrée"
+                                    onChange={(e) => updateClipFade(clip.id, !!clip.fadeIn, !!clip.fadeOut, parseFloat(e.target.value), fadeOutDuration)}
+                                    style={fadeDurationInput}
+                                  />
+                                  <span style={{ flexShrink: 0, fontSize: '0.68rem', color: 'rgba(232,236,248,0.44)' }}>s</span>
+                                </div>
+                              )}
+                              {clip.fadeOut && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <label htmlFor={`fade-out-dur-${clip.id}`} style={{ flex: 1, minWidth: 0, fontSize: '0.68rem', color: 'rgba(232,236,248,0.56)', whiteSpace: 'nowrap' }}>
+                                    Sortie
+                                  </label>
+                                  <input
+                                    id={`fade-out-dur-${clip.id}`}
+                                    type="number"
+                                    min={0.1}
+                                    max={5}
+                                    step={0.1}
+                                    value={fadeOutDuration}
+                                    aria-label="Durée fondu de sortie"
+                                    onChange={(e) => updateClipFade(clip.id, !!clip.fadeIn, !!clip.fadeOut, fadeInDuration, parseFloat(e.target.value))}
+                                    style={fadeDurationInput}
+                                  />
+                                  <span style={{ flexShrink: 0, fontSize: '0.68rem', color: 'rgba(232,236,248,0.44)' }}>s</span>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label={`Supprimer ${clip.name}`}
-                        onClick={(e) => { e.stopPropagation(); removeClip(clip.id) }}
-                        style={deleteBtn}
-                      >
-                        ✕
-                      </button>
+                      )}
                     </div>
                   )
                 })}

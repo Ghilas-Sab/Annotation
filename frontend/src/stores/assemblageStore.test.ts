@@ -1,6 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import {
   getClipEffectiveDuration,
+  getClipFadeDuration,
+  getClipFadeInDuration,
+  getClipFadeOutDuration,
+  getClipFadeOpacity,
   getClipTimelineEnd,
   getClipTimelineStart,
   useAssemblageStore,
@@ -212,5 +216,55 @@ describe('video clip timeline placement', () => {
     expect(clip.trimStart).toBe(2)
     expect(clip.trimEnd).toBe(7)
     expect(getClipEffectiveDuration(clip)).toBe(5)
+  })
+})
+
+describe('clip fades', () => {
+  test('computes fade-in opacity from local clip time', () => {
+    const clip = buildClip({ duration: 10, fadeIn: true, fadeDurationS: 2 })
+
+    expect(getClipFadeOpacity(clip, 0)).toBe(0)
+    expect(getClipFadeOpacity(clip, 1)).toBe(0.5)
+    expect(getClipFadeOpacity(clip, 2)).toBe(1)
+  })
+
+  test('computes fade-out opacity from local clip time', () => {
+    const clip = buildClip({ duration: 10, fadeOut: true, fadeDurationS: 2 })
+
+    expect(getClipFadeOpacity(clip, 8)).toBe(1)
+    expect(getClipFadeOpacity(clip, 9)).toBe(0.5)
+    expect(getClipFadeOpacity(clip, 10)).toBe(0)
+  })
+
+  test('clamps fade duration to half of the effective clip duration', () => {
+    const clip = buildClip({ duration: 10, trimStart: 2, trimEnd: 5, fadeDurationS: 5 })
+
+    expect(getClipEffectiveDuration(clip)).toBe(3)
+    expect(getClipFadeDuration(clip)).toBe(1.5)
+  })
+
+  test('supports separate fade-in and fade-out durations', () => {
+    const clip = buildClip({
+      duration: 10,
+      fadeIn: true,
+      fadeOut: true,
+      fadeInDurationS: 2,
+      fadeOutDurationS: 3,
+    })
+
+    expect(getClipFadeInDuration(clip)).toBe(2)
+    expect(getClipFadeOutDuration(clip)).toBe(3)
+    expect(getClipFadeOpacity(clip, 1)).toBe(0.5)
+    expect(getClipFadeOpacity(clip, 8.5)).toBe(0.5)
+  })
+
+  test('updateClipFade stores separate durations', () => {
+    useAssemblageStore.getState().addClips([buildClip({ id: 'c1', duration: 10 })])
+
+    useAssemblageStore.getState().updateClipFade('c1', true, true, 2, 3)
+
+    const clip = useAssemblageStore.getState().clips[0]
+    expect(clip.fadeInDurationS).toBe(2)
+    expect(clip.fadeOutDurationS).toBe(3)
   })
 })
