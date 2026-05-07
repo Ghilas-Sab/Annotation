@@ -1019,7 +1019,7 @@ def test_generate_zip_calls_adapt_video_when_bpm_differs(project_with_saved_prev
     with open(tmp_clip, "wb") as f:
         f.write(b"fake clip content")
 
-    with patch("app.services.export_service.adapt_video_to_bpm", return_value=tmp_clip) as mock_adapt:
+    with patch("app.services.video_service.adapt_video_to_bpm", return_value=tmp_clip) as mock_adapt:
         result = generate_project_zip(
             project_with_saved_preview["project_id"],
             video_ids=None,
@@ -1048,7 +1048,7 @@ def test_generate_zip_osrror_in_cleanup_is_ignored(project_with_saved_preview, t
             raise OSError("Simulated OSError during cleanup")
         original_remove(path)
 
-    with patch("app.services.export_service.adapt_video_to_bpm", return_value=tmp_clip), \
+    with patch("app.services.video_service.adapt_video_to_bpm", return_value=tmp_clip), \
          patch("app.services.export_service.os.remove", side_effect=mock_remove):
         # Should not raise - OSError is silently ignored
         result = generate_project_zip(
