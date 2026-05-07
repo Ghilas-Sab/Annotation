@@ -198,6 +198,150 @@ class TestAdaptVideoToBpmCommand:
                 adapt_video_to_bpm("/fake.mp4", [{"timestamp_ms": 0, "frame_number": 0}], 120.0)
 
 
+def test_adjust_video_speed_with_audio(tmp_path):
+    """adjust_video_speed génère la bonne commande quand le flux audio est présent."""
+    probe_result = {
+        "streams": [
+            {"codec_type": "video", "r_frame_rate": "25/1", "avg_frame_rate": "25/1"},
+            {"codec_type": "audio"},
+        ],
+        "format": {"duration": "5.0"},
+    }
+    from app.services.video_service import adjust_video_speed
+    from unittest.mock import patch, MagicMock
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        # Mock the ffmpeg output chain
+        mock_stream = MagicMock()
+        mock_stream.video.filter.return_value = MagicMock()
+        mock_stream.audio.filter.return_value = MagicMock()
+        with patch("ffmpeg.input", return_value=mock_stream), \
+             patch("ffmpeg.output") as mock_output:
+            mock_out = MagicMock()
+            mock_output.return_value = mock_out
+            mock_out.overwrite_output.return_value = mock_out
+            mock_out.run.return_value = None
+            result = adjust_video_speed("/fake/input.mp4", 1.5)
+    # If we got here without exception, audio path was exercised
+    assert result is not None
+
+
+def test_adapt_video_fps_fallback_to_r_frame_rate(tmp_path):
+    """adapt_video_to_bpm utilise r_frame_rate si avg_frame_rate est invalide (> 240)."""
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "30/1",
+                     "avg_frame_rate": "90000/1"}],  # > 240 → fallback to r_frame_rate
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 15},
+        {"timestamp_ms": 1000, "frame_number": 30},
+    ]
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        result = adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0)
+    assert result is not None
+
+
+def test_adapt_video_fps_fallback_to_default_25(tmp_path):
+    """adapt_video_to_bpm utilise fps=25.0 si tous les frame rates sont invalides."""
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "0/0",
+                     "avg_frame_rate": "0/0"}],  # both invalid → 25.0
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 12},
+        {"timestamp_ms": 1000, "frame_number": 25},
+    ]
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        result = adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0)
+    assert result is not None
+
+
+def test_adapt_video_cancel_after_stdout_exhausted(tmp_path):
+    """adapt_video_to_bpm lève RuntimeError si cancel_event set après lecture stdout."""
+    import threading
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1"}],
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 12},
+        {"timestamp_ms": 1000, "frame_number": 25},
+    ]
+    cancel = threading.Event()
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])  # empty stdout
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        cancel.set()  # set cancel after stdout exhausted
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        with pytest.raises(RuntimeError, match="annulé"):
+            adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0, cancel_event=cancel)
+
+
+def test_adapt_video_nonzero_returncode_raises(tmp_path):
+    """adapt_video_to_bpm lève RuntimeError si ffmpeg retourne un code d'erreur."""
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1"}],
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 12},
+        {"timestamp_ms": 1000, "frame_number": 25},
+    ]
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 1  # non-zero error
+        mock_proc.wait.return_value = 1
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        with pytest.raises(RuntimeError, match="returncode"):
+            adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0)
+
+
 def test_build_adapt_filter_no_fade_filters():
     """_build_adapt_filter ne doit jamais insérer de filtre fade/afade — la transition
     est assurée par la continuité des vitesses, pas par un fondu visuel."""
@@ -261,6 +405,68 @@ def test_adapt_video_pre_segment_uses_first_speed_factor(tmp_path):
     last_adapted_speed = captured_segs[1][2]
     assert pre_speed == pytest.approx(first_adapted_speed)
     assert post_speed == pytest.approx(last_adapted_speed)
+
+
+def test_adapt_video_cancelled_during_progress(tmp_path):
+    """adapt_video_to_bpm lève RuntimeError si cancel_event est set pendant la progression."""
+    import threading
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1", "nb_frames": "250"}],
+        "format": {"duration": "10.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 12},
+        {"timestamp_ms": 1000, "frame_number": 25},
+    ]
+    cancel = threading.Event()
+
+    def fake_popen(cmd, **kwargs):
+        cancel.set()
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["out_time_us=500000"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        with pytest.raises(RuntimeError, match="annulé"):
+            adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0, cancel_event=cancel)
+
+
+def test_adapt_video_progress_callback_called(tmp_path):
+    """adapt_video_to_bpm appelle progress_cb avec la progression ffmpeg."""
+    from unittest.mock import patch, MagicMock
+
+    probe_result = {
+        "streams": [{"codec_type": "video", "r_frame_rate": "25/1",
+                     "avg_frame_rate": "25/1", "nb_frames": "250"}],
+        "format": {"duration": "5.0"},
+    }
+    annotations = [
+        {"timestamp_ms": 500, "frame_number": 12},
+        {"timestamp_ms": 1500, "frame_number": 37},
+    ]
+    progress_values = []
+
+    def fake_popen(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["out_time_us=500000", "out_time_us=invalid"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+        return mock_proc
+
+    with patch("ffmpeg.probe", return_value=probe_result), \
+         patch("subprocess.Popen", side_effect=fake_popen), \
+         patch("app.services.video_service.settings.TEMP_DIR", str(tmp_path)):
+        adapt_video_to_bpm("/fake/input.mp4", annotations, 120.0,
+                           progress_cb=lambda pct: progress_values.append(pct))
+
+    assert len(progress_values) >= 1
 
 
 def test_adapt_video_no_pre_post_if_annotations_at_bounds(tmp_path):

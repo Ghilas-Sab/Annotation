@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import AssemblageTimeline from './AssemblageTimeline'
-import type { AssemblageClip } from '../../stores/assemblageStore'
+import type { AssemblageClip, AudioTrack } from '../../stores/assemblageStore'
 import type { Annotation, Category } from '../../types/annotation'
 
 vi.mock('wavesurfer.js', () => ({
@@ -32,6 +32,17 @@ const buildClip = (overrides: Partial<AssemblageClip> = {}): AssemblageClip => (
   projectId: 'p1',
   name: 'clip1.mp4',
   duration: 10,
+  ...overrides,
+})
+
+const buildAudioTrack = (overrides: Partial<AudioTrack> = {}): AudioTrack => ({
+  id: 'audio-1',
+  name: 'music.mp3',
+  url: 'blob:music',
+  duration: 10,
+  trimStart: 0,
+  trimEnd: 10,
+  startOffset: 0,
   ...overrides,
 })
 
@@ -91,6 +102,37 @@ describe('S7.8 — Calage annotations sur timeline', () => {
     expect(leftPct).toBeCloseTo(50, 1)
   })
 
+  test('adapted clip markers use timestamps projected to the adapted BPM timeline', () => {
+    const annotations = {
+      v1: [
+        buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+        buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+        buildAnnotation({ id: 'a3', timestamp_ms: 7000 }),
+      ],
+    }
+
+    renderTimeline([buildClip({ videoId: 'v1', sourceType: 'adapted', bpm: 120, duration: 2 })], annotations)
+
+    expect(parseFloat(screen.getByTestId('annotation-marker-a1').style.left)).toBeCloseTo(12.5, 1)
+    expect(parseFloat(screen.getByTestId('annotation-marker-a2').style.left)).toBeCloseTo(37.5, 1)
+    expect(parseFloat(screen.getByTestId('annotation-marker-a3').style.left)).toBeCloseTo(62.5, 1)
+  })
+
+  test('adapted clip tooltip shows the projected adapted timestamp', () => {
+    const annotations = {
+      v1: [
+        buildAnnotation({ id: 'a1', label: 'Beat adapté', timestamp_ms: 1000 }),
+        buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+      ],
+    }
+
+    renderTimeline([buildClip({ videoId: 'v1', sourceType: 'adapted', bpm: 120, duration: 2 })], annotations)
+    fireEvent.mouseEnter(screen.getByTestId('annotation-marker-a1'))
+
+    expect(screen.getByText('Beat adapté')).toBeInTheDocument()
+    expect(screen.getByText(/00:00\.06/)).toBeInTheDocument()
+  })
+
   test('hovering marker shows tooltip with label and timestamp', () => {
     const annotations = {
       v1: [buildAnnotation({ id: 'a1', label: 'Beat 1', timestamp_ms: 3000 })],
@@ -127,6 +169,90 @@ describe('S7.8 — Calage annotations sur timeline', () => {
     renderTimeline([buildClip({ videoId: 'v1', duration: 10 })], annotations)
     const marker = screen.getByTestId('annotation-marker-a1')
     expect(marker).toHaveStyle({ backgroundColor: 'rgba(255,255,255,0.6)' })
+  })
+})
+
+describe('Synchronisation BPM musique', () => {
+  test('does not render a manual music BPM input', () => {
+    renderTimeline(
+      [buildClip({ id: 'c1', bpm: 120 })],
+      { v1: [buildAnnotation({ id: 'a1', timestamp_ms: 1000 })] },
+      { audioTracks: [buildAudioTrack()] },
+    )
+
+    expect(screen.queryByRole('spinbutton', { name: /bpm musique/i })).not.toBeInTheDocument()
+  })
+
+  test('sync button is disabled when no video BPM is available', () => {
+    renderTimeline(
+      [buildClip({ id: 'c1', bpm: undefined })],
+      { v1: [buildAnnotation({ id: 'a1', timestamp_ms: 1000 })] },
+      { audioTracks: [buildAudioTrack()] },
+    )
+
+    expect(screen.getByRole('button', { name: /synchroniser/i })).toBeDisabled()
+  })
+
+  test('clicking synchronize uses the video BPM to shift the music onto the video annotation', () => {
+    const onVideoOffsetChange = vi.fn()
+    const onAudioOffsetChange = vi.fn()
+    renderTimeline(
+      [buildClip({ id: 'c1', videoId: 'v1', bpm: 120, duration: 10, startOffset: 0.2 })],
+      { v1: [buildAnnotation({ id: 'a1', timestamp_ms: 1000 })] },
+      { audioTracks: [buildAudioTrack()], onVideoOffsetChange, onAudioOffsetChange },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /synchroniser/i }))
+
+    expect(onVideoOffsetChange).not.toHaveBeenCalled()
+    expect(onAudioOffsetChange).toHaveBeenCalledWith('audio-1', 0.2)
+  })
+
+  test('synchronized beats are rendered in the music lane under video annotations', () => {
+    renderTimeline(
+      [buildClip({ id: 'c1', videoId: 'v1', bpm: 120, duration: 10, startOffset: 0.2 })],
+      { v1: [buildAnnotation({ id: 'a1', timestamp_ms: 1000 })] },
+      { audioTracks: [buildAudioTrack()], onAudioOffsetChange: vi.fn() },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /synchroniser/i }))
+
+    expect(screen.getByTestId('audio-beat-marker-a1')).toBeInTheDocument()
+    expect(parseFloat(screen.getByTestId('audio-beat-marker-a1').style.left)).toBeCloseTo((1.2 / 10.2) * 100, 1)
+  })
+
+  test('synchronization accounts for audio trim so the beat marker has no trim offset drift', () => {
+    const onAudioOffsetChange = vi.fn()
+    renderTimeline(
+      [buildClip({ id: 'c1', videoId: 'v1', bpm: 120, duration: 10 })],
+      { v1: [buildAnnotation({ id: 'a1', timestamp_ms: 1000 })] },
+      { audioTracks: [buildAudioTrack({ trimStart: 0.25, trimEnd: 10 })], onAudioOffsetChange },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /synchroniser/i }))
+
+    expect(onAudioOffsetChange).toHaveBeenCalledWith('audio-1', 0.25)
+    expect(parseFloat(screen.getByTestId('audio-beat-marker-a1').style.left)).toBeCloseTo(10, 1)
+  })
+
+  test('adapted clip synchronization uses projected annotation timestamps', () => {
+    const onAudioOffsetChange = vi.fn()
+    renderTimeline(
+      [buildClip({ id: 'c1', videoId: 'v1', sourceType: 'adapted', bpm: 120, duration: 2 })],
+      {
+        v1: [
+          buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+          buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+        ],
+      },
+      { audioTracks: [buildAudioTrack({ duration: 2, trimEnd: 2 })], onAudioOffsetChange },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /synchroniser/i }))
+
+    expect(onAudioOffsetChange).toHaveBeenCalledWith('audio-1', 0.25)
+    expect(parseFloat(screen.getByTestId('audio-beat-marker-a1').style.left)).toBeCloseTo(12.5, 1)
+    expect(parseFloat(screen.getByTestId('audio-beat-marker-a2').style.left)).toBeCloseTo(37.5, 1)
   })
 })
 

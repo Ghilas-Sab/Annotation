@@ -16,6 +16,7 @@ export interface AssemblageClip {
   autoPlaced?: boolean
   filePath?: string
   sourceType?: 'original' | 'adapted'
+  bpm?: number
   fadeIn?: boolean
   fadeOut?: boolean
   fadeDurationS?: number
@@ -104,6 +105,41 @@ export const getClipTimelineEnd = (clip: AssemblageClip) =>
 
 export const getClipMediaTimeAtTimeline = (clip: AssemblageClip, timelineTime: number) =>
   (clip.trimStart ?? 0) + Math.max(0, timelineTime - getClipTimelineStart(clip))
+
+export const getAdaptedAnnotationTimestampMs = (
+  annotation: Annotation,
+  sortedAnnotations: Annotation[],
+  targetBpm: number | undefined,
+): number => {
+  if (!Number.isFinite(targetBpm) || (targetBpm ?? 0) <= 0 || sortedAnnotations.length < 2) {
+    return annotation.timestamp_ms
+  }
+
+  const index = sortedAnnotations.findIndex((ann) => ann.id === annotation.id)
+  if (index < 0) return annotation.timestamp_ms
+
+  const targetIntervalMs = 60000 / (targetBpm as number)
+  const firstTimestampMs = sortedAnnotations[0].timestamp_ms
+  const firstSourceIntervalMs = sortedAnnotations[1].timestamp_ms - firstTimestampMs
+
+  if (firstSourceIntervalMs <= 0) return annotation.timestamp_ms
+
+  const firstAdaptedTimestampMs = firstTimestampMs * (targetIntervalMs / firstSourceIntervalMs)
+  return Math.max(0, firstAdaptedTimestampMs + index * targetIntervalMs)
+}
+
+export const getClipTimelineAnnotations = (
+  clip: AssemblageClip,
+  annotations: Annotation[],
+): Annotation[] => {
+  if (clip.sourceType !== 'adapted') return annotations
+
+  const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp_ms - b.timestamp_ms)
+  return sortedAnnotations.map((annotation) => ({
+    ...annotation,
+    timestamp_ms: getAdaptedAnnotationTimestampMs(annotation, sortedAnnotations, clip.bpm),
+  }))
+}
 
 const getBoundedClipFadeDuration = (clip: AssemblageClip, duration: number | undefined) => {
   const effectiveDuration = getClipEffectiveDuration(clip)
@@ -215,6 +251,7 @@ export const buildAssemblageClipFromVideo = (
   trimEnd: video.duration_seconds,
   filePath: sourceType === 'adapted' ? video.adapted_preview?.path : undefined,
   sourceType,
+  bpm: sourceType === 'adapted' ? video.adapted_preview?.bpm : undefined,
 })
 
 export const useAssemblageStore = create<AssemblageState>()(

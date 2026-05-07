@@ -162,4 +162,75 @@ describe('ProjectDetailPage', () => {
     expect(await screen.findByRole('button', { name: /assemblage/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /exporter le projet/i })).toBeInTheDocument()
   })
+
+  it('shows loading state', async () => {
+    server.use(http.get('*/api/v1/projects/1', () =>
+      new Promise(() => {}) // Never resolves
+    ))
+
+    renderWithProviders('1')
+
+    expect(await screen.findByText(/chargement du projet/i)).toBeInTheDocument()
+  })
+
+  it('shows error state when project fails to load', async () => {
+    server.use(http.get('*/api/v1/projects/1', () =>
+      new HttpResponse(null, { status: 500 })
+    ))
+
+    renderWithProviders('1')
+
+    expect(await screen.findByText(/erreur est survenue/i)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /retour aux projets/i })).toBeInTheDocument()
+  })
+
+  it('shows empty video message when no videos', async () => {
+    server.use(http.get('*/api/v1/projects/1', () =>
+      HttpResponse.json(mockProject({ videos: [] }))
+    ))
+
+    renderWithProviders('1')
+
+    expect(await screen.findByText(/aucune vidéo dans ce projet/i)).toBeInTheDocument()
+  })
+
+  it('handleDeletePreview calls delete endpoint', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    server.use(http.get('*/api/v1/projects/1', () =>
+      HttpResponse.json(mockProject({
+        videos: [
+          {
+            id: 'v1',
+            project_id: '1',
+            filename: 'video1.mp4',
+            original_name: 'video1.mp4',
+            duration_seconds: 10,
+            fps: 25,
+            total_frames: 250,
+            width: 1920,
+            height: 1080,
+            codec: 'h264',
+            uploaded_at: new Date().toISOString(),
+            annotations: [],
+            adapted_preview: { bpm: 120, created_at: new Date().toISOString() },
+          },
+        ],
+      }))
+    ))
+    server.use(http.delete('*/api/v1/videos/v1/preview-adapted', () =>
+      new HttpResponse(null, { status: 204 })
+    ))
+
+    renderWithProviders('1')
+
+    // Show the adapted preview panel first
+    await userEvent.click(await screen.findByRole('button', { name: /^voir$/i }))
+
+    // Find and click delete preview button
+    const deletePreviewBtn = await screen.findByRole('button', { name: /supprimer l'aperçu/i })
+    await userEvent.click(deletePreviewBtn)
+
+    expect(confirmSpy).toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
 })

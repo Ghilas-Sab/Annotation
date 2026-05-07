@@ -194,3 +194,61 @@ async def test_upload_invalid_extension_is_rejected(client, project_id, videos_d
         files={"file": ("document.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")},
     )
     assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_video_stream_file_not_on_disk(client, uploaded_video_id, videos_dir):
+    """Stream vidéo quand le fichier a été supprimé du disque → 404."""
+    import os
+    from app.storage.json_store import get_video
+    video = get_video(uploaded_video_id)
+    filepath = video.get("filepath", "")
+    if filepath and os.path.exists(filepath):
+        os.remove(filepath)
+    res = await client.get(f"/api/v1/videos/{uploaded_video_id}/stream")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_video_file_not_on_disk(client, uploaded_video_id, videos_dir):
+    """DELETE vidéo quand le fichier a déjà été supprimé du disque → 204."""
+    import os
+    from app.storage.json_store import get_video
+    video = get_video(uploaded_video_id)
+    filepath = video.get("filepath", "")
+    if filepath and os.path.exists(filepath):
+        os.remove(filepath)
+    res = await client.delete(f"/api/v1/videos/{uploaded_video_id}")
+    assert res.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_list_project_videos_not_found(client):
+    """GET /projects/{id}/videos avec projet inexistant → 404."""
+    res = await client.get("/api/v1/projects/nonexistent-id/videos")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_video_not_found(client):
+    """DELETE vidéo inexistante → 404."""
+    res = await client.delete("/api/v1/videos/nonexistent-video-id")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_upload_video_ffmpeg_error(client, project_id, videos_dir, tmp_path):
+    """Si FFmpeg échoue lors du traitement → 422 et fichier temporaire supprimé."""
+    from unittest.mock import patch
+    # Créer un fichier MP4 factice valide en termes de magic bytes (ftyp box pour mp4)
+    # mais invalide pour ffmpeg
+    fake_mp4 = tmp_path / "fake.mp4"
+    fake_mp4.write_bytes(b"\x00\x00\x00\x20ftypisom\x00\x00\x00\x00isomiso2avc1mp41")
+    with open(fake_mp4, "rb") as f:
+        with patch("app.routers.videos.get_video_metadata", side_effect=Exception("FFmpeg failed")):
+            res = await client.post(
+                f"/api/v1/projects/{project_id}/videos",
+                files={"file": ("video.mp4", f, "video/mp4")}
+            )
+    assert res.status_code == 422
+    assert "FFmpeg" in res.json()["detail"]

@@ -274,4 +274,5 @@ describe('AnnotationPage', () => {
 
     expect(annotation).toBeInTheDocument()
   })
+
 })

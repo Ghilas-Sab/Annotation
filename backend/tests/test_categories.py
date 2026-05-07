@@ -133,3 +133,30 @@ async def test_cannot_create_duplicate_color(client, uploaded_video_id):
         json={"name": "Autre", "color": "#FF0000"},
     )
     assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_get_categories_video_not_found(client):
+    """GET /videos/{id}/categories avec vidéo inexistante → 404."""
+    resp = await client.get("/api/v1/videos/nonexistent-id/categories")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_category_video_not_found(client):
+    """POST /videos/{id}/categories avec vidéo inexistante → 404."""
+    resp = await client.post(
+        "/api/v1/videos/nonexistent-id/categories",
+        json={"name": "Test", "color": "#FF0000"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_category_not_found(client):
+    """PUT /categories/{id} avec catégorie inexistante → 404."""
+    resp = await client.put(
+        "/api/v1/categories/nonexistent-id",
+        json={"name": "Test", "color": "#FF0000"},
+    )
+    assert resp.status_code == 404

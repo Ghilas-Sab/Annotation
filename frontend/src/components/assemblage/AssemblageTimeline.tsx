@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getClipEffectiveDuration,
   getClipTimelineEnd,
+  getClipTimelineAnnotations,
   getClipTimelineStart,
   getClipTrimEnd,
   getAudioTrackTimelineEnd,
@@ -204,6 +205,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
   const [zoom,         setZoom]         = useState(1)
   const [audioMix, setAudioMix] = useState<Record<string, { volume: number; muted: boolean }>>({})
   const [hoveredAnnotation, setHoveredAnnotation] = useState<{ clipId: string; annotationId: string } | null>(null)
+  const [syncedBeatMarkers, setSyncedBeatMarkers] = useState<{ annotationId: string; time: number }[]>([])
   const dragOverRef = useRef<string | null>(null)
   const scrollRef   = useRef<HTMLDivElement>(null)
   const videoLaneRef = useRef<HTMLDivElement>(null)
@@ -222,6 +224,18 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
     () => [...audioTracks].sort((a, b) => a.startOffset - b.startOffset),
     [audioTracks],
   )
+
+  const syncCandidates = useMemo(() => {
+    return clips.filter((clip) => (
+      Number.isFinite(clip.bpm) && (clip.bpm ?? 0) > 0 &&
+      getClipTimelineAnnotations(clip, annotations[clip.videoId] ?? []).some((ann) => {
+        const annotationTime = ann.timestamp_ms / 1000
+        return annotationTime >= (clip.trimStart ?? 0) && annotationTime <= getClipTrimEnd(clip)
+      })
+    ))
+  }, [annotations, clips])
+
+  const canSynchronize = audioTracks.length > 0 && !!onAudioOffsetChange && syncCandidates.length > 0
 
   useEffect(() => {
     setAudioMix((prev) => {
@@ -285,6 +299,85 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
   const zoomIn    = useCallback(() => setZoom(z => Math.min(MAX_ZOOM, +(z * 1.5).toFixed(2))), [])
   const zoomOut   = useCallback(() => setZoom(z => Math.max(MIN_ZOOM, +(z / 1.5).toFixed(2))), [])
   const zoomReset = useCallback(() => setZoom(1), [])
+
+  const synchronizeToMusic = useCallback(() => {
+    if (!canSynchronize || !onAudioOffsetChange) return
+
+    const primaryAudioTrack = sortedAudioTracks[0]
+    if (!primaryAudioTrack) return
+
+    const nextMarkers: { annotationId: string; time: number }[] = []
+    const anchorClip = syncCandidates[0]
+    const anchorBpm = anchorClip?.bpm ?? 0
+    if (!anchorClip || !Number.isFinite(anchorBpm) || anchorBpm <= 0) return
+
+    const anchorBeatInterval = 60 / anchorBpm
+    const anchorTrimStart = anchorClip.trimStart ?? 0
+    const anchorAnnotations = getClipTimelineAnnotations(anchorClip, annotations[anchorClip.videoId] ?? [])
+      .filter((ann) => {
+        const annotationTime = ann.timestamp_ms / 1000
+        return annotationTime >= anchorTrimStart && annotationTime <= getClipTrimEnd(anchorClip)
+      })
+      .sort((a, b) => a.timestamp_ms - b.timestamp_ms)
+    const anchor = anchorAnnotations[0]
+    if (!anchor) return
+
+    const anchorGlobalTime = getClipTimelineStart(anchorClip) + (anchor.timestamp_ms / 1000) - anchorTrimStart
+    const rawAnchorBeat = (anchorGlobalTime + primaryAudioTrack.trimStart - primaryAudioTrack.startOffset) / anchorBeatInterval
+    const candidateBeatIndexes = Array.from(new Set([
+      0,
+      Math.max(0, Math.floor(rawAnchorBeat) - 1),
+      Math.max(0, Math.floor(rawAnchorBeat)),
+      Math.max(0, Math.ceil(rawAnchorBeat)),
+      Math.max(0, Math.ceil(rawAnchorBeat) + 1),
+    ]))
+
+    const nextPrimaryAudioOffset = candidateBeatIndexes
+      .map((beatIndex) => ({
+        beatIndex,
+        offset: anchorGlobalTime + primaryAudioTrack.trimStart - beatIndex * anchorBeatInterval,
+      }))
+      .filter(({ offset }) => offset >= 0)
+      .sort((a, b) => Math.abs(a.offset - primaryAudioTrack.startOffset) - Math.abs(b.offset - primaryAudioTrack.startOffset))[0]?.offset
+
+    if (nextPrimaryAudioOffset == null) return
+
+    const offsetDelta = nextPrimaryAudioOffset - primaryAudioTrack.startOffset
+    sortedAudioTracks.forEach((track) => {
+      const nextOffset = Math.max(0, track.startOffset + offsetDelta)
+      onAudioOffsetChange(track.id, Math.abs(nextOffset) < 1e-6 ? 0 : Number(nextOffset.toFixed(6)))
+    })
+
+    syncCandidates.forEach((clip) => {
+      const bpm = clip.bpm ?? 0
+      if (!Number.isFinite(bpm) || bpm <= 0) return
+
+      const beatInterval = 60 / bpm
+      const clipStart = getClipTimelineStart(clip)
+      const trimStart = clip.trimStart ?? 0
+      const clipAnnotations = getClipTimelineAnnotations(clip, annotations[clip.videoId] ?? [])
+        .filter((ann) => {
+          const annotationTime = ann.timestamp_ms / 1000
+          return annotationTime >= trimStart && annotationTime <= getClipTrimEnd(clip)
+        })
+        .sort((a, b) => a.timestamp_ms - b.timestamp_ms)
+
+      clipAnnotations.forEach((ann) => {
+        const localTime = (ann.timestamp_ms / 1000) - trimStart
+        const annotationGlobalTime = clipStart + localTime
+        const annBeatIndex = Math.max(
+          0,
+          Math.round((annotationGlobalTime + primaryAudioTrack.trimStart - nextPrimaryAudioOffset) / beatInterval),
+        )
+        nextMarkers.push({
+          annotationId: ann.id,
+          time: nextPrimaryAudioOffset - primaryAudioTrack.trimStart + annBeatIndex * beatInterval,
+        })
+      })
+    })
+
+    setSyncedBeatMarkers(nextMarkers)
+  }, [annotations, canSynchronize, onAudioOffsetChange, sortedAudioTracks, syncCandidates])
 
   const seekFromClientX = useCallback((clientX: number, element: HTMLElement) => {
     if (!onPlayFromTime || totalDuration === 0) return
@@ -390,6 +483,33 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
           )}
         </span>
         <div style={{ flex: 1 }} />
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.35rem',
+          padding: '0.18rem 0.42rem',
+          borderRadius: 6,
+          background: 'rgba(100,255,218,0.055)',
+          border: '1px solid rgba(100,255,218,0.14)',
+        }}>
+          <span style={{ fontSize: '0.64rem', color: '#64ffda', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            BPM vidéo
+          </span>
+          <button
+            type="button"
+            onClick={synchronizeToMusic}
+            disabled={!canSynchronize}
+            title={canSynchronize ? 'Caler les beats de la musique sur les annotations vidéo' : 'Piste audio, BPM vidéo et annotations requis'}
+            style={{
+              ...zoomBtnStyle,
+              color: canSynchronize ? '#64ffda' : 'rgba(255,255,255,0.32)',
+              borderColor: canSynchronize ? 'rgba(100,255,218,0.4)' : 'rgba(255,255,255,0.12)',
+              background: syncedBeatMarkers.length > 0 ? 'rgba(100,255,218,0.14)' : 'rgba(255,255,255,0.05)',
+              opacity: canSynchronize ? 1 : 0.5,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Synchroniser
+          </button>
+        </div>
         <MixPillControl
           dataTestId="source-video-volume-slider"
           ariaLabel="Son d'origine vidéo"
@@ -577,7 +697,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                 const color     = getClipColor(clip, index)
                 const isDragged = draggedId    === clip.id
                 const isDropTarget = dropTargetId === clip.id
-                const annots    = annotations[clip.videoId] ?? []
+                const annots    = getClipTimelineAnnotations(clip, annotations[clip.videoId] ?? [])
                 const hoveredAnn = hoveredAnnotation?.clipId === clip.id
                   ? annots.find(a => a.id === hoveredAnnotation.annotationId) ?? null
                   : null
@@ -804,6 +924,27 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
                         onDurationReady={(id, dur) => onAudioDurationReady?.(id, dur)}
                         onTrimChange={(id, s, e) => onAudioTrimChange?.(id, s, e)}
                         onOffsetChange={(id, offset) => onAudioOffsetChange?.(id, offset)}
+                      />
+                    )
+                  })}
+                  {syncedBeatMarkers.map((marker) => {
+                    if (marker.time < 0 || marker.time > totalDuration) return null
+                    return (
+                      <div
+                        key={`${marker.annotationId}-${marker.time}`}
+                        data-testid={`audio-beat-marker-${marker.annotationId}`}
+                        style={{
+                          position: 'absolute',
+                          left: `${totalDuration > 0 ? (marker.time / totalDuration) * 100 : 0}%`,
+                          top: 3,
+                          bottom: 3,
+                          width: 2,
+                          background: '#64ffda',
+                          transform: 'translateX(-50%)',
+                          zIndex: 14,
+                          boxShadow: '0 0 6px rgba(100,255,218,0.75)',
+                          pointerEvents: 'none',
+                        }}
                       />
                     )
                   })}

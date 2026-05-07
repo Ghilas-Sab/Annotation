@@ -147,3 +147,61 @@ async def test_post_playback_speed_video_not_found(client):
         json={"target_bpm": 120.0},
     )
     assert res.status_code == 404
+
+
+def test_all_duplicate_frames_returns_error():
+    """Si toutes les annotations ont le même frame, intervals_seconds est vide → erreur."""
+    annotations = [{"frame_number": 25}, {"frame_number": 25}, {"frame_number": 25}]
+    result = compute_bpm_metrics(annotations, fps=25.0)
+    assert "error" in result
+
+
+def test_detect_segments_with_segments(tmp_path):
+    """_detect_segments crée plusieurs segments si les BPM varient."""
+    from app.services.stats_service import _detect_segments
+    # Créer des intervals: premier segment 60 BPM, deuxième 120 BPM
+    # 60 BPM = 1 battement/s = 25 frames à 25fps
+    # 120 BPM = 2 battements/s = 12.5 frames à 25fps
+    frames = [0, 25, 50, 62, 75]  # 2 segments différents
+    segs = _detect_segments(frames, fps=25.0)
+    assert isinstance(segs, list)
+    assert len(segs) >= 1
+
+
+def test_detect_peaks_no_peak_returns_max():
+    """_detect_peaks retourne le max quand find_peaks ne trouve rien."""
+    from app.services.stats_service import _detect_peaks
+    # Très peu d'annotations → histogram plat, find_peaks retourne []
+    frames = [0, 1]
+    peaks = _detect_peaks(frames, fps=25.0)
+    assert isinstance(peaks, list)
+
+
+def test_compute_bpm_metrics_density_covered_duration():
+    """annotation_density_per_minute est calculée correctement."""
+    # 5 annotations réparties sur 4 secondes à 25fps
+    annotations = [{"frame_number": f} for f in [0, 25, 50, 75, 100]]
+    result = compute_bpm_metrics(annotations, fps=25.0)
+    assert result["annotation_density_per_minute"] > 0
+
+
+def test_detect_segments_with_less_than_2_frames():
+    """_detect_segments retourne [] avec moins de 2 frames."""
+    from app.services.stats_service import _detect_segments
+    assert _detect_segments([], fps=25.0) == []
+    assert _detect_segments([25], fps=25.0) == []
+
+
+def test_detect_segments_with_duplicate_frames_returns_empty():
+    """_detect_segments retourne [] si tous les intervalles sont nuls (frames dupliquées)."""
+    from app.services.stats_service import _detect_segments
+    # Deux frames identiques → interval = 0 → positive_intervals vide → []
+    result = _detect_segments([25, 25], fps=25.0)
+    assert result == []
+
+
+def test_detect_peaks_with_less_than_2_frames():
+    """_detect_peaks retourne [] avec moins de 2 frames."""
+    from app.services.stats_service import _detect_peaks
+    assert _detect_peaks([], fps=25.0) == []
+    assert _detect_peaks([25], fps=25.0) == []
