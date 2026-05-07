@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.48% </span>
+                <span class="strong">81.1% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>96/111</span>
+                <span class='fraction'>103/127</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70% </span>
+                <span class="strong">57.14% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/10</span>
+                <span class='fraction'>8/14</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.48% </span>
+                <span class="strong">81.1% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>96/111</span>
+                <span class='fraction'>103/127</span>
             </div>
         
             
@@ -201,7 +201,29 @@
 <a name='L136'></a><a href='#L136'>136</a>
 <a name='L137'></a><a href='#L137'>137</a>
 <a name='L138'></a><a href='#L138'>138</a>
-<a name='L139'></a><a href='#L139'>139</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -215,7 +237,17 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
@@ -238,6 +270,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -283,6 +316,15 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
@@ -340,7 +382,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useState } from 'react'
-import { useCreateBulkAnnotations } from '../../api/annotations'
+import { useCreateBulkAnnotations, useCategories } from '../../api/annotations'
+import { CategorySelector } from './CategorySelector'
 &nbsp;
 interface BulkPlacementFormProps {
   videoId: string
@@ -353,8 +396,18 @@ const BulkPlacementForm: React.FC&lt;BulkPlacementFormProps&gt; = ({ videoId, to
   const [endFrame, setEndFrame] = useState(totalFrames)
   const [count, setCount] = useState(4)
   const [prefix, setPrefix] = useState('beat')
+  const [categoryId, setCategoryId] = useState('')
 &nbsp;
   const bulkMutation = useCreateBulkAnnotations(videoId)
+  const { data: categories = [] } = useCategories(videoId)
+&nbsp;
+  // Initialiser avec la catégorie par défaut dès que les catégories sont chargées
+  React.useEffect(() =&gt; {
+    if (categories.length &gt; <span class="branch-0 cbranch-no" title="branch not covered" >0 &amp;&amp; !categoryId) <span class="branch-0 cbranch-no" title="branch not covered" >{</span></span>
+<span class="cstat-no" title="statement not covered" >      const def = categories.find((c: { name: string; id: string }) =&gt; c.name === 'Par défaut')</span>
+<span class="cstat-no" title="statement not covered" >      setCategoryId(def ? def.id : categories[0].id)</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+  }, [categories, categoryId])
 &nbsp;
   const interval = count &gt;= 2 ? (endFrame - startFrame) / (count - <span class="branch-0 cbranch-no" title="branch not covered" >1) : 0</span>
   const intervalSeconds = interval / fps
@@ -374,7 +427,8 @@ const BulkPlacementForm: React.FC&lt;BulkPlacementFormProps&gt; = ({ videoId, to
 <span class="cstat-no" title="statement not covered" >        start_frame: startFrame,</span>
 <span class="cstat-no" title="statement not covered" >        end_frame: endFrame,</span>
 <span class="cstat-no" title="statement not covered" >        count: count,</span>
-<span class="cstat-no" title="statement not covered" >        prefix: prefix</span>
+<span class="cstat-no" title="statement not covered" >        prefix: prefix,</span>
+<span class="cstat-no" title="statement not covered" >        category_id: categoryId || undefined,</span>
 <span class="cstat-no" title="statement not covered" >      })</span>
       // Reset ou notification de succès
 <span class="cstat-no" title="statement not covered" >    } catch (err) {</span>
@@ -421,6 +475,15 @@ const BulkPlacementForm: React.FC&lt;BulkPlacementFormProps&gt; = ({ videoId, to
             /&gt;
           &lt;/div&gt;
         &lt;/div&gt;
+&nbsp;
+        {categories.length &gt; <span class="branch-0 cbranch-no" title="branch not covered" >0 &amp;&amp; (</span>
+<span class="cstat-no" title="statement not covered" >          &lt;div&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}&gt;</span>
+              Catégorie
+<span class="cstat-no" title="statement not covered" >            &lt;/label&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;CategorySelector categories={categories} value={categoryId} onChange={setCategoryId} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;/div&gt;</span>
+        )}
 &nbsp;
         &lt;div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}&gt;
           &lt;div&gt;
@@ -484,7 +547,7 @@ export default BulkPlacementForm
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-17T08:04:52.149Z
+                at 2026-05-06T09:24:34.292Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

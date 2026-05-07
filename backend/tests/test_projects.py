@@ -90,3 +90,44 @@ async def test_get_project_detail_includes_adapted_preview(client, uploaded_vide
     detail = await client.get(f"/api/v1/projects/{project_id}")
     assert detail.status_code == 200
     assert detail.json()["videos"][0]["adapted_preview"]["bpm"] == 120.0
+
+
+@pytest.mark.asyncio
+async def test_update_project_not_found(client):
+    """PUT projet inexistant → 404."""
+    res = await client.put(
+        "/api/v1/projects/nonexistent-id",
+        json={"name": "Nouveau"}
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_project_not_found(client):
+    """DELETE projet inexistant → 404."""
+    res = await client.delete("/api/v1/projects/nonexistent-id")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_project_removes_video_file(client, uploaded_video_id, videos_dir, monkeypatch):
+    """DELETE projet supprime le fichier vidéo associé quand le fichier existe."""
+    import os
+    from app.config import settings
+    video_res = await client.get(f"/api/v1/videos/{uploaded_video_id}")
+    project_id = video_res.json()["project_id"]
+    video_data = video_res.json()
+    filename = video_data.get("filename", "")
+
+    # Créer le fichier dans le répertoire utilisé par settings.VIDEOS_DIR
+    fake_videos_dir = str(videos_dir)
+    monkeypatch.setattr(settings, "VIDEOS_DIR", fake_videos_dir)
+    fake_filepath = os.path.join(fake_videos_dir, filename)
+    # Écrire un fichier factice à l'emplacement attendu par le router
+    with open(fake_filepath, "wb") as f:
+        f.write(b"fakevideo")
+
+    res = await client.delete(f"/api/v1/projects/{project_id}")
+    assert res.status_code == 204
+    # Le fichier doit être supprimé
+    assert not os.path.exists(fake_filepath)

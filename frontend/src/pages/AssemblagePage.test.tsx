@@ -132,6 +132,19 @@ describe('AssemblagePage', () => {
     expect(screen.getByRole('checkbox', { name: /clip1\.mp4 adaptée/i })).toBeInTheDocument()
   })
 
+  test('adding an adapted video keeps its BPM in the assemblage clip', async () => {
+    const mockProject = buildProject({
+      videos: [buildVideo({ adapted_preview: { bpm: 128, created_at: '2026-04-29T10:00:00Z', path: '/tmp/a.mp4' } })],
+    })
+    renderWithProviders(<AssemblagePage project={mockProject} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /ajouter des vidéos/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /clip1\.mp4 adaptée/i }))
+    await userEvent.click(screen.getByRole('button', { name: /ajouter la sélection/i }))
+
+    expect(useAssemblageStore.getState().clips[0].bpm).toBe(128)
+  })
+
   test('clip appears in right panel and video player is shown when clips added', () => {
     renderWithProviders(
       <AssemblagePage

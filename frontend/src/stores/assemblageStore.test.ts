@@ -1,15 +1,20 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import {
+  buildAssemblageClipFromVideo,
+  getAdaptedAnnotationTimestampMs,
   getClipEffectiveDuration,
   getClipFadeDuration,
   getClipFadeInDuration,
   getClipFadeOutDuration,
   getClipFadeOpacity,
+  getClipTimelineAnnotations,
   getClipTimelineEnd,
   getClipTimelineStart,
   useAssemblageStore,
 } from './assemblageStore'
 import type { AssemblageClip, AudioTrack } from './assemblageStore'
+import type { Annotation } from '../types/annotation'
+import type { Video } from '../types/project'
 
 const buildClip = (overrides: Partial<AssemblageClip> = {}): AssemblageClip => ({
   id: `clip-${Math.random().toString(36).slice(2, 8)}`,
@@ -28,6 +33,33 @@ const buildAudioTrack = (overrides: Partial<AudioTrack> = {}): AudioTrack => ({
   trimStart: 0,
   trimEnd: 0,
   startOffset: 0,
+  ...overrides,
+})
+
+const buildVideo = (overrides: Partial<Video> = {}): Video => ({
+  id: 'v1',
+  project_id: 'p1',
+  filename: 'clip.mp4',
+  original_name: 'clip.mp4',
+  fps: 25,
+  duration_seconds: 10,
+  total_frames: 250,
+  width: 1920,
+  height: 1080,
+  codec: 'h264',
+  uploaded_at: '',
+  annotations: [],
+  ...overrides,
+})
+
+const buildAnnotation = (overrides: Partial<Annotation> = {}): Annotation => ({
+  id: `ann-${Math.random().toString(36).slice(2, 8)}`,
+  video_id: 'v1',
+  frame_number: 0,
+  timestamp_ms: 0,
+  label: '',
+  created_at: '',
+  updated_at: '',
   ...overrides,
 })
 
@@ -126,6 +158,16 @@ describe('switchProject', () => {
 })
 
 describe('video clip timeline placement', () => {
+  test('adapted clips keep their BPM for music synchronization', () => {
+    const clip = buildAssemblageClipFromVideo(
+      buildVideo({ adapted_preview: { bpm: 128, created_at: '2026-05-06T00:00:00Z' } }),
+      'adapted',
+    )
+
+    expect(clip.bpm).toBe(128)
+    expect(clip.name).toContain('128 BPM')
+  })
+
   test('auto-places added clips sequentially by default', () => {
     useAssemblageStore.getState().addClips([
       buildClip({ id: 'c1', duration: 10 }),
@@ -219,6 +261,54 @@ describe('video clip timeline placement', () => {
   })
 })
 
+describe('adapted clip annotations', () => {
+  test('projects original annotation timestamps onto the adapted BPM timeline', () => {
+    const annotations = [
+      buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+      buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+      buildAnnotation({ id: 'a3', timestamp_ms: 7000 }),
+    ]
+
+    expect(getAdaptedAnnotationTimestampMs(annotations[0], annotations, 120)).toBeCloseTo(250, 3)
+    expect(getAdaptedAnnotationTimestampMs(annotations[1], annotations, 120)).toBeCloseTo(750, 3)
+    expect(getAdaptedAnnotationTimestampMs(annotations[2], annotations, 120)).toBeCloseTo(1250, 3)
+  })
+
+  test('keeps original annotation timestamps for original clips', () => {
+    const annotations = [
+      buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+      buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+    ]
+
+    const projected = getClipTimelineAnnotations(buildClip({ sourceType: 'original', bpm: 120 }), annotations)
+
+    expect(projected.map((ann) => ann.timestamp_ms)).toEqual([1000, 3000])
+  })
+
+  test('uses adapted timestamps for adapted clips without mutating original annotations', () => {
+    const annotations = [
+      buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+      buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+    ]
+
+    const projected = getClipTimelineAnnotations(buildClip({ sourceType: 'adapted', bpm: 120 }), annotations)
+
+    expect(projected.map((ann) => ann.timestamp_ms)).toEqual([250, 750])
+    expect(annotations.map((ann) => ann.timestamp_ms)).toEqual([1000, 3000])
+  })
+
+  test('falls back to original timestamps when adapted BPM data is missing', () => {
+    const annotations = [
+      buildAnnotation({ id: 'a1', timestamp_ms: 1000 }),
+      buildAnnotation({ id: 'a2', timestamp_ms: 3000 }),
+    ]
+
+    const projected = getClipTimelineAnnotations(buildClip({ sourceType: 'adapted', bpm: undefined }), annotations)
+
+    expect(projected.map((ann) => ann.timestamp_ms)).toEqual([1000, 3000])
+  })
+})
+
 describe('clip fades', () => {
   test('computes fade-in opacity from local clip time', () => {
     const clip = buildClip({ duration: 10, fadeIn: true, fadeDurationS: 2 })
@@ -266,5 +356,107 @@ describe('clip fades', () => {
     const clip = useAssemblageStore.getState().clips[0]
     expect(clip.fadeInDurationS).toBe(2)
     expect(clip.fadeOutDurationS).toBe(3)
+  })
+})
+
+describe('audio track offset', () => {
+  test('updateAudioTrackOffset sets startOffset and marks as not auto-placed', () => {
+    useAssemblageStore.getState().addAudioTracks([
+      buildAudioTrack({ id: 'a1', duration: 30, startOffset: 0 }),
+    ])
+
+    useAssemblageStore.getState().updateAudioTrackOffset('a1', 10)
+
+    const track = useAssemblageStore.getState().audioTracks.find(t => t.id === 'a1')!
+    expect(track.startOffset).toBe(10)
+    expect(track.autoPlaced).toBe(false)
+  })
+
+  test('updateAudioTrackOffset clamps negative offset to 0', () => {
+    useAssemblageStore.getState().addAudioTracks([
+      buildAudioTrack({ id: 'a1', duration: 30, startOffset: 5 }),
+    ])
+
+    useAssemblageStore.getState().updateAudioTrackOffset('a1', -5)
+
+    const track = useAssemblageStore.getState().audioTracks.find(t => t.id === 'a1')!
+    expect(track.startOffset).toBe(0)
+  })
+
+  test('updateAudioTrackOffset only marks target track as non-auto-placed', () => {
+    useAssemblageStore.getState().addAudioTracks([
+      buildAudioTrack({ id: 'a1', duration: 20, startOffset: 0 }),
+      buildAudioTrack({ id: 'a2', duration: 20, startOffset: 0 }),
+    ])
+
+    useAssemblageStore.getState().updateAudioTrackOffset('a1', 5)
+
+    const a1 = useAssemblageStore.getState().audioTracks.find(t => t.id === 'a1')!
+    expect(a1.autoPlaced).toBe(false)
+    expect(a1.startOffset).toBe(5)
+  })
+})
+
+describe('audio track trim', () => {
+  test('updateAudioTrackTrim sets trimStart and trimEnd', () => {
+    useAssemblageStore.getState().addAudioTracks([
+      buildAudioTrack({ id: 'a1', duration: 30, trimStart: 0, trimEnd: 0 }),
+    ])
+    // First update duration to make it meaningful
+    useAssemblageStore.getState().updateAudioTrackDuration('a1', 30)
+
+    useAssemblageStore.getState().updateAudioTrackTrim('a1', 5, 20)
+
+    const track = useAssemblageStore.getState().audioTracks.find(t => t.id === 'a1')!
+    expect(track.trimStart).toBe(5)
+    expect(track.trimEnd).toBe(20)
+  })
+
+  test('updateAudioTrackDuration updates trimEnd to match duration when unset', () => {
+    useAssemblageStore.getState().addAudioTracks([
+      buildAudioTrack({ id: 'a1', duration: 0, trimStart: 0, trimEnd: 0 }),
+    ])
+
+    useAssemblageStore.getState().updateAudioTrackDuration('a1', 30)
+
+    const track = useAssemblageStore.getState().audioTracks.find(t => t.id === 'a1')!
+    expect(track.duration).toBe(30)
+    expect(track.trimEnd).toBe(30)
+  })
+})
+
+describe('restoreAudioTrackUrls', () => {
+  test('is a no-op when there are no audio tracks', async () => {
+    useAssemblageStore.setState({ audioTracks: [] })
+
+    await useAssemblageStore.getState().restoreAudioTrackUrls()
+
+    expect(useAssemblageStore.getState().audioTracks).toHaveLength(0)
+  })
+
+  test('is a no-op when all tracks already have a url', async () => {
+    useAssemblageStore.setState({
+      audioTracks: [
+        buildAudioTrack({ id: 'a1', url: 'blob:existing', storageKey: 'key-1' }),
+      ],
+    })
+
+    await useAssemblageStore.getState().restoreAudioTrackUrls()
+
+    const track = useAssemblageStore.getState().audioTracks[0]
+    expect(track.url).toBe('blob:existing')
+  })
+
+  test('is a no-op when no tracks have a storageKey', async () => {
+    useAssemblageStore.setState({
+      audioTracks: [
+        buildAudioTrack({ id: 'a1', url: '', storageKey: undefined }),
+      ],
+    })
+
+    await useAssemblageStore.getState().restoreAudioTrackUrls()
+
+    const track = useAssemblageStore.getState().audioTracks[0]
+    expect(track.url).toBe('')
   })
 })

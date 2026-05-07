@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>24/24</span>
+                <span class='fraction'>26/26</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>24/24</span>
+                <span class='fraction'>26/26</span>
             </div>
         
             
@@ -103,7 +103,13 @@
 <a name='L38'></a><a href='#L38'>38</a>
 <a name='L39'></a><a href='#L39'>39</a>
 <a name='L40'></a><a href='#L40'>40</a>
-<a name='L41'></a><a href='#L41'>41</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -117,32 +123,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react'
 import { Annotation } from '../../types/annotation'
 import { AnnotationItem } from './AnnotationItem'
@@ -151,13 +159,15 @@ interface AnnotationListProps {
   annotations: Annotation[]
   fps: number
   totalFrames: number
+  selectedAnnotationId?: string | null
   onSeek: (frame: number) =&gt; void
+  onSelect?: (id: string) =&gt; void
   onUpdate: (id: string, frame: number, label: string) =&gt; void
   onDelete: (id: string) =&gt; void
 }
 &nbsp;
 export const AnnotationList: React.FC&lt;AnnotationListProps&gt; = ({
-  annotations, fps, totalFrames, onSeek, onUpdate, onDelete,
+  annotations, fps, totalFrames, selectedAnnotationId, onSeek, onSelect, onUpdate, onDelete,
 }) =&gt; {
   const sorted = [...annotations].sort((a, b) =&gt; a.frame_number - b.frame_number)
 &nbsp;
@@ -165,7 +175,7 @@ export const AnnotationList: React.FC&lt;AnnotationListProps&gt; = ({
     &lt;div style={{ overflowY: 'auto', flex: 1 }}&gt;
       {sorted.length === 0 ? (
         &lt;p style={{ color: 'var(--color-text-muted, #888)', fontSize: '0.85rem', padding: '1rem', textAlign: 'center' }}&gt;
-          Aucune annotation — appuie sur &lt;kbd&gt;Espace&lt;/kbd&gt; pour en créer
+          Aucune annotation — appuie sur &lt;kbd&gt;Entrée&lt;/kbd&gt; pour en créer
         &lt;/p&gt;
       ) : (
         sorted.map(ann =&gt; (
@@ -174,7 +184,9 @@ export const AnnotationList: React.FC&lt;AnnotationListProps&gt; = ({
             annotation={ann}
             fps={fps}
             totalFrames={totalFrames}
+            selected={selectedAnnotationId === ann.id}
             onSeek={onSeek}
+            onSelect={onSelect}
             onUpdate={onUpdate}
             onDelete={onDelete}
           /&gt;
@@ -190,7 +202,7 @@ export const AnnotationList: React.FC&lt;AnnotationListProps&gt; = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-17T08:04:52.149Z
+                at 2026-05-06T09:24:34.292Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

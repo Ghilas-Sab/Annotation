@@ -82,4 +82,65 @@ describe('ProjectsPage', () => {
     fireEvent.click(deleteBtn)
     expect(confirmSpy).toHaveBeenCalled()
   })
+
+  it('shows loading state', async () => {
+    server.use(http.get('*/api/v1/projects', () =>
+      new Promise(() => {}) // Never resolves
+    ))
+    renderWithQuery(<ProjectsPage />)
+    expect(await screen.findByText(/chargement des projets/i)).toBeInTheDocument()
+  })
+
+  it('shows error state when project list fails to load', async () => {
+    server.use(http.get('*/api/v1/projects', () =>
+      new HttpResponse(null, { status: 500 })
+    ))
+    renderWithQuery(<ProjectsPage />)
+    expect(await screen.findByText(/erreur est survenue/i)).toBeInTheDocument()
+  })
+
+  it('submits form to create project', async () => {
+    server.use(http.get('*/api/v1/projects', () => HttpResponse.json([])))
+    server.use(http.post('*/api/v1/projects', () =>
+      HttpResponse.json({ id: '2', name: 'New Project', description: '', created_at: new Date().toISOString(), videos: [] })
+    ))
+
+    renderWithQuery(<ProjectsPage />)
+
+    const addButton = await screen.findByText(/Nouveau projet/i)
+    fireEvent.click(addButton)
+
+    const nameInput = await screen.findByLabelText('Nom du projet')
+    fireEvent.change(nameInput, { target: { value: 'New Project' } })
+
+    const submitBtn = screen.getByText('Créer le projet →')
+    expect(submitBtn).not.toBeDisabled()
+  })
+
+  it('cancel button hides form', async () => {
+    server.use(http.get('*/api/v1/projects', () => HttpResponse.json([])))
+    renderWithQuery(<ProjectsPage />)
+
+    const addButton = await screen.findByText(/Nouveau projet/i)
+    fireEvent.click(addButton)
+
+    expect(await screen.findByLabelText('Nom du projet')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Annuler'))
+
+    expect(screen.queryByLabelText('Nom du projet')).not.toBeInTheDocument()
+  })
+
+  it('new project button is hidden when form is shown', async () => {
+    server.use(http.get('*/api/v1/projects', () => HttpResponse.json([])))
+    renderWithQuery(<ProjectsPage />)
+
+    const addButton = await screen.findByText(/Nouveau projet/i)
+    fireEvent.click(addButton)
+
+    // After form opens, inline form header is shown
+    expect(await screen.findByText(/Créer un nouveau projet/i)).toBeInTheDocument()
+    // Cancel button is shown
+    expect(screen.getByText('Annuler')).toBeInTheDocument()
+  })
 })

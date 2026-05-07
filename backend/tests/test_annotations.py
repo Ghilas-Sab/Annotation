@@ -132,9 +132,134 @@ async def test_delete_annotation(client, video_id):
 async def test_delete_all_annotations(client, video_id):
     await client.post(f"/api/v1/videos/{video_id}/annotations", json={"frame_number": 10, "label": "1"})
     await client.post(f"/api/v1/videos/{video_id}/annotations", json={"frame_number": 20, "label": "2"})
-    
+
     res = await client.delete(f"/api/v1/videos/{video_id}/annotations")
     assert res.status_code == 204
-    
+
     list_res = await client.get(f"/api/v1/videos/{video_id}/annotations")
     assert len(list_res.json()) == 0
+
+
+# ── Tests des cas d'erreur manquants ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_annotation_video_not_found(client):
+    """POST annotation sur une vidéo inexistante → 404."""
+    res = await client.post(
+        "/api/v1/videos/nonexistent-video/annotations",
+        json={"frame_number": 10, "label": "x"}
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_annotations_video_not_found(client):
+    """GET annotations sur une vidéo inexistante → 404."""
+    res = await client.get("/api/v1/videos/nonexistent-video/annotations")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_annotation_not_found(client):
+    """PUT annotation inexistante → 404."""
+    res = await client.put(
+        "/api/v1/annotations/nonexistent-annotation-id",
+        json={"frame_number": 10, "label": "x"}
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_annotation_negative_frame(client, video_id):
+    """PUT avec frame_number négatif → 422."""
+    res = await client.post(f"/api/v1/videos/{video_id}/annotations",
+                            json={"frame_number": 10, "label": "init"})
+    ann_id = res.json()["id"]
+    res = await client.put(f"/api/v1/annotations/{ann_id}",
+                           json={"frame_number": -1, "label": "bad"})
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_annotation_frame_exceeds_total(client, video_id):
+    """PUT avec frame_number > total_frames → 422."""
+    res = await client.post(f"/api/v1/videos/{video_id}/annotations",
+                            json={"frame_number": 10, "label": "init"})
+    ann_id = res.json()["id"]
+    res = await client.put(f"/api/v1/annotations/{ann_id}",
+                           json={"frame_number": 9999, "label": "bad"})
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_delete_annotation_not_found(client):
+    """DELETE annotation inexistante → 404."""
+    res = await client.delete("/api/v1/annotations/nonexistent-annotation-id")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_all_annotations_video_not_found(client):
+    """DELETE toutes les annotations d'une vidéo inexistante → 404."""
+    res = await client.delete("/api/v1/videos/nonexistent-video/annotations")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_video_not_found(client):
+    """POST bulk sur une vidéo inexistante → 404."""
+    res = await client.post(
+        "/api/v1/videos/nonexistent-video/annotations/bulk",
+        json={"start_frame": 0, "end_frame": 40, "count": 3, "prefix": "beat"}
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_count_less_than_2(client, video_id):
+    """POST bulk avec count < 2 → 422."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/annotations/bulk",
+        json={"start_frame": 0, "end_frame": 40, "count": 1, "prefix": "beat"}
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_negative_start_frame(client, video_id):
+    """POST bulk avec start_frame < 0 → 422."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/annotations/bulk",
+        json={"start_frame": -1, "end_frame": 40, "count": 3, "prefix": "beat"}
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_end_frame_not_greater_than_start(client, video_id):
+    """POST bulk avec end_frame <= start_frame → 422."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/annotations/bulk",
+        json={"start_frame": 10, "end_frame": 10, "count": 3, "prefix": "beat"}
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_end_frame_exceeds_total(client, video_id):
+    """POST bulk avec end_frame > total_frames → 422."""
+    res = await client.post(
+        f"/api/v1/videos/{video_id}/annotations/bulk",
+        json={"start_frame": 0, "end_frame": 9999, "count": 3, "prefix": "beat"}
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_shift_annotations_video_not_found(client):
+    """PATCH shift sur une vidéo inexistante → 404."""
+    res = await client.patch(
+        "/api/v1/videos/nonexistent-video/annotations/shift",
+        json={"offset_ms": 1000.0}
+    )
+    assert res.status_code == 404
