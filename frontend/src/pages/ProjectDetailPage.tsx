@@ -1,24 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject, useDeleteVideo } from '../api/projects'
 import { useQueryClient } from '@tanstack/react-query'
-import VideoUpload from '../components/projects/VideoUpload'
-import VideoTrimModal from '../components/video/VideoTrimModal'
-import VideoCard from '../components/projects/VideoCard'
 import { deletePreview } from '../api/exports'
+import VideoUpload from '../components/projects/VideoUpload'
+import VideoCard from '../components/projects/VideoCard'
+import VideoTrimModal from '../components/video/VideoTrimModal'
+import { Logo, ThemeToggle, Breadcrumb, Icon, EmptyState, Spinner } from '../components/ui'
 import type { Video } from '../types/project'
-
-function useIsMobile(breakpoint = 768): boolean {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint)
-
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < breakpoint)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [breakpoint])
-
-  return isMobile
-}
 
 const ProjectDetailPage: React.FC = () => {
   const { id: projectId = '' } = useParams<{ id: string }>()
@@ -27,147 +16,136 @@ const ProjectDetailPage: React.FC = () => {
   const { data: project, isLoading, error } = useProject(projectId)
   const deleteMutation = useDeleteVideo(projectId)
   const [trimVideo, setTrimVideo] = useState<Video | null>(null)
-  const isMobile = useIsMobile()
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   const handleDeleteVideo = async (videoId: string, filename: string) => {
     if (window.confirm(`Supprimer la vidéo "${filename}" ?`)) {
-      try {
-        await deleteMutation.mutateAsync(videoId)
-      } catch (err) {
-        console.error(err)
-      }
+      try { await deleteMutation.mutateAsync(videoId) } catch (err) { console.error(err) }
     }
   }
 
   const handleDeletePreview = async (videoId: string) => {
-    if (!window.confirm('Supprimer l\'aperçu adapté sauvegardé ?')) return
+    if (!window.confirm("Supprimer l'aperçu adapté ?")) return
     try {
       await deletePreview(videoId)
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
+  }
+
+  const handleTrimConfirm = (start: number, end: number) => {
+    if (!trimVideo) return
+    const params = start === 0 && end === trimVideo.total_frames ? '' : `?start=${start}&end=${end}`
+    navigate(`/annotation/${trimVideo.id}${params}`)
+    setTrimVideo(null)
   }
 
   if (isLoading) {
     return (
-      <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <div style={{ color: 'var(--color-accent)', fontSize: '1.2rem' }}>Chargement du projet...</div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar"><Logo /></header>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-2)' }}>
+          <Spinner /> Chargement du projet…
+        </div>
       </div>
     )
   }
 
   if (error || !project) {
     return (
-      <div className="container">
-        <div style={{ color: 'var(--color-danger)' }}>Une erreur est survenue ou le projet est introuvable.</div>
-        <button onClick={() => navigate('/projects')} className="btn-secondary" style={{ marginTop: '1rem' }}>Retour aux projets</button>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/projects')} style={{ gap: 5 }}>
+            <Icon.Back /> Retour
+          </button>
+        </header>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+          <div style={{ color: 'var(--danger-c)' }}>Une erreur est survenue lors du chargement.</div>
+          <button className="btn btn-outline btn-sm" onClick={() => navigate('/projects')}>Retour aux projets</button>
+        </div>
       </div>
     )
   }
 
-  const handleTrimConfirm = (start: number, end: number) => {
-    if (!trimVideo) return
-    const params = start === 0 && end === trimVideo.total_frames
-      ? ''
-      : `?start=${start}&end=${end}`
-    navigate(`/annotation/${trimVideo.id}${params}`)
-    setTrimVideo(null)
-  }
-
   return (
     <>
-    {trimVideo && (
-      <VideoTrimModal
-        video={trimVideo}
-        onConfirm={handleTrimConfirm}
-        onCancel={() => setTrimVideo(null)}
-      />
-    )}
-    <div className="container">
-      <nav style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-        <span
-          onClick={() => navigate('/projects')}
-          style={{ color: 'var(--color-accent)', cursor: 'pointer' }}
-        >
-          Projets
-        </span>
-        <span style={{ color: 'var(--color-text-muted)', margin: '0 0.5rem' }}>&gt;</span>
-        <span style={{ color: 'var(--color-text)' }}>{project.name}</span>
-      </nav>
+      {trimVideo && (
+        <VideoTrimModal
+          video={trimVideo}
+          onConfirm={handleTrimConfirm}
+          onCancel={() => setTrimVideo(null)}
+        />
+      )}
 
-      <div
-        data-testid="detail-layout"
-        className={isMobile ? 'flex-col' : undefined}
-        style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: '2rem',
-          alignItems: 'flex-start',
-        }}
-      >
-        <div
-          data-testid="dropzone-column"
-          style={{ flex: isMobile ? undefined : '0 0 35%', width: isMobile ? '100%' : undefined }}
-        >
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--color-text)' }}>Ajouter une vidéo</h2>
-          <VideoUpload projectId={projectId} />
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar">
+          <Breadcrumb items={[
+            { label: 'Projets', onClick: () => navigate('/projects') },
+            { label: project.name },
+          ]} />
+          <div style={{ flex: 1 }} />
+          <ThemeToggle />
+          <div className="sep-v" style={{ height: 20, margin: '0 4px' }} />
+          <button className="btn btn-outline btn-sm" onClick={() => navigate(`/export/${projectId}`)}>
+            <Icon.Export /> Exporter le projet
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/assemblage/${projectId}`)}>
+            <Icon.Layers /> Assemblage
+          </button>
+        </header>
 
         <div
-          data-testid="video-list-column"
-          style={{
-            flex: isMobile ? undefined : '1',
-            width: isMobile ? '100%' : undefined,
-            overflowY: 'auto',
-            maxHeight: isMobile ? undefined : '80vh',
-          }}
+          data-testid="detail-layout"
+          className={isMobile ? 'flex-col' : ''}
+          style={{ flex: 1, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '360px 1fr', overflow: 'hidden' }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--color-text)' }}>
-              Vidéos du projet ({project.videos?.length || 0})
-            </h2>
-            {(project.videos?.length ?? 0) > 0 && (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => navigate(`/assemblage/${projectId}`)}
-                  className="btn-secondary"
-                  style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
-                >
-                  Assemblage
-                </button>
-                <button
-                  onClick={() => navigate(`/export/${projectId}`)}
-                  className="btn-secondary"
-                  style={{ fontSize: '0.82rem', padding: '0.35rem 0.9rem' }}
-                >
-                  ⬇ Exporter le projet
-                </button>
-              </div>
-            )}
+          {/* Left: Upload */}
+          <div
+            data-testid="dropzone-column"
+            style={{ borderRight: isMobile ? 'none' : '1px solid var(--border-c)', overflow: 'auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}
+          >
+            <div className="text-h3">Ajouter une vidéo</div>
+            <VideoUpload projectId={projectId} />
+            <div style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6 }}>
+              Formats supportés : MP4, MOV, AVI, MKV, WebM.
+            </div>
           </div>
 
-          {project.videos && project.videos.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {project.videos.map(video => (
+          {/* Right: Video list */}
+          <div
+            data-testid="video-list-column"
+            style={{ overflowY: 'auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div>
+                <div className="text-h3">{project.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
+                  {project.videos?.length ?? 0} vidéo{(project.videos?.length ?? 0) !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {!project.videos || project.videos.length === 0 ? (
+              <EmptyState
+                icon={<Icon.Video />}
+                title="Aucune vidéo dans ce projet"
+                description="Uploadez une vidéo pour commencer."
+              />
+            ) : (
+              project.videos.map(v => (
                 <VideoCard
-                  key={video.id}
-                  video={video}
-                  onAnnotate={(v) => setTrimVideo(v)}
-                  onStats={(id) => navigate(`/statistics/${id}`)}
+                  key={v.id}
+                  video={v}
+                  onAnnotate={video => setTrimVideo(video)}
+                  onStats={id => navigate(`/statistics/${id}`)}
                   onDelete={handleDeleteVideo}
                   onDeletePreview={handleDeletePreview}
                 />
-              ))}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '3rem', backgroundColor: 'var(--color-panel)', borderRadius: '8px', color: 'var(--color-text-muted)' }}>
-              Aucune vidéo dans ce projet. Commencez par en uploader une.
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </>
   )
 }

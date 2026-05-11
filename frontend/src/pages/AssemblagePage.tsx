@@ -20,6 +20,7 @@ import {
 import { deleteAudioTrackBlob, saveAudioTrackBlob } from '../utils/audioPersistence'
 import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
 import ExportPanel from '../components/assemblage/ExportPanel'
+import { Logo, ThemeToggle, Icon, Spinner } from '../components/ui'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
@@ -855,17 +856,26 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
   // ── États de chargement ──────────────────────────────────────────────────
   if (!projectOverride && isLoading) {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted, #8892b0)' }}>
-        Chargement…
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar"><Logo /></header>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-2)' }}>
+          <Spinner /> Chargement…
+        </div>
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--color-danger, #e94560)' }}>
-          {error ? 'Projet introuvable.' : 'Projet introuvable.'}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/projects')} style={{ gap: 5 }}>
+            <Icon.Back /> Projets
+          </button>
+        </header>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+          <div style={{ color: 'var(--danger-c)' }}>Projet introuvable.</div>
+          <button className="btn btn-outline btn-sm" onClick={() => navigate('/projects')}>Retour</button>
         </div>
       </div>
     )
@@ -875,82 +885,48 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
     <div style={{
       display: 'flex', flexDirection: 'column',
       height: '100vh', overflow: 'hidden',
-      background: 'var(--color-bg, #0f0f1a)',
+      background: 'var(--bg)',
     }}>
 
       {/* ══ Barre supérieure ══════════════════════════════════════════════════ */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '0.75rem',
-        padding: '0 0.65rem', height: 40, flexShrink: 0,
-        borderBottom: '1px solid var(--color-border, #2a2a4a)',
-        background: 'var(--color-panel, #13132a)',
-      }}>
+      <header className="topbar">
         <button
           type="button"
+          className="btn btn-ghost btn-sm"
           onClick={() => navigate(`/projects/${project.id}`)}
-          style={{ background: 'none', border: 'none', color: 'var(--color-accent, #e94560)', cursor: 'pointer', fontSize: '0.8rem', padding: '0.15rem 0.45rem', flexShrink: 0 }}
+          style={{ gap: 5 }}
         >
-          ← {project.name}
+          <Icon.Back /> {project.name}
         </button>
-        <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
-        <h1 style={{ margin: 0, fontSize: '0.84rem', fontWeight: 700, color: 'var(--color-text, #e8ecf8)', flexShrink: 0 }}>
-          Assemblage
-        </h1>
+        <div className="sep-v" style={{ height: 18, margin: '0 4px' }} />
+        <h2 role="heading" style={{ fontWeight: 600, fontSize: 14, color: 'var(--fg)', margin: 0, fontFamily: 'inherit' }}>Assemblage</h2>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 10 }}>
+          <span className="badge badge-muted">{clips.length} clip{clips.length !== 1 ? 's' : ''}</span>
+          {audioTracks.length > 0 && <span className="badge badge-muted">{audioTracks.length} piste{audioTracks.length !== 1 ? 's' : ''}</span>}
+          {clips.length > 0 && (() => {
+            const n = clips.filter((c) => c.fadeIn || c.fadeOut).length
+            return n > 0 ? (
+              <span className="badge" style={{ background: 'hsl(var(--danger)/0.12)', border: '1px solid hsl(var(--danger)/0.35)', color: 'var(--danger-c)', fontSize: 10 }}>
+                ✦ {n} fondu{n > 1 ? 's' : ''}
+              </span>
+            ) : null
+          })()}
+        </div>
         <div style={{ flex: 1 }} />
-
-        {/* Pill fondus */}
-        {clips.length > 0 && (() => {
-          const n = clips.filter((c) => c.fadeIn || c.fadeOut).length
-          return (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.3rem',
-              padding: '0.18rem 0.55rem', borderRadius: 999,
-              background: n > 0 ? 'rgba(233,69,96,0.12)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${n > 0 ? 'rgba(233,69,96,0.35)' : 'rgba(255,255,255,0.1)'}`,
-              fontSize: '0.65rem',
-              color: n > 0 ? '#f43f5e' : 'rgba(255,255,255,0.28)',
-              fontWeight: n > 0 ? 600 : 400,
-              transition: 'all 0.25s',
-              letterSpacing: '0.04em',
-              userSelect: 'none',
-            }}>
-              ✦ {n > 0 ? `${n} fondu${n > 1 ? 's' : ''}` : 'Fondus'}
-            </div>
-          )
-        })()}
-
-        <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted, #8892b0)', fontFamily: 'monospace' }}>
-          {clips.length} clip{clips.length !== 1 ? 's' : ''}
-          {audioTracks.length > 0 && ` · ${audioTracks.length} piste${audioTracks.length !== 1 ? 's' : ''}`}
-          {' · '}{fmtDuration(totalDuration)}
-        </span>
-
-        <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
-
+        <ThemeToggle />
+        <div className="sep-v" style={{ height: 18, margin: '0 4px' }} />
         {/* Bouton Export — toujours visible, désactivé si pas de clips */}
         <button
           type="button"
+          className="btn btn-primary btn-sm"
           aria-label="Exporter l'assemblage"
           disabled={clips.length === 0}
           onClick={() => setShowExportPanel(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.35rem',
-            padding: '0.22rem 0.7rem',
-            borderRadius: 6,
-            border: 'none',
-            background: clips.length === 0 ? 'rgba(233,69,96,0.15)' : 'var(--color-accent, #e94560)',
-            color: clips.length === 0 ? 'rgba(255,255,255,0.28)' : '#fff',
-            fontSize: '0.73rem',
-            fontWeight: 700,
-            cursor: clips.length === 0 ? 'not-allowed' : 'pointer',
-            letterSpacing: '0.04em',
-            flexShrink: 0,
-            transition: 'background 0.2s',
-          }}
+          style={{ gap: 5 }}
         >
-          ⬇ Exporter
+          <Icon.Export /> Exporter
         </button>
-      </div>
+      </header>
 
       {/* ══ Zone principale : preview + panneau droite ══════════════════════ */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -963,27 +939,22 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
         }}>
           {clips.length === 0 ? (
             /* État vide */
-            <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              gap: '1rem', padding: '2rem',
-              color: 'var(--color-text-muted, #8892b0)', textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '3rem', opacity: 0.2 }}>🎬</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '2rem', textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-3)', fontSize: 48, opacity: 0.25 }}><Icon.Film /></div>
               <div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#c8d0e8', marginBottom: '0.3rem' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 6 }}>
                   Ajoutez des vidéos pour commencer l&apos;assemblage
                 </div>
-                <div style={{ fontSize: '0.82rem', opacity: 0.6 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
                   Importez des clips via le panneau à droite.
                 </div>
               </div>
               <button
                 type="button"
-                className="btn-primary"
+                className="btn btn-primary"
                 onClick={() => setShowImportModal(true)}
               >
-                + Ajouter des vidéos
+                <Icon.Plus /> Ajouter des vidéos
               </button>
             </div>
           ) : (
@@ -1145,12 +1116,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
         </div>
 
         {/* ── Panneau droite ─────────────────────────────────────────────── */}
-        <div style={{
-          width: 232, flexShrink: 0,
-          display: 'flex', flexDirection: 'column',
-          background: 'var(--color-panel, #13132a)',
-          overflowY: 'auto',
-        }}>
+        <div className="panel-right" style={{ width: 240 }}>
 
           {/* Section Vidéos */}
           <div style={panelSection}>

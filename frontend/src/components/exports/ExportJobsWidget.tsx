@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useExportJobs } from '../../contexts/ExportJobsContext'
+import { Icon, Spinner } from '../ui'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 const AUTO_DISMISS_MS = 5000
@@ -11,21 +12,32 @@ function formatEta(s: number | null): string {
   return `~${Math.ceil(s / 60)}min`
 }
 
-// Barre de décompte avec animation CSS — démarre dès l'apparition, auto-dismiss à la fin
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'var(--text-3)',
+  running: 'var(--ac)',
+  done:    'var(--success-c, hsl(130 60% 55%))',
+  error:   'var(--danger-c)',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente',
+  running: 'En cours',
+  done:    'Terminé',
+  error:   'Erreur',
+}
+
 const CountdownBar: React.FC<{ color: string; onExpire: () => void }> = ({ color, onExpire }) => {
   const [paused, setPaused] = useState(false)
   return (
     <div
-      style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginTop: '0.55rem', overflow: 'hidden' }}
+      className="progress-track"
+      style={{ marginTop: 8 }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
       <div
         style={{
-          height: '100%',
-          background: color,
-          borderRadius: 2,
-          width: '100%',
+          height: '100%', background: color, borderRadius: 2, width: '100%',
           transformOrigin: 'left center',
           animationName: 'countdown-shrink',
           animationDuration: `${AUTO_DISMISS_MS}ms`,
@@ -39,11 +51,124 @@ const CountdownBar: React.FC<{ color: string; onExpire: () => void }> = ({ color
   )
 }
 
+type JobEntry = ReturnType<typeof useExportJobs>['jobs'][number]
+
+function JobRow({ job, onDismiss, onDownload, onCancel, onSave, saving }: {
+  job: JobEntry
+  onDismiss: (id: string) => void
+  onDownload: (id: string) => void
+  onCancel: (id: string) => void
+  onSave: (id: string) => void
+  saving: boolean
+}) {
+  const isFinished = job.status === 'done' || job.status === 'error'
+  const isActive = job.status === 'pending' || job.status === 'running'
+
+  return (
+    <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7, borderBottom: '1px solid var(--border-c)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{
+          width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+          background: STATUS_COLORS[job.status] ?? 'var(--text-3)',
+          boxShadow: job.status === 'running' ? `0 0 6px ${STATUS_COLORS['running']}55` : 'none',
+          animation: job.status === 'running' ? 'pulseGlow 1.5s ease infinite' : 'none',
+        }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {job.label}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 2, alignItems: 'center' }}>
+            <span style={{ fontSize: 10, color: STATUS_COLORS[job.status] ?? 'var(--text-2)', fontWeight: 500 }}>
+              {STATUS_LABELS[job.status] ?? job.status}
+            </span>
+          </div>
+          {job.status === 'error' && job.error && (
+            <div style={{ fontSize: 10, color: 'var(--danger-c)', background: 'hsl(var(--danger)/0.1)', borderRadius: 4, padding: '2px 6px', marginTop: 3 }}>
+              {job.error}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+          <span className={`badge ${job.type === 'preview' ? 'badge-adapted' : 'badge-primary'}`} style={{ fontSize: 9 }}>
+            {job.type === 'preview' ? 'Preview' : 'Export'}
+          </span>
+          {isActive && (
+            <button className="btn btn-ghost btn-xs" style={{ color: 'var(--danger-c)', fontSize: 10 }} onClick={() => onCancel(job.job_id)}>
+              Annuler
+            </button>
+          )}
+          {isFinished && (
+            <button className="btn btn-ghost btn-xs btn-icon" onClick={() => onDismiss(job.job_id)} aria-label="Fermer" title="Fermer">
+              <Icon.X />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {isActive && (
+        <>
+          <div className="progress-track">
+            <div
+              role="progressbar"
+              aria-valuenow={job.progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="progress-bar"
+              style={{ width: `${job.progress}%`, background: job.type === 'preview' ? 'hsl(var(--chart-1))' : 'var(--ac)' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-2)' }}>
+            <span>{job.progress}%</span>
+            <span>{formatEta(job.estimated_remaining_s)}</span>
+          </div>
+        </>
+      )}
+
+      {/* Done progress (full) */}
+      {job.status === 'done' && (
+        <div className="progress-track">
+          <div className="progress-bar progress-bar-success" style={{ width: '100%' }} />
+        </div>
+      )}
+
+      {/* Actions — export done */}
+      {job.status === 'done' && job.type === 'export' && (
+        <div style={{ fontSize: 11, color: 'var(--success-c, hsl(130 60% 55%))' }}>Téléchargement démarré</div>
+      )}
+
+      {/* Actions — preview done */}
+      {job.status === 'done' && job.type === 'preview' && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost btn-xs" onClick={() => onDownload(job.job_id)}>
+            <Icon.Download /> Télécharger
+          </button>
+          {!job.saved ? (
+            <button className="btn btn-ghost btn-xs" onClick={() => onSave(job.job_id)} disabled={saving}>
+              {saving ? '…' : 'Sauvegarder'}
+            </button>
+          ) : (
+            <span style={{ fontSize: 11, color: 'var(--success-c, hsl(130 60% 55%))' }}>✓ Sauvegardé</span>
+          )}
+          {job.videoId && job.projectId && (
+            <Link
+              to={`/projects/${job.projectId}#video-${job.videoId}`}
+              style={{ fontSize: 11, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px' }}
+            >
+              Voir
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const ExportJobsWidget: React.FC = () => {
   const { jobs, dismissJob, cancelJob, savePreviewJob } = useExportJobs()
   const [collapsed, setCollapsed] = useState(false)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
-  // IDs des jobs dont le décompte est terminé → animation "montée"
   const [risenIds, setRisenIds] = useState<Set<string>>(new Set())
 
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
@@ -81,11 +206,8 @@ const ExportJobsWidget: React.FC = () => {
 
   const handleSave = async (jobId: string) => {
     setSavingIds(prev => new Set(prev).add(jobId))
-    try {
-      await savePreviewJob(jobId)
-    } finally {
-      setSavingIds(prev => { const s = new Set(prev); s.delete(jobId); return s })
-    }
+    try { await savePreviewJob(jobId) }
+    finally { setSavingIds(prev => { const s = new Set(prev); s.delete(jobId); return s }) }
   }
 
   if (jobs.length === 0) return null
@@ -99,15 +221,8 @@ const ExportJobsWidget: React.FC = () => {
   return (
     <>
       <style>{`
-        @keyframes countdown-shrink {
-          from { transform: scaleX(1); }
-          to   { transform: scaleX(0); }
-        }
-        @keyframes notif-rise {
-          0%   { transform: translateY(0);    opacity: 1; }
-          40%  { transform: translateY(-10px); opacity: 0.85; }
-          100% { transform: translateY(0);    opacity: 1; }
-        }
+        @keyframes countdown-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+        @keyframes notif-rise { 0% { transform: translateY(0); opacity: 1; } 40% { transform: translateY(-10px); opacity: 0.85; } 100% { transform: translateY(0); opacity: 1; } }
       `}</style>
 
       <div
@@ -115,180 +230,66 @@ const ExportJobsWidget: React.FC = () => {
         data-testid="export-jobs-widget"
         style={{
           ...widgetStyle,
-          width: 320,
-          background: 'var(--color-panel, #13132a)',
-          border: '1px solid var(--color-border, #2a2a4a)',
-          borderRadius: 10,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          width: 300,
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-c)',
+          borderRadius: 12,
+          boxShadow: 'var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.45))',
           overflow: 'hidden',
           fontFamily: 'inherit',
         }}
       >
-        {/* Header */}
+        {/* Header — drag handle */}
         <div
           onMouseDown={onMouseDown}
           onClick={() => setCollapsed(c => !c)}
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '0.65rem 0.9rem',
-            borderBottom: collapsed ? 'none' : '1px solid var(--color-border, #2a2a4a)',
-            cursor: 'grab', userSelect: 'none',
-            background: 'rgba(0,0,0,0.15)',
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', cursor: 'grab', userSelect: 'none',
+            borderBottom: collapsed ? 'none' : '1px solid var(--border-c)',
+            background: 'var(--elevated)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text, #cdd6f4)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              Traitements
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            {activeCount > 0 ? <Spinner size={14} /> : <Icon.Check />}
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Traitements</span>
             {activeCount > 0 && (
-              <span style={{
-                fontSize: '0.7rem', fontWeight: 700,
-                background: 'var(--color-accent, #e94560)',
-                color: '#fff', borderRadius: 10, padding: '0 5px', lineHeight: '16px',
-              }}>
+              <span style={{ background: 'var(--ac)', color: '#fff', borderRadius: 999, padding: '1px 6px', fontSize: 10, fontWeight: 700, lineHeight: '1.5' }}>
                 {activeCount}
               </span>
             )}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #8892b0)' }}>
-            {collapsed ? '▲' : '▼'}
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{collapsed ? '▲' : '▼'}</span>
         </div>
 
+        {/* Job list */}
         {!collapsed && (
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {jobs.map(job => {
               const isFinished = job.status === 'done' || job.status === 'error'
-              const barColor = job.status === 'error' ? 'var(--color-danger, #ff6b6b)' : '#64ffda'
+              const barColor = job.status === 'error' ? 'var(--danger-c)' : 'var(--success-c, hsl(130 60% 55%))'
               const hasRisen = risenIds.has(job.job_id)
-
               return (
                 <div
                   key={job.job_id}
-                  style={{
-                    padding: '0.75rem 0.9rem',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    animation: hasRisen ? 'notif-rise 0.5s ease-out' : undefined,
-                  }}
+                  style={{ animation: hasRisen ? 'notif-rise 0.5s ease-out' : undefined }}
                 >
-                  {/* Ligne titre + bouton fermer */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text, #cdd6f4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {job.status === 'done' ? '✅' : job.status === 'error' ? '❌' : '⚙️'}{' '}
-                        {job.label}
-                      </div>
-                      {job.status === 'error' && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--color-danger, #ff6b6b)', marginTop: 2 }}>
-                          {job.error}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-                      {(job.status === 'pending' || job.status === 'running') && (
-                        <button
-                          onClick={() => cancelJob(job.job_id)}
-                          title="Annuler"
-                          style={{ background: 'transparent', border: '1px solid rgba(255,107,107,0.4)', color: 'var(--color-danger, #ff6b6b)', cursor: 'pointer', fontSize: '0.72rem', padding: '1px 6px', borderRadius: 4 }}
-                        >
-                          Annuler
-                        </button>
-                      )}
-                      {isFinished && (
-                        <button
-                          onClick={() => dismissJob(job.job_id)}
-                          title="Fermer"
-                          style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted, #8892b0)', cursor: 'pointer', fontSize: '0.9rem', padding: '0 2px' }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Barre de progression du job en cours */}
-                  {(job.status === 'pending' || job.status === 'running') && (
-                    <>
-                      <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: '0.3rem' }}>
-                        <div
-                          role="progressbar"
-                          aria-valuenow={job.progress}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          style={{
-                            height: '100%', width: `${job.progress}%`,
-                            background: job.type === 'preview' ? '#7aa2f7' : 'var(--color-accent, #e94560)',
-                            borderRadius: 2, transition: 'width 0.4s ease',
-                          }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--color-text-muted, #8892b0)' }}>
-                        <span>{job.progress}%</span>
-                        <span>{formatEta(job.estimated_remaining_s)}</span>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Actions export terminé */}
-                  {job.status === 'done' && job.type === 'export' && (
-                    <div style={{ fontSize: '0.72rem', color: '#64ffda', marginTop: 2 }}>
-                      Téléchargement démarré
-                    </div>
-                  )}
-
-                  {/* Actions preview terminée */}
-                  {job.status === 'done' && job.type === 'preview' && (
-                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleDownload(job.job_id)}
-                        style={{
-                          fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
-                          border: '1px solid rgba(100,255,218,0.4)', background: 'rgba(100,255,218,0.06)',
-                          color: '#64ffda', cursor: 'pointer',
-                        }}
-                      >
-                        Télécharger
-                      </button>
-                      {!job.saved ? (
-                        <button
-                          onClick={() => handleSave(job.job_id)}
-                          disabled={savingIds.has(job.job_id)}
-                          style={{
-                            fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
-                            border: '1px solid rgba(233,69,96,0.4)', background: 'rgba(233,69,96,0.06)',
-                            color: 'var(--color-accent, #e94560)', cursor: 'pointer',
-                          }}
-                        >
-                          {savingIds.has(job.job_id) ? '…' : 'Sauvegarder'}
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '0.72rem', color: '#64ffda' }}>✓ Sauvegardé</span>
-                      )}
-                      {job.videoId && job.projectId && (
-                        <Link
-                          to={`/projects/${job.projectId}#video-${job.videoId}`}
-                          style={{
-                            fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 4,
-                            border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
-                            color: 'var(--color-text-muted, #8892b0)', textDecoration: 'none',
-                            display: 'inline-block',
-                          }}
-                        >
-                          Voir
-                        </Link>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Barre de décompte — anime la notif vers le haut après 5s, sans la supprimer */}
+                  <JobRow
+                    job={job}
+                    onDismiss={dismissJob}
+                    onDownload={handleDownload}
+                    onCancel={cancelJob}
+                    onSave={handleSave}
+                    saving={savingIds.has(job.job_id)}
+                  />
                   {isFinished && !hasRisen && (
-                    <CountdownBar
-                      key={`countdown-${job.job_id}`}
-                      color={barColor}
-                      onExpire={() =>
-                        setRisenIds((prev) => new Set(prev).add(job.job_id))
-                      }
-                    />
+                    <div style={{ padding: '0 12px 10px' }}>
+                      <CountdownBar
+                        key={`countdown-${job.job_id}`}
+                        color={barColor}
+                        onExpire={() => setRisenIds(prev => new Set(prev).add(job.job_id))}
+                      />
+                    </div>
                   )}
                 </div>
               )
