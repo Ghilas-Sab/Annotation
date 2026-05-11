@@ -165,7 +165,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
                 background: 'rgba(100,255,218,0.12)', border: '1px solid rgba(100,255,218,0.3)',
                 color: '#64ffda',
               }}>
-                {video.adapted_preview.bpm} BPM
+                {Number(video.adapted_preview.bpm).toFixed(2)} BPM
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)' }}>
                 Adaptée le {new Date(video.adapted_preview.created_at).toLocaleString('fr-FR')}

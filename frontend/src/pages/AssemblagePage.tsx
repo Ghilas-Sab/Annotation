@@ -19,6 +19,7 @@ import {
 } from '../stores/assemblageStore'
 import { deleteAudioTrackBlob, saveAudioTrackBlob } from '../utils/audioPersistence'
 import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
+import ExportPanel from '../components/assemblage/ExportPanel'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
@@ -224,6 +225,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
   const { data: fetchedProject, isLoading, error } = useProject(projectOverride ? '' : projectId)
 
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showExportPanel, setShowExportPanel] = useState(false)
   const [currentClipIndex, setCurrentClipIndex] = useState(0)
   const [isPlaying, setIsPlaying]       = useState(false)
   const [timelinePlaybackActive, setTimelinePlaybackActive] = useState(false)
@@ -922,6 +924,32 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           {audioTracks.length > 0 && ` · ${audioTracks.length} piste${audioTracks.length !== 1 ? 's' : ''}`}
           {' · '}{fmtDuration(totalDuration)}
         </span>
+
+        <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+
+        {/* Bouton Export — toujours visible, désactivé si pas de clips */}
+        <button
+          type="button"
+          aria-label="Exporter l'assemblage"
+          disabled={clips.length === 0}
+          onClick={() => setShowExportPanel(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.22rem 0.7rem',
+            borderRadius: 6,
+            border: 'none',
+            background: clips.length === 0 ? 'rgba(233,69,96,0.15)' : 'var(--color-accent, #e94560)',
+            color: clips.length === 0 ? 'rgba(255,255,255,0.28)' : '#fff',
+            fontSize: '0.73rem',
+            fontWeight: 700,
+            cursor: clips.length === 0 ? 'not-allowed' : 'pointer',
+            letterSpacing: '0.04em',
+            flexShrink: 0,
+            transition: 'background 0.2s',
+          }}
+        >
+          ⬇ Exporter
+        </button>
       </div>
 
       {/* ══ Zone principale : preview + panneau droite ══════════════════════ */}
@@ -1393,6 +1421,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
               ))}
             </div>
           </div>
+
         </div>
       </div>
 
@@ -1441,6 +1470,15 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           project={project}
           onClose={() => setShowImportModal(false)}
           onAddSelection={handleAddSelection}
+        />
+      )}
+
+      {/* Panneau export assemblage */}
+      {showExportPanel && (
+        <ExportPanel
+          clips={clips}
+          audioTracks={audioTracks}
+          onClose={() => setShowExportPanel(false)}
         />
       )}
     </div>

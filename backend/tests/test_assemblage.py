@@ -1,6 +1,12 @@
+import json
 import pytest
 
 pytestmark = pytest.mark.anyio
+
+
+def _export_form(clips_data: dict) -> dict:
+    """Prépare un payload multipart pour POST /assemblage/export."""
+    return {"data": {"config": json.dumps(clips_data)}}
 
 
 async def test_list_projects_with_videos_for_assemblage(client, project_with_two_videos):
@@ -137,3 +143,54 @@ def test_build_concat_filter_single_clip_with_transitions():
     fc, maps = build_concat_filter(clips, use_transitions=True, transition_duration_s=0.5)
     assert 'concat=n=1' in fc
     assert maps == ['[v]', '[a]']
+
+
+# ── Tests S7.10 : POST /assemblage/export ────────────────────────────────────
+
+async def test_export_assemblage_returns_job_id(client, two_videos):
+    """POST /assemblage/export retourne un job_id immédiatement (202)."""
+    config = json.dumps({
+        "clips": [
+            {"video_id": two_videos[0], "order": 0},
+            {"video_id": two_videos[1], "order": 1},
+        ],
+        "use_transitions": False,
+        "transition_duration_s": 0.5,
+        "resolution": "720p",
+        "include_music": False,
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 202
+    data = resp.json()
+    assert "job_id" in data
+
+
+async def test_export_assemblage_empty_clips_returns_422(client):
+    """422 si clips est vide."""
+    config = json.dumps({"clips": [], "use_transitions": False})
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code in (400, 422)
+
+
+async def test_export_assemblage_invalid_video_id_returns_404(client):
+    """404 si un video_id est invalide."""
+    config = json.dumps({
+        "clips": [{"video_id": "00000000-0000-0000-0000-000000000000", "order": 0}],
+        "use_transitions": False,
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 404
+
+
+async def test_export_assemblage_job_is_trackable(client, two_videos):
+    """Le job créé est interrogeable via GET /exports/jobs/{id}."""
+    config = json.dumps({
+        "clips": [{"video_id": two_videos[0], "order": 0}],
+        "use_transitions": False,
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+    status_resp = await client.get(f"/api/v1/exports/jobs/{job_id}")
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] in ("pending", "running", "done", "error")
