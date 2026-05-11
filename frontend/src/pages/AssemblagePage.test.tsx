@@ -604,3 +604,27 @@ describe('S7.8 — Chargement annotations', () => {
     )
   })
 })
+
+// ── S7.10 — Export assemblage ─────────────────────────────────────────────────
+
+describe('S7.10 — Bouton export assemblage', () => {
+  test('export button is disabled when no clips', () => {
+    renderWithProviders(<AssemblagePage project={buildProject()} />)
+    expect(screen.getByRole('button', { name: /exporter l.assemblage/i })).toBeDisabled()
+  })
+
+  test('export button is enabled when clips are present', () => {
+    renderWithProviders(
+      <AssemblagePage project={buildProject()} initialClips={[buildClip()]} />
+    )
+    expect(screen.getByRole('button', { name: /exporter l.assemblage/i })).not.toBeDisabled()
+  })
+
+  test('clicking export button opens export panel', async () => {
+    renderWithProviders(
+      <AssemblagePage project={buildProject()} initialClips={[buildClip()]} />
+    )
+    await userEvent.click(screen.getByRole('button', { name: /exporter l.assemblage/i }))
+    expect(screen.getByRole('heading', { name: /options d.export/i })).toBeInTheDocument()
+  })
+})

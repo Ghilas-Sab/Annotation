@@ -114,6 +114,13 @@ async def video_ids(project_with_two_videos):
 
 
 @pytest.fixture
+async def two_videos(project_with_two_videos):
+    """Alias court : retourne [video_id_1, video_id_2] (vidéos réelles avec filepath)."""
+    _, ids = project_with_two_videos
+    return ids
+
+
+@pytest.fixture
 async def video_with_saved_preview(client, video_id_with_annotations, tmp_path, monkeypatch):
     """Vidéo avec un preview BPM sauvegardé à 120 BPM."""
     import os, time
