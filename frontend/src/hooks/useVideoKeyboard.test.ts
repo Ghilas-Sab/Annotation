@@ -83,18 +83,18 @@ describe('useVideoKeyboard', () => {
     expect(seek).toHaveBeenCalledWith(20) // 10 + fallback(10)
   })
 
-  test('Enter creates annotation at current frame', () => {
+  test('Space creates annotation at current frame', () => {
     const createAnnotation = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), createAnnotation }))
-    fireEvent.keyDown(window, { key: 'Enter' })
+    fireEvent.keyDown(window, { key: ' ', code: 'Space' })
     expect(createAnnotation).toHaveBeenCalledWith(10)
   })
 
-  test('Space toggles play/pause instead of creating an annotation', () => {
+  test('P toggles play/pause instead of creating an annotation', () => {
     const createAnnotation = vi.fn()
     const togglePlayPause = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), createAnnotation, togglePlayPause }))
-    fireEvent.keyDown(window, { key: ' ' })
+    fireEvent.keyDown(window, { key: 'p' })
     expect(togglePlayPause).toHaveBeenCalledOnce()
     expect(createAnnotation).not.toHaveBeenCalled()
   })
@@ -179,14 +179,14 @@ describe('useVideoKeyboard', () => {
     document.body.removeChild(input)
   })
 
-  test('Space works and clears focus when a button is focused', () => {
+  test('P works and clears focus when a button is focused', () => {
     const togglePlayPause = vi.fn()
     renderHook(() => useVideoKeyboard({ ...defaultOpts, seek: vi.fn(), togglePlayPause }))
     const button = document.createElement('button')
     document.body.appendChild(button)
     button.focus()
 
-    fireEvent.keyDown(button, { key: ' ', code: 'Space' })
+    fireEvent.keyDown(button, { key: 'p' })
 
     expect(togglePlayPause).toHaveBeenCalledOnce()
     expect(document.activeElement).not.toBe(button)

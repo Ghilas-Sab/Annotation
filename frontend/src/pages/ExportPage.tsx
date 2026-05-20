@@ -281,7 +281,9 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
           background: 'hsl(var(--danger)/0.08)', border: '1px solid hsl(var(--danger)/0.25)',
           fontSize: 13, color: 'var(--danger-c)',
         }}>
-          <Icon.AlertTriangle style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ flexShrink: 0, marginTop: 1 }}>
+            <Icon.AlertTriangle />
+          </span>
           <span>{error}</span>
         </div>
       )}

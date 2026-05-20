@@ -138,7 +138,7 @@ const PlaybackControls = ({
         }}
       >
         {/* Navigation frame */}
-        <button style={btnStyle} aria-label="début vidéo" title="Début vidéo (Alt+←)" onClick={seekStart}>⏮</button>
+        <button style={btnStyle} aria-label="début vidéo" title="Début vidéo (Home)" onClick={seekStart}>⏮</button>
         <button style={annotationBtnStyle} aria-label="annotation précédente" title="Annotation précédente (Ctrl+←)" onClick={seekPrevAnnotation}>◀</button>
         <button style={btnStyle} aria-label="-5 frames" title="-5 frames (Shift+←)" onClick={seek5Back}>◀◀</button>
         <button style={btnStyle} aria-label="frame précédente" title="Frame précédente (←)" onClick={seekPrevFrame}>◀</button>
@@ -147,7 +147,7 @@ const PlaybackControls = ({
         <button
           style={{ ...btnStyle, padding: '0.4rem 0.9rem', background: 'rgba(233,69,96,0.15)', borderColor: 'rgba(233,69,96,0.4)', color: '#e94560', fontWeight: 600 }}
           aria-label="annoter"
-          title="Annoter (Entrée)"
+          title="Annoter / désannoter (Espace)"
           onClick={annotate}
         >
           ● Annoter
@@ -157,7 +157,7 @@ const PlaybackControls = ({
         <button style={btnStyle} aria-label="frame suivante" title="Frame suivante (→)" onClick={seekNextFrame}>▶</button>
         <button style={btnStyle} aria-label="+5 frames" title="+5 frames (Shift+→)" onClick={seek5Forward}>▶▶</button>
         <button style={annotationBtnStyle} aria-label="annotation suivante" title="Annotation suivante (Ctrl+→)" onClick={seekNextAnnotation}>▶</button>
-        <button style={btnStyle} aria-label="fin vidéo" title="Fin vidéo (Alt+→)" onClick={seekEnd}>⏭</button>
+        <button style={btnStyle} aria-label="fin vidéo" title="Fin vidéo (End)" onClick={seekEnd}>⏭</button>
 
         {/* Aide */}
         <button

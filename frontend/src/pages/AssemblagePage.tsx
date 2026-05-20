@@ -865,7 +865,7 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
     )
   }
 
-  if (!project) {
+  if (error || !project) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
         <header className="topbar">
@@ -874,7 +874,9 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           </button>
         </header>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-          <div style={{ color: 'var(--danger-c)' }}>Projet introuvable.</div>
+          <div style={{ color: 'var(--danger-c)' }}>
+            {error ? 'Une erreur est survenue lors du chargement.' : 'Projet introuvable.'}
+          </div>
           <button className="btn btn-outline btn-sm" onClick={() => navigate('/projects')}>Retour</button>
         </div>
       </div>

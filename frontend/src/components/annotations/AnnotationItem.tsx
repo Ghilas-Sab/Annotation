@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { forwardRef, useState } from 'react'
 import { Annotation } from '../../types/annotation'
 import { frameToTimestamp } from '../../utils/frameUtils'
 
@@ -6,6 +6,7 @@ interface AnnotationItemProps {
   annotation: Annotation
   fps: number
   totalFrames: number
+  active?: boolean
   selected?: boolean
   onSeek: (frame: number) => void
   onSelect?: (id: string) => void
@@ -13,9 +14,9 @@ interface AnnotationItemProps {
   onDelete: (id: string) => void
 }
 
-export const AnnotationItem: React.FC<AnnotationItemProps> = ({
-  annotation, fps, totalFrames, selected = false, onSeek, onSelect, onUpdate, onDelete,
-}) => {
+export const AnnotationItem = forwardRef<HTMLDivElement, AnnotationItemProps>(({
+  annotation, fps, totalFrames, active = false, selected = false, onSeek, onSelect, onUpdate, onDelete,
+}, ref) => {
   const [editingLabel, setEditingLabel] = useState(false)
   const [editingFrame, setEditingFrame] = useState(false)
   const [label, setLabel] = useState(annotation.label)
@@ -37,6 +38,7 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
 
   return (
     <div
+      ref={ref}
       data-testid="annotation-item"
       tabIndex={0}
       onClick={(e) => {
@@ -54,10 +56,21 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
         padding: '0.4rem 0.6rem',
         borderBottom: '1px solid var(--color-surface, #2a2a3e)',
         fontSize: '0.82rem',
-        background: selected ? 'rgba(74,158,255,0.12)' : 'transparent',
-        outline: selected ? '1px solid rgba(74,158,255,0.55)' : 'none',
+        background: selected ? 'var(--ac-muted)' : active ? 'hsl(var(--accent) / 0.08)' : 'transparent',
+        outline: selected ? '1px solid var(--border-ac)' : active ? '1px solid hsl(var(--accent) / 0.25)' : 'none',
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 10,
+          color: active ? 'var(--ac)' : 'transparent',
+          fontSize: 11,
+          flexShrink: 0,
+        }}
+      >
+        ▶
+      </span>
       {/* Badge catégorie */}
       <span
         data-testid="category-badge"
@@ -147,4 +160,6 @@ export const AnnotationItem: React.FC<AnnotationItemProps> = ({
       </button>
     </div>
   )
-}
+})
+
+AnnotationItem.displayName = 'AnnotationItem'

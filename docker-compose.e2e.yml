@@ -1,0 +1,68 @@
+name: annotation-e2e
+
+# Environnement Docker isolé pour les tests E2E Playwright.
+# Utilise des volumes séparés pour ne pas polluer les données de dev.
+#
+# Lancement :
+#   docker compose -f docker-compose.e2e.yml up --exit-code-from playwright --abort-on-container-exit
+#
+# Ou via le script :
+#   ./e2e/run-e2e.sh
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    environment:
+      - DATA_DIR=/data
+      - VIDEOS_DIR=/videos
+      - ALLOWED_ORIGINS=http://frontend:80,http://localhost:3001
+    volumes:
+      - e2e_videos:/videos
+      - e2e_data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/projects')"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        - VITE_API_URL=/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  playwright:
+    build:
+      context: ./e2e
+    environment:
+      - BASE_URL=http://frontend:80
+      - API_BASE_URL=http://backend:8000/api/v1
+      - CI=true
+    depends_on:
+      frontend:
+        condition: service_healthy
+    volumes:
+      - ./e2e/test-results:/e2e/test-results
+      - ./e2e/playwright-report:/e2e/playwright-report
+
+volumes:
+  e2e_videos:
+  e2e_data:

@@ -25,7 +25,7 @@ describe('AnnotationList', () => {
   test("affiche le message vide quand aucune annotation", () => {
     render(<AnnotationList {...defaultProps} annotations={[]} />)
     expect(screen.getByText(/aucune annotation/i)).toBeInTheDocument()
-    expect(screen.getByText(/entrée/i)).toBeInTheDocument()
+    expect(screen.getByText(/espace/i)).toBeInTheDocument()
   })
 
   test('affiche toutes les annotations', () => {
@@ -77,7 +77,7 @@ describe('AnnotationList', () => {
     const annotations = [makeAnnotation('1', 10), makeAnnotation('2', 20)]
     render(<AnnotationList {...defaultProps} annotations={annotations} selectedAnnotationId="2" />)
     const items = screen.getAllByTestId('annotation-item')
-    expect(items[1]).toHaveStyle({ background: 'rgba(74,158,255,0.12)' })
+    expect(items[1]).toHaveStyle({ background: 'var(--ac-muted)' })
   })
 
   test('forwards onSelect from item clicks', () => {

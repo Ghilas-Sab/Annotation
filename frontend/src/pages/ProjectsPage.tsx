@@ -111,8 +111,6 @@ const ProjectsPage: React.FC = () => {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [search, setSearch] = useState('')
-  const [activeFilter] = useState<'all' | 'recent' | 'starred'>('all')
-
   const filtered = projects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
