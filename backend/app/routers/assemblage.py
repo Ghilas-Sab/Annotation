@@ -39,9 +39,20 @@ async def export_assemblage(
         video = get_video(clip_req.video_id)
         if video is None:
             raise HTTPException(status_code=404, detail=f"Video not found: {clip_req.video_id}")
-        filepath = video.get("filepath") or video.get("path")
-        if not filepath or not os.path.exists(filepath):
-            raise HTTPException(status_code=404, detail=f"Video file missing: {clip_req.video_id}")
+
+        if clip_req.source_type == "adapted":
+            adapted = video.get("adapted_preview")
+            filepath = adapted.get("path") if isinstance(adapted, dict) else None
+            if not filepath or not os.path.exists(filepath):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Adapted preview missing for video: {clip_req.video_id}",
+                )
+        else:
+            filepath = video.get("filepath") or video.get("path")
+            if not filepath or not os.path.exists(filepath):
+                raise HTTPException(status_code=404, detail=f"Video file missing: {clip_req.video_id}")
+
         clips_paths.append({
             "path": filepath,
             "duration": float(video.get("duration_seconds") or 0),

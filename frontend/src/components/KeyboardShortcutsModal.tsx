@@ -7,10 +7,12 @@ interface Props {
 const shortcuts = [
   { keys: '←  →', desc: 'Frame précédente / suivante' },
   { keys: 'Shift + ←  →', desc: '−5 / +5 frames' },
-  { keys: 'Alt + ←  →', desc: 'Début / fin de la vidéo' },
+  { keys: 'Home  End', desc: 'Début / fin de la vidéo' },
   { keys: 'Ctrl + ←  →', desc: 'Saut inter-annotation (fallback 10)' },
-  { keys: 'Entrée', desc: 'Créer une annotation sur la frame courante' },
-  { keys: 'Espace', desc: 'Lecture / pause de la vidéo' },
+  { keys: 'Espace', desc: 'Créer / supprimer une annotation sur la frame courante' },
+  { keys: 'P', desc: 'Lecture / pause de la vidéo' },
+  { keys: 'B', desc: 'Activer / désactiver le bip' },
+  { keys: 'Suppr', desc: "Supprimer l'annotation sélectionnée" },
   { keys: 'Ctrl + Z', desc: 'Annuler la dernière annotation créée' },
 ]
 

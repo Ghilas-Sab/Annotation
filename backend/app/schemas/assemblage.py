@@ -5,6 +5,7 @@ from pydantic import BaseModel, field_validator
 class AssemblageClipRequest(BaseModel):
     video_id: str
     order: int
+    source_type: str = "original"
 
 
 class AssemblageExportRequest(BaseModel):

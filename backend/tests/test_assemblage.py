@@ -194,3 +194,101 @@ async def test_export_assemblage_job_is_trackable(client, two_videos):
     status_resp = await client.get(f"/api/v1/exports/jobs/{job_id}")
     assert status_resp.status_code == 200
     assert status_resp.json()["status"] in ("pending", "running", "done", "error")
+
+
+# ── Tests bug-fix : source_type adapted ──────────────────────────────────────
+
+def test_assemblage_clip_request_accepts_source_type():
+    """AssemblageClipRequest accepte source_type='adapted' et défaut 'original'."""
+    from app.schemas.assemblage import AssemblageClipRequest
+    req = AssemblageClipRequest(video_id="abc", order=0, source_type="adapted")
+    assert req.source_type == "adapted"
+    req2 = AssemblageClipRequest(video_id="abc", order=0)
+    assert req2.source_type == "original"
+
+
+async def test_export_assemblage_adapted_without_preview_returns_404(client, two_videos):
+    """source_type=adapted sur une vidéo sans aperçu adapté → 404."""
+    config = json.dumps({
+        "clips": [{"video_id": two_videos[0], "order": 0, "source_type": "adapted"}],
+        "use_transitions": False,
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 404
+
+
+async def test_export_assemblage_adapted_with_preview_returns_202(client, project_with_saved_preview):
+    """source_type=adapted sur une vidéo avec aperçu adapté → 202."""
+    vid_id = project_with_saved_preview["video_id"]
+    config = json.dumps({
+        "clips": [{"video_id": vid_id, "order": 0, "source_type": "adapted"}],
+        "use_transitions": False,
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 202
+
+
+# ── Tests bug-fix : n=1 no-concat + format=yuv420p ───────────────────────────
+
+def _run_assemble_capture(monkeypatch, tmp_path, clips_data, resolution="Original", has_audio=False):
+    """Helper : exécute assemble_videos avec subprocess.run mocké, retourne la cmd capturée."""
+    import subprocess
+    import app.services.assemblage_service as svc
+
+    captured = {}
+
+    def mock_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    monkeypatch.setattr(svc, "_has_audio", lambda _: has_audio)
+
+    out = str(tmp_path / "out.mp4")
+    svc.assemble_videos(clips_data, out, resolution=resolution)
+    return captured.get("cmd", [])
+
+
+def test_assemble_single_clip_no_concat_in_filter(tmp_path, monkeypatch):
+    """n=1, video-only → filter_complex ne doit PAS contenir 'concat'."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, [{"path": fake, "duration": 5.0}])
+    cmd_str = " ".join(cmd)
+    assert "concat" not in cmd_str
+
+
+def test_assemble_single_clip_with_audio_no_concat(tmp_path, monkeypatch):
+    """n=1, avec audio → filter_complex sans concat, audio mappé directement."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    cmd = _run_assemble_capture(
+        monkeypatch, tmp_path, [{"path": fake, "duration": 5.0}], has_audio=True
+    )
+    cmd_str = " ".join(cmd)
+    assert "concat" not in cmd_str
+    # audio doit être mappé via référence directe au stream
+    assert "0:a" in cmd_str
+
+
+def test_assemble_filter_complex_contains_yuv420p_single(tmp_path, monkeypatch):
+    """n=1 → filter_complex contient format=yuv420p (compatibilité libx264)."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, [{"path": fake, "duration": 5.0}])
+    cmd_str = " ".join(cmd)
+    assert "format=yuv420p" in cmd_str
+
+
+def test_assemble_filter_complex_contains_yuv420p_multi(tmp_path, monkeypatch):
+    """n=2 → filter_complex contient format=yuv420p (compatibilité libx264)."""
+    f1 = str(tmp_path / "a.mp4")
+    f2 = str(tmp_path / "b.mp4")
+    for p in [f1, f2]:
+        open(p, "wb").close()
+    cmd = _run_assemble_capture(
+        monkeypatch, tmp_path,
+        [{"path": f1, "duration": 5.0}, {"path": f2, "duration": 4.0}],
+    )
+    cmd_str = " ".join(cmd)
+    assert "format=yuv420p" in cmd_str

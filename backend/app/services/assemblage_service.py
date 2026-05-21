@@ -201,26 +201,35 @@ def assemble_videos(
             return f"[{i}:a]"
         return f"[{null_audio_map[i]}:a]"
 
-    # Labels vidéo avec scale + fade
+    # Labels vidéo avec scale + fade + format=yuv420p (compatibilité libx264)
     def _build_video_labels(clips: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
         labels: list[str] = []
         filters: list[str] = []
+        is_single = len(clips) == 1
         for i, clip in enumerate(clips):
             clip_filter = build_clip_filter(clip)
             sc = clip.get("_scale", "")
-            chain = ",".join(f for f in [sc, clip_filter] if f)
-            if chain:
-                label = f"[vs{i}]"
-                filters.append(f"[{i}:v]{chain}{label}")
-                labels.append(label)
-            else:
-                labels.append(f"[{i}:v]")
+            # format=yuv420p garantit la compatibilité libx264 quel que soit le format source
+            chain = ",".join(f for f in [sc, clip_filter, "format=yuv420p"] if f)
+            # Pour un seul clip, on sort directement en [v] → pas de concat nécessaire
+            label = "[v]" if is_single else f"[vs{i}]"
+            filters.append(f"[{i}:v]{chain}{label}")
+            labels.append(label)
         return labels, filters
 
     video_labels, filter_parts = _build_video_labels(augmented)
 
     if n == 1 or not use_transitions:
-        if any_has_audio:
+        if n == 1:
+            # Clip unique : [v] déjà produit, pas de concat — évite le bug concat=n=1
+            filter_complex = ";".join(filter_parts)
+            map_args = ["-map", "[v]"]
+            if has_audio_list[0]:
+                map_args += ["-map", "0:a"]
+                codec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23", "-c:a", "aac"]
+            else:
+                codec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
+        elif any_has_audio:
             concat_in = "".join(f"{video_labels[i]}{audio_ref(i)}" for i in range(n))
             filter_parts.append(f"{concat_in}concat=n={n}:v=1:a=1[v][a]")
             filter_complex = ";".join(filter_parts)

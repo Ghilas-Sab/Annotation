@@ -183,6 +183,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
               <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>Shift</kbd> ±5
               &nbsp;
               <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>Espace</kbd> annoter
+              &nbsp;
+              <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>P</kbd> play
             </span>
             <span>/ {totalFrames}</span>
           </div>

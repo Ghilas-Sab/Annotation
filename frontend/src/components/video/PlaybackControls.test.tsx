@@ -209,18 +209,18 @@ describe('PlaybackControls — navigation buttons (S6.4)', () => {
     expect(seekFn).toHaveBeenCalledWith(11)
   })
 
-  test('keyboard shortcuts still work after adding buttons (Enter → annotate)', () => {
+  test('keyboard shortcuts still work after adding buttons (Space → annotate)', () => {
     const annotateFn = vi.fn()
     render(<PlaybackControls {...defaultNavProps} currentFrame={42} onAnnotate={annotateFn} />)
-    fireEvent.keyDown(window, { key: 'Enter' })
+    fireEvent.keyDown(window, { key: ' ', code: 'Space' })
     expect(annotateFn).toHaveBeenCalledWith(42)
   })
 
-  test('Space toggles play/pause instead of annotating', () => {
+  test('P toggles play/pause instead of annotating', () => {
     const annotateFn = vi.fn()
     const ref = makeVideoRef({ isPaused: vi.fn().mockReturnValue(true) })
     render(<PlaybackControls {...defaultNavProps} videoRef={ref} currentFrame={42} onAnnotate={annotateFn} />)
-    fireEvent.keyDown(window, { key: ' ' })
+    fireEvent.keyDown(window, { key: 'p' })
     expect(ref.current!.play).toHaveBeenCalled()
     expect(annotateFn).not.toHaveBeenCalled()
   })

@@ -69,7 +69,7 @@ describe('AnnotationItem', () => {
   test('applies selected highlight style', () => {
     render(<AnnotationItem {...defaultProps} selected />)
     expect(screen.getByTestId('annotation-item')).toHaveStyle({
-      background: 'rgba(74,158,255,0.12)',
+      background: 'var(--ac-muted)',
     })
   })
 

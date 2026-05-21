@@ -184,7 +184,11 @@ export default function ExportPanel({ clips, audioTracks, onClose }: ExportPanel
     setError(null)
     setLaunching(true)
     try {
-      const sortedClips = [...clips].map((c, i) => ({ video_id: c.videoId, order: i }))
+      const sortedClips = [...clips].map((c, i) => ({
+        video_id: c.videoId,
+        order: i,
+        source_type: c.sourceType ?? 'original',
+      } as const))
       const withMusic = includeMusic && audioTracks.length > 0
 
       let audioBlob: Blob | null = null

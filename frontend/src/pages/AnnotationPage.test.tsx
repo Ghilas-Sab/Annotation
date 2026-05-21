@@ -193,12 +193,12 @@ describe('AnnotationPage', () => {
 
     renderPage('v1')
 
-    expect(await screen.findByRole('button', { name: /liste \(0\)/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /annotations \(0\)/i })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /annoter/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /liste \(1\)/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /annotations \(1\)/i })).toBeInTheDocument()
     })
   })
 
@@ -212,12 +212,12 @@ describe('AnnotationPage', () => {
 
     renderPage('v1')
 
-    expect(await screen.findByRole('button', { name: /liste \(3\)/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /annotations \(3\)/i })).toBeInTheDocument()
 
     await user.click(screen.getAllByRole('button', { name: /supprimer/i })[0])
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /liste \(2\)/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /annotations \(2\)/i })).toBeInTheDocument()
     })
   })
 
@@ -227,13 +227,13 @@ describe('AnnotationPage', () => {
     const client = createClient()
 
     const initial = renderPage('v1', client)
-    expect(await screen.findByRole('button', { name: /liste \(1\)/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /annotations \(1\)/i })).toBeInTheDocument()
 
     initial.unmount()
     renderPage('empty-video', client)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /liste \(0\)/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /annotations \(0\)/i })).toBeInTheDocument()
     })
   })
 
@@ -245,7 +245,7 @@ describe('AnnotationPage', () => {
 
     renderPage('v1')
 
-    expect(await screen.findByRole('button', { name: /liste \(1\)/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /annotations \(1\)/i })).toBeInTheDocument()
     expect(screen.getAllByTestId('annotation-item')).toHaveLength(1)
   })
 

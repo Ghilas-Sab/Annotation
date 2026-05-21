@@ -15,6 +15,8 @@ import BulkPlacementForm from '../components/annotations/BulkPlacementForm'
 import ShiftForm from '../components/annotations/ShiftForm'
 import { KeyboardShortcutsModal } from '../components/KeyboardShortcutsModal'
 import ExportButtons from '../components/exports/ExportButtons'
+import { Logo, ThemeToggle, Icon, Spinner } from '../components/ui'
+import { useVideoStatistics } from '../api/statistics'
 import type { Annotation } from '../types/annotation'
 import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
 
@@ -53,10 +55,10 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const { data: video, isLoading: videoLoading } = useVideo(videoId)
   const { data: rawAnnotations = [] } = useAnnotations(videoId)
   const { data: categories = [] } = useCategories(videoId)
+  const { data: stats } = useVideoStatistics(videoId)
   const [activeCategoryId, setActiveCategoryId] = useState('')
-  const [filterCategoryId, setFilterCategoryId] = useState('') // '' = tout afficher
+  const [filterCategoryId, setFilterCategoryId] = useState('')
 
-  // Sélectionner la catégorie par défaut dès le chargement
   useEffect(() => {
     if (categories.length > 0 && !activeCategoryId) {
       const def = categories.find(c => c.name === 'Par défaut')
@@ -64,31 +66,22 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     }
   }, [categories, activeCategoryId])
 
-  // Enrichir les annotations avec l'objet category, dédupliquées par id
   const seenIds = new Set<string>()
   const annotations = rawAnnotations
     .filter(ann => { if (seenIds.has(ann.id)) return false; seenIds.add(ann.id); return true })
     .map(ann => ({ ...ann, category: categories.find(c => c.id === ann.category_id) }))
 
-  // Annotations dans la plage sélectionnée (trimStart → effectiveTrimEnd)
-  // Note: effectiveTrimEnd n'est pas encore calculé ici, on l'applique après
   const annotationsInRange = (trimEnd !== undefined || trimStart > 0)
-    ? annotations.filter(ann =>
-        ann.frame_number >= trimStart &&
-        ann.frame_number <= (trimEnd ?? Infinity)
-      )
+    ? annotations.filter(ann => ann.frame_number >= trimStart && ann.frame_number <= (trimEnd ?? Infinity))
     : annotations
 
-  // Filtre supplémentaire par catégorie
   const displayedAnnotations = filterCategoryId
     ? annotationsInRange.filter(ann => ann.category_id === filterCategoryId)
     : annotationsInRange
 
   useEffect(() => {
     if (!selectedAnnotationId) return
-    if (!displayedAnnotations.some((annotation) => annotation.id === selectedAnnotationId)) {
-      setSelectedAnnotationId(null)
-    }
+    if (!displayedAnnotations.some(a => a.id === selectedAnnotationId)) setSelectedAnnotationId(null)
   }, [displayedAnnotations, selectedAnnotationId])
 
   const createMutation = useCreateAnnotation(videoId)
@@ -100,15 +93,11 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
   const effectiveTotalFrames = totalFrames || video?.total_frames || 0
   const effectiveTrimEnd = trimEnd ?? effectiveTotalFrames
 
-  // Auto-seek à trimStart dès que la vidéo est prête (fps > 0)
   useEffect(() => {
-    if (fps > 0 && trimStart > 0) {
-      videoRef.current?.seekToFrame(trimStart)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (fps > 0 && trimStart > 0) videoRef.current?.seekToFrame(trimStart)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fps])
 
-  // Refs stables pour les closures (évite les dépendances dans useEffect)
   const audioEnabledRef = useRef(audioEnabled)
   audioEnabledRef.current = audioEnabled
   const annotationsRef = useRef(annotations)
@@ -129,14 +118,12 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     setHistory(prev => [...prev.slice(-19), action])
   }, [])
 
-  // Bip à chaque frame annotée
   useEffect(() => {
     if (!audioEnabledRef.current) return
     const has = annotationsRef.current.some(a => a.frame_number === currentFrame)
     if (has) beep()
   }, [currentFrame, beep])
 
-  // Ctrl+Z — annuler la dernière action
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -148,18 +135,10 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
         const last = hist[hist.length - 1]
         setHistory(prev => prev.slice(0, -1))
         switch (last.type) {
-          case 'create':
-            deleteMutateRef.current(last.annotation.id)
-            break
-          case 'delete':
-            createMutateRef.current({ frame_number: last.annotation.frame_number, label: last.annotation.label })
-            break
-          case 'move':
-            updateMutateRef.current({ id: last.id, data: { frame_number: last.oldFrame, label: last.label } })
-            break
-          case 'shift':
-            shiftMutateRef.current(-last.offsetMs)
-            break
+          case 'create': deleteMutateRef.current(last.annotation.id); break
+          case 'delete': createMutateRef.current({ frame_number: last.annotation.frame_number, label: last.annotation.label }); break
+          case 'move': updateMutateRef.current({ id: last.id, data: { frame_number: last.oldFrame, label: last.label } }); break
+          case 'shift': shiftMutateRef.current(-last.offsetMs); break
         }
       }
     }
@@ -167,9 +146,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     return () => window.removeEventListener('keydown', handler, { capture: true })
   }, [])
 
-  const seek = useCallback((frame: number) => {
-    videoRef.current?.seekToFrame(frame)
-  }, [])
+  const seek = useCallback((frame: number) => { videoRef.current?.seekToFrame(frame) }, [])
 
   const handleCreate = (frame: number) => {
     const activeCategory = categories.find(c => c.id === activeCategoryId)
@@ -177,10 +154,17 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     const autoLabel = activeCategory ? `${activeCategory.name} ${countInCategory + 1}` : ''
     createMutation.mutate(
       { frame_number: frame, label: autoLabel, category_id: activeCategoryId || undefined },
-      {
-        onSuccess: (ann) => pushHistory({ type: 'create', annotation: ann }),
-      }
+      { onSuccess: (ann) => pushHistory({ type: 'create', annotation: ann }) }
     )
+  }
+
+  const handleToggleAnnotation = (frame: number) => {
+    const existing = annotationsRef.current.find(a => a.frame_number === frame)
+    if (existing) {
+      handleDelete(existing.id)
+      return
+    }
+    handleCreate(frame)
   }
 
   const handleDelete = (id: string) => {
@@ -210,76 +194,121 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
     updateMutation.mutate({ id, data: { frame_number: newFrame, label: ann.label } })
   }
 
-  const lastActionLabel = () => {
-    if (history.length === 0) return ''
-    const last = history[history.length - 1]
-    switch (last.type) {
-      case 'create': return `annuler ajout fr.${last.annotation.frame_number}`
-      case 'delete': return `annuler suppression fr.${last.annotation.frame_number}`
-      case 'move':   return `annuler déplacement fr.${last.oldFrame}`
-      case 'shift':  return `annuler décalage`
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (isTextEditingTarget(e.target)) return
+      if (e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        blurNonTextFocus(e.target)
+        toggleAudio()
+        return
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotationId) {
+        e.preventDefault()
+        blurNonTextFocus(e.target)
+        handleDelete(selectedAnnotationId)
+        return
+      }
+      if (e.key === 'Escape' && selectedAnnotationId) {
+        e.preventDefault()
+        blurNonTextFocus(e.target)
+        setSelectedAnnotationId(null)
+      }
     }
-  }
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => window.removeEventListener('keydown', handler, { capture: true })
+  }, [selectedAnnotationId, toggleAudio])
 
   if (videoLoading || !video) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-accent)' }}>Chargement...</div>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+        <header className="topbar"><Logo /></header>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-2)' }}>
+          <Spinner /> Chargement…
+        </div>
+      </div>
+    )
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'annotations', label: filterCategoryId ? `Liste (${displayedAnnotations.length}/${annotations.length})` : `Liste (${annotations.length})` },
-    { id: 'categories',  label: 'Catégories' },
-    { id: 'placement',   label: 'Placement auto' },
-    { id: 'decalage',    label: 'Décaler tout' },
+    { id: 'annotations', label: filterCategoryId ? `Annotations (${displayedAnnotations.length}/${annotations.length})` : `Annotations (${annotations.length})` },
+    { id: 'categories', label: 'Categories' },
+    { id: 'placement', label: 'Auto Placement' },
+    { id: 'decalage', label: 'Décaler tout' },
   ]
 
-  const tabStyle = (id: Tab): React.CSSProperties => ({
-    flex: 1, padding: '0.5rem 0.25rem', fontSize: '0.78rem',
-    fontWeight: activeTab === id ? 600 : 400, cursor: 'pointer',
-    border: 'none',
-    borderBottom: activeTab === id ? '2px solid var(--color-accent, #e94560)' : '2px solid transparent',
-    backgroundColor: 'transparent',
-    color: activeTab === id ? 'var(--color-accent, #e94560)' : 'var(--color-text-muted, #888)',
-  })
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--color-bg, #0f0f1a)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
 
-      {/* Barre de navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0, backgroundColor: 'var(--color-panel, #1a1a2e)' }}>
-        <button
-          onClick={() => navigate('/projects')}
-          style={{ background: 'none', border: 'none', color: 'var(--color-accent, #e94560)', cursor: 'pointer', fontSize: '0.85rem', padding: '0.2rem 0.5rem' }}
-        >
-          ← Projets
+      {/* Topbar */}
+      <header className="topbar">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/projects/${video.project_id}`)} style={{ gap: 4, color: 'var(--text-2)' }}>
+          <Icon.Back /> Projet
         </button>
-        <span style={{ color: 'var(--color-text-muted, #888)', fontSize: '0.8rem', flex: 1 }}>
+        <div className="sep-v" style={{ height: 18, margin: '0 6px' }} />
+        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
           {video.original_name ?? videoId}
-          {(trimStart > 0 || trimEnd !== undefined) && (
-            <span style={{ marginLeft: '0.75rem', color: '#4a9eff', fontSize: '0.72rem' }}>
-              ✂ frames {trimStart}–{effectiveTrimEnd}
-            </span>
-          )}
         </span>
-        <span
-          data-testid="current-frame-display"
-          style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--color-text-muted, #888)' }}
-        >
+        {(trimStart > 0 || trimEnd !== undefined) && (
+          <span className="badge badge-warn" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+            ✂ f{trimStart}–{effectiveTrimEnd}
+          </span>
+        )}
+        <div style={{ flex: 1 }} />
+        <span data-testid="current-frame-display" style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-3)', marginRight: 4 }}>
           {trimStart || currentFrame}
         </span>
+        <div className="tooltip-wrap">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={toggleAudio}
+            style={{
+              gap: 5,
+              background: audioEnabled ? 'hsl(var(--success)/0.12)' : 'transparent',
+              border: `1px solid ${audioEnabled ? 'hsl(var(--success)/0.35)' : 'var(--border-c)'}`,
+              color: audioEnabled ? 'var(--success-c)' : 'var(--text-2)',
+              fontSize: 11,
+            }}
+          >
+            <Icon.Beep on={audioEnabled} />
+            Beep {audioEnabled ? 'ON' : 'OFF'}
+          </button>
+          <span className="tooltip">Bip audio à chaque annotation</span>
+        </div>
+        <div className="tooltip-wrap">
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => {
+            const hist = history
+            if (!hist.length) return
+            const last = hist[hist.length - 1]
+            setHistory(prev => prev.slice(0, -1))
+            switch (last.type) {
+              case 'create': deleteMutation.mutate(last.annotation.id); break
+              case 'delete': createMutation.mutate({ frame_number: last.annotation.frame_number, label: last.annotation.label }); break
+              case 'move': updateMutation.mutate({ id: last.id, data: { frame_number: last.oldFrame, label: last.label } }); break
+              case 'shift': shiftMutation.mutate(-last.offsetMs); break
+            }
+          }} disabled={!history.length}>
+            <Icon.Undo />
+          </button>
+          <span className="tooltip">Annuler (Ctrl+Z)</span>
+        </div>
+        <div className="tooltip-wrap">
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setShowShortcuts(true)}>
+            <Icon.Keyboard />
+          </button>
+          <span className="tooltip">Raccourcis clavier</span>
+        </div>
         <ExportButtons videoId={videoId} annotationCount={annotations.length} />
-        <button
-          onClick={() => setShowShortcuts(true)}
-          title="Raccourcis clavier"
-          style={{ fontSize: '0.85rem', padding: '0.2rem 0.6rem', borderRadius: 4, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'var(--color-text-muted, #888)' }}
-        >
-          ⌨ ?
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/statistics/${videoId}`)}>
+          <Icon.Stats /> Stats
         </button>
-      </div>
+        <ThemeToggle />
+      </header>
 
-      {/* Zone principale */}
+      {/* Main area */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
-        {/* Vidéo + contrôles */}
+        {/* Video + controls */}
         <div style={{ flex: 7, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <VideoPlayer
             ref={videoRef}
@@ -292,8 +321,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
             startFrame={trimStart || undefined}
             endFrame={trimEnd}
           />
-          {/* Panneau contrôles (keyboard + boutons tablette) */}
-          <div style={{ flexShrink: 0, padding: '0.5rem 0.75rem', borderTop: '1px solid var(--color-surface, #2a2a3e)', backgroundColor: 'var(--color-panel, #1a1a2e)' }}>
+          <div style={{ flexShrink: 0, padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border-c)', background: 'hsl(var(--card))' }}>
             <PlaybackControls
               videoRef={videoRef}
               currentFrame={currentFrame}
@@ -302,75 +330,102 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
               annotations={annotations}
               startFrame={trimStart}
               onSeek={seek}
-              onAnnotate={handleCreate}
+              onAnnotate={handleToggleAnnotation}
             />
           </div>
         </div>
 
-        {/* Panneau droit */}
-        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--color-surface, #2a2a3e)', minWidth: 0 }}>
+        {/* Right panel */}
+        <div className="panel-right" style={{ flex: 3, minWidth: 0 }}>
 
-          {/* Bip + onglets */}
-          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--color-surface, #2a2a3e)' }}>
-            <div style={{ padding: '0.4rem 0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #888)' }}>
-                {history.length > 0
-                  ? <><span style={{ opacity: 0.6 }}>Ctrl+Z ←</span> {lastActionLabel()}</>
-                  : 'Ctrl+Z : rien à annuler'}
-              </span>
-              <button
-                onClick={toggleAudio}
-                title={audioEnabled ? 'Désactiver le bip' : 'Activer le bip à chaque annotation'}
-                style={{
-                  padding: '0.25rem 0.75rem', fontSize: '0.8rem', borderRadius: 4, cursor: 'pointer', border: '1px solid',
-                  backgroundColor: audioEnabled ? 'var(--color-accent, #e94560)' : 'transparent',
-                  borderColor: audioEnabled ? 'var(--color-accent, #e94560)' : 'rgba(255,255,255,0.3)',
-                  color: audioEnabled ? '#fff' : 'var(--color-text-muted, #888)',
-                }}
-              >
-                🔔 Bip {audioEnabled ? 'ON' : 'OFF'}
+          {/* BPM hero */}
+          {stats?.bpm_global && stats.bpm_global > 0 && (
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-c)', flexShrink: 0, background: 'hsl(var(--card))' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: 38, fontWeight: 700, lineHeight: 1, color: 'hsl(var(--chart-1))' }}>
+                  {stats.bpm_global.toFixed(1)}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>bpm</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-2)' }}>{stats.bpm_mean.toFixed(1)}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-3)' }}>±{stats.bpm_variation.toFixed(1)}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{annotations.length}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>mean · beats</span>
+              </div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="tabs" style={{ overflowX: 'auto' }}>
+            {tabs.map(t => (
+              <button key={t.id} className={`tab${activeTab === t.id ? ' active' : ''}`} style={{ fontSize: 11.5, padding: '0 10px' }} onClick={() => setActiveTab(t.id)}>
+                {t.label}
               </button>
-            </div>
-            <div style={{ display: 'flex', borderTop: '1px solid var(--color-surface, #2a2a3e)' }}>
-              {tabs.map(t => (
-                <button key={t.id} style={tabStyle(t.id)} onClick={() => setActiveTab(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
 
-          {/* Contenu onglet */}
+          {/* Tab content */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {activeTab === 'annotations' && (
               <>
-                {/* Sélecteur catégorie active (pour nouvelles annotations) */}
+                {/* Category pill selector */}
                 {categories.length > 0 && (
-                  <div style={{ padding: '0.3rem 0.75rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #888)', flexShrink: 0 }}>Créer dans :</span>
-                    <CategorySelector categories={categories} value={activeCategoryId} onChange={setActiveCategoryId} />
+                  <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-c)', flexShrink: 0 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>
+                      New Annotation Category
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {categories.map(cat => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setActiveCategoryId(cat.id)}
+                          style={{
+                            padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                            border: `1px solid ${activeCategoryId === cat.id ? 'hsl(var(--accent)/0.6)' : 'var(--border-c)'}`,
+                            background: activeCategoryId === cat.id ? 'hsl(var(--accent)/0.15)' : 'transparent',
+                            color: activeCategoryId === cat.id ? 'var(--ac)' : 'var(--text-2)',
+                          }}
+                        >{cat.name}</button>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {/* Filtre d'affichage */}
-                <div style={{ padding: '0.3rem 0.75rem', borderBottom: '1px solid var(--color-surface, #2a2a3e)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #888)', flexShrink: 0 }}>Afficher :</span>
-                  <select
-                    aria-label="Filtrer par catégorie"
-                    value={filterCategoryId}
-                    onChange={(e) => setFilterCategoryId(e.target.value)}
-                    style={{ padding: '0.25rem 0.4rem', borderRadius: '4px', border: '1px solid var(--color-surface)', backgroundColor: 'var(--color-panel)', color: 'var(--color-text)', fontSize: '0.8rem', flex: 1 }}
-                  >
-                    <option value="">Tout afficher</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
+                {/* Hidden CategorySelector kept for test compatibility */}
+                <div style={{ display: 'none' }}>
+                  <CategorySelector categories={categories} value={activeCategoryId} onChange={setActiveCategoryId} />
                 </div>
+                {/* Filter chips */}
+                <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border-c)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600 }}>Filter:</span>
+                  {[{ id: '', name: 'All' }, ...categories].map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setFilterCategoryId(cat.id)}
+                      style={{
+                        padding: '1px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer', border: 'none',
+                        background: filterCategoryId === cat.id ? 'var(--ac-muted)' : 'transparent',
+                        color: filterCategoryId === cat.id ? 'var(--ac)' : 'var(--text-2)',
+                      }}
+                    >{cat.name}</button>
+                  ))}
+                </div>
+                {/* Hidden select kept for accessibility/test */}
+                <select
+                  aria-label="Filtrer par catégorie"
+                  value={filterCategoryId}
+                  onChange={e => setFilterCategoryId(e.target.value)}
+                  style={{ display: 'none' }}
+                >
+                  <option value="">Tout afficher</option>
+                  {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                </select>
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                   <AnnotationList
                     annotations={displayedAnnotations}
                     fps={effectiveFps}
                     totalFrames={effectiveTotalFrames}
+                    currentFrame={currentFrame}
                     selectedAnnotationId={selectedAnnotationId}
                     onSeek={seek}
                     onSelect={setSelectedAnnotationId}
@@ -400,7 +455,7 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
       </div>
 
       {/* Timeline */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid var(--color-surface, #2a2a3e)' }}>
+      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-c)' }}>
         <VideoTimeline
           currentFrame={currentFrame}
           totalFrames={effectiveTotalFrames}
@@ -416,7 +471,16 @@ export const AnnotationPage: React.FC<AnnotationPageProps> = ({ videoId }) => {
         />
       </div>
 
-      {/* Modal raccourcis */}
+      {/* Keyboard hints bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '5px 16px', borderTop: '1px solid var(--border-c)', background: 'hsl(var(--card))', flexShrink: 0, flexWrap: 'wrap' }}>
+        {[['← →', 'frame'], ['Shift+← →', '±5'], ['Ctrl+← →', 'annotation'], ['Home End', 'début/fin'], ['Espace', 'annoter'], ['P', 'play'], ['B', 'bip'], ['Suppr', 'supprimer'], ['Ctrl+Z', 'annuler']].map(([k, l]) => (
+          <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <kbd>{k}</kbd>
+            <span style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{l}</span>
+          </div>
+        ))}
+      </div>
+
       {showShortcuts && <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   )

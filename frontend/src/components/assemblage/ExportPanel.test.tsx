@@ -57,6 +57,38 @@ describe('ExportPanel', () => {
     )
   })
 
+  test('passes source_type=adapted when clip has sourceType adapted', async () => {
+    vi.mocked(startAssemblageExport).mockResolvedValue('job-a')
+    vi.mocked(getJobStatus).mockResolvedValue({
+      id: 'job-a', label: 'assemblage-export', status: 'pending',
+      progress: 0, estimated_remaining_s: null, error: null,
+    })
+
+    const clip = buildClip({ videoId: 'v1', sourceType: 'adapted' })
+    render(<ExportPanel clips={[clip]} audioTracks={[]} onClose={noop} />)
+    await userEvent.click(screen.getByRole('button', { name: /lancer l.export/i }))
+
+    await waitFor(() => expect(startAssemblageExport).toHaveBeenCalled())
+    const callArg = vi.mocked(startAssemblageExport).mock.calls[0][0]
+    expect(callArg.clips[0]).toMatchObject({ video_id: 'v1', source_type: 'adapted' })
+  })
+
+  test('passes source_type=original when clip has sourceType original', async () => {
+    vi.mocked(startAssemblageExport).mockResolvedValue('job-b')
+    vi.mocked(getJobStatus).mockResolvedValue({
+      id: 'job-b', label: 'assemblage-export', status: 'pending',
+      progress: 0, estimated_remaining_s: null, error: null,
+    })
+
+    const clip = buildClip({ videoId: 'v2', sourceType: 'original' })
+    render(<ExportPanel clips={[clip]} audioTracks={[]} onClose={noop} />)
+    await userEvent.click(screen.getByRole('button', { name: /lancer l.export/i }))
+
+    await waitFor(() => expect(startAssemblageExport).toHaveBeenCalled())
+    const callArg = vi.mocked(startAssemblageExport).mock.calls[0][0]
+    expect(callArg.clips[0]).toMatchObject({ video_id: 'v2', source_type: 'original' })
+  })
+
   test('download button appears when export is done', async () => {
     vi.mocked(startAssemblageExport).mockResolvedValue('job-done')
     vi.mocked(getJobStatus).mockResolvedValue({

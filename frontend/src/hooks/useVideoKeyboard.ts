@@ -95,18 +95,18 @@ export const useVideoKeyboard = (opts: UseVideoKeyboardOptions): VideoKeyboardHa
         runShortcut(h.seek5Forward)
       } else if (e.key === 'ArrowLeft' && e.shiftKey) {
         runShortcut(h.seek5Back)
-      } else if (e.key === 'ArrowRight' && e.altKey) {
+      } else if ((e.key === 'End') || (e.key === 'ArrowRight' && e.altKey)) {
         runShortcut(h.seekEnd)
-      } else if (e.key === 'ArrowLeft' && e.altKey) {
+      } else if ((e.key === 'Home') || (e.key === 'ArrowLeft' && e.altKey)) {
         runShortcut(h.seekStart)
       } else if (e.key === 'ArrowRight' && e.ctrlKey) {
         runShortcut(h.seekNextAnnotation)
       } else if (e.key === 'ArrowLeft' && e.ctrlKey) {
         runShortcut(h.seekPrevAnnotation)
-      } else if (e.key === 'Enter') {
-        runShortcut(h.annotate)
-      } else if (e.key === ' ' || e.code === 'Space') {
+      } else if (e.key.toLowerCase() === 'p') {
         runShortcut(h.togglePlayPause)
+      } else if (e.key === ' ' || e.code === 'Space') {
+        runShortcut(h.annotate)
       }
     }
 

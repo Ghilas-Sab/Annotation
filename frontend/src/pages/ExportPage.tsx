@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import type { Video } from '../types/project'
 import { createExportJob, downloadSavedPreview, type ProjectExportRequest } from '../api/exports'
 import { useExportJobs } from '../contexts/ExportJobsContext'
+import { Icon, Spinner } from '../components/ui'
 
 interface ExportPageProps {
   projectId: string
@@ -9,48 +10,10 @@ interface ExportPageProps {
   onExport?: (projectId: string, request: ProjectExportRequest) => Promise<Blob>
 }
 
-const panel: React.CSSProperties = {
-  background: 'var(--color-panel, #13132a)',
-  border: '1px solid var(--color-border, #2a2a4a)',
-  borderRadius: 8,
-  padding: '1.5rem',
-  marginBottom: '1.5rem',
-}
-
-const sectionLabel: React.CSSProperties = {
-  fontSize: '0.72rem',
-  fontWeight: 700,
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: 'var(--color-text-muted, #8892b0)',
-  marginBottom: '1rem',
-  display: 'block',
-}
-
-const divider: React.CSSProperties = {
-  height: 1,
-  background: 'var(--color-border, #2a2a4a)',
-  margin: '0.75rem 0',
-}
-
-const bpmInput: React.CSSProperties = {
-  width: 80,
-  padding: '0.3rem 0.5rem',
-  fontSize: '0.85rem',
-  fontWeight: 600,
-  fontFamily: 'JetBrains Mono, monospace',
-  background: 'rgba(0,0,0,0.3)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 5,
-  color: 'var(--color-text, #cdd6f4)',
-  textAlign: 'center',
-  outline: 'none',
-}
-
 const FORMAT_OPTIONS = [
-  { value: 'json', label: 'JSON', icon: '📄', desc: 'Annotations + stats' },
-  { value: 'csv',  label: 'CSV',  icon: '📊', desc: 'Tableur' },
-  { value: 'video', label: 'Vidéo', icon: '🎬', desc: 'Clip adapté (BPM requis)' },
+  { value: 'json',  label: 'JSON',   desc: 'Annotations + stats' },
+  { value: 'csv',   label: 'CSV',    desc: 'Tableur annotations' },
+  { value: 'video', label: 'Vidéo',  desc: 'Clip adapté (BPM)' },
 ] as const
 
 export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExport }) => {
@@ -66,7 +29,7 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
     setVideoBpm(prev => {
       const next = { ...prev }
       let changed = false
-      videos.forEach((video) => {
+      videos.forEach(video => {
         if (video.adapted_preview && !next[video.id]) {
           next[video.id] = String(video.adapted_preview.bpm)
           changed = true
@@ -79,34 +42,20 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
   const allSelected = videos.length > 0 && selectedIds.size === videos.length
   const noneSelected = selectedIds.size === 0
 
-  const toggleSelectAll = () => {
+  const toggleSelectAll = () =>
     setSelectedIds(allSelected ? new Set() : new Set(videos.map(v => v.id)))
-  }
 
-  const toggleVideo = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
+  const toggleVideo = (id: string) =>
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const toggleFormat = (fmt: string) => {
-    setFormats(prev => {
-      const next = new Set(prev)
-      next.has(fmt) ? next.delete(fmt) : next.add(fmt)
-      return next
-    })
-  }
+  const toggleFormat = (fmt: string) =>
+    setFormats(prev => { const n = new Set(prev); n.has(fmt) ? n.delete(fmt) : n.add(fmt); return n })
 
-  const setBpm = (videoId: string, val: string) => {
+  const setBpm = (videoId: string, val: string) =>
     setVideoBpm(prev => ({ ...prev, [videoId]: val }))
-  }
 
   const handleExport = async () => {
-    setLoading(true)
-    setError(null)
-    setQueued(false)
+    setLoading(true); setError(null); setQueued(false)
     try {
       const video_bpm: Record<string, number> = {}
       for (const [id, val] of Object.entries(videoBpm)) {
@@ -118,18 +67,13 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
         formats: Array.from(formats),
         video_bpm: Object.keys(video_bpm).length > 0 ? video_bpm : undefined,
       }
-
       if (onExport) {
-        // Mode test — appel direct
         const blob = await onExport(projectId, request)
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
-        a.href = url
-        a.download = `export_${projectId}.zip`
-        a.click()
+        a.href = url; a.download = `export_${projectId}.zip`; a.click()
         URL.revokeObjectURL(url)
       } else {
-        // Mode normal — job en arrière-plan
         const jobId = await createExportJob(projectId, request)
         const label = selectedList.length === 1
           ? selectedList[0].original_name
@@ -148,330 +92,234 @@ export const ExportPage: React.FC<ExportPageProps> = ({ projectId, videos, onExp
   const videoList = videos.filter(v => selectedIds.has(v.id))
   const canExport = formats.size > 0 && !loading && selectedIds.size > 0
 
+  const zipFiles = [
+    ...formats.has('json') ? videoList.flatMap(v => {
+      const stem = v.original_name.replace(/\.[^.]+$/, '')
+      return [{ name: `${stem}_annotations.json`, type: 'json' }, { name: `${stem}_statistics.json`, type: 'json' }]
+    }) : [],
+    ...formats.has('csv') ? videoList.map(v => ({ name: `${v.original_name.replace(/\.[^.]+$/, '')}_annotations.csv`, type: 'csv' })) : [],
+    ...formats.has('video') ? videoList.map(v => ({ name: `${v.original_name.replace(/\.[^.]+$/, '')}_adapted.mp4`, type: 'video', bpm: videoBpm[v.id] })) : [],
+  ]
+
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--color-text, #cdd6f4)' }}>
-            Export du projet
-          </h1>
-          <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted, #8892b0)' }}>
-            Générez un ZIP avec les annotations, statistiques et vidéos adaptées
-          </p>
-        </div>
-        <span style={{
-          fontSize: '0.78rem', padding: '0.25rem 0.65rem',
-          borderRadius: 20, border: '1px solid var(--color-border, #2a2a4a)',
-          color: 'var(--color-text-muted, #8892b0)', background: 'rgba(0,0,0,0.2)',
-        }}>
-          {videos.length} vidéo{videos.length > 1 ? 's' : ''}
-        </span>
-      </div>
-
-      {/* ── Sélection des vidéos ── */}
-      <div style={panel}>
-        <span style={sectionLabel}>1 — Sélection des vidéos</span>
-
-        {/* Header "Tout sélectionner" */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          paddingBottom: '0.75rem',
-        }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+      {/* Step 1 — Sélection des vidéos */}
+      <div className="card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="badge badge-primary">1</span>
+            <span className="text-h3">Sélection des vidéos</span>
+          </div>
+          {/* Accessible "select all" checkbox */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'var(--text-2)' }}>
             <input
               type="checkbox"
               aria-label="Tout sélectionner"
               checked={allSelected}
               onChange={toggleSelectAll}
-              style={{ width: 16, height: 16, accentColor: 'var(--color-accent, #e94560)', cursor: 'pointer' }}
+              style={{ width: 15, height: 15, accentColor: 'var(--ac)', cursor: 'pointer' }}
             />
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text, #cdd6f4)' }}>
-              Tout sélectionner
-            </span>
+            Tout sélectionner
           </label>
-          {formats.has('video') && (
-            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)', fontStyle: 'italic' }}>
-              BPM cible par vidéo
-            </span>
-          )}
         </div>
 
-        <div style={divider} />
+        {formats.has('video') && (
+          <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 10 }}>
+            BPM cible par vidéo requis pour l'export vidéo adapté
+          </div>
+        )}
 
-        {/* Liste des vidéos */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-          {videos.map((v, i) => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {videos.map(v => {
             const bpmVal = Number(videoBpm[v.id])
             const previewMatchesBpm = v.adapted_preview && bpmVal > 0 && bpmVal === v.adapted_preview.bpm
+            const isSelected = selectedIds.has(v.id)
             return (
-            <div key={v.id} style={{
-              borderBottom: i < videos.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-            }}>
-              {/* Ligne principale */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0' }}>
-              <input
-                type="checkbox"
-                aria-label={v.original_name}
-                checked={selectedIds.has(v.id)}
-                onChange={() => toggleVideo(v.id)}
-                style={{ width: 16, height: 16, accentColor: 'var(--color-accent, #e94560)', cursor: 'pointer', flexShrink: 0 }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.88rem', color: 'var(--color-text, #cdd6f4)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {v.original_name}
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)', marginTop: 2 }}>
-                  {v.fps} fps · {v.total_frames} frames · {v.duration_seconds.toFixed(1)}s
-                </div>
-              </div>
-
-              {/* BPM cible par vidéo */}
-              {formats.has('video') && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)' }}>BPM</span>
+              <div key={v.id} style={{
+                border: `1.5px solid ${isSelected ? 'var(--border-ac)' : 'var(--border-c)'}`,
+                borderRadius: 8, overflow: 'hidden',
+                background: isSelected ? 'var(--ac-muted)' : 'var(--elevated)',
+                transition: 'all 0.15s',
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer' }}>
                   <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={videoBpm[v.id] ?? ''}
-                    onChange={e => setBpm(v.id, e.target.value)}
-                    placeholder="—"
-                    aria-label={`BPM cible ${v.original_name}`}
-                    style={bpmInput}
+                    type="checkbox"
+                    aria-label={v.original_name}
+                    checked={isSelected}
+                    onChange={() => toggleVideo(v.id)}
+                    style={{ width: 15, height: 15, accentColor: 'var(--ac)', cursor: 'pointer', flexShrink: 0 }}
                   />
-                </div>
-              )}
-              </div>{/* fin ligne principale */}
-
-              {/* Sous-entrée : aperçu sauvegardé */}
-              {v.adapted_preview && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '0.6rem',
-                  paddingLeft: '2.5rem', paddingBottom: '0.55rem',
-                  position: 'relative',
-                }}>
-                  {/* Connecteur visuel */}
-                  <div style={{
-                    position: 'absolute', left: '1.15rem', top: '-0.4rem',
-                    width: 1, height: 'calc(100% - 0.2rem)',
-                    background: 'rgba(100,255,218,0.2)',
-                  }} />
-                  <div style={{
-                    position: 'absolute', left: '1.15rem', top: '50%',
-                    width: '0.7rem', height: 1,
-                    background: 'rgba(100,255,218,0.2)',
-                  }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.8rem', color: '#64ffda', fontWeight: 500 }}>
-                        Aperçu adapté
-                      </span>
-                      <span style={{
-                        fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: 10,
-                        background: 'rgba(100,255,218,0.1)', border: '1px solid rgba(100,255,218,0.25)',
-                        color: '#64ffda',
-                      }}>
-                        {v.adapted_preview.bpm} BPM
-                      </span>
-                      <button
-                        onClick={() => void downloadSavedPreview(v.id)}
-                        style={{
-                          fontSize: '0.68rem',
-                          padding: '0.12rem 0.45rem',
-                          borderRadius: 10,
-                          border: '1px solid rgba(100,255,218,0.25)',
-                          background: 'rgba(100,255,218,0.08)',
-                          color: '#64ffda',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Télécharger
-                      </button>
-                      {previewMatchesBpm && (
-                        <span style={{ fontSize: '0.68rem', color: '#64ffda' }}>
-                          ✓ sera réutilisé (pas de retraitement)
-                        </span>
+                    <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {v.original_name}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: 'monospace' }}>{v.fps}fps · {v.total_frames.toLocaleString()} frames · {v.duration_seconds.toFixed(1)}s</span>
+                      {v.adapted_preview && (
+                        <span className="badge badge-adapted" style={{ fontSize: 9 }}>Aperçu adapté · {Number(v.adapted_preview.bpm).toFixed(2)} BPM</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted, #8892b0)', marginTop: 1 }}>
-                      Sauvegardé le {new Date(v.adapted_preview.created_at).toLocaleDateString('fr-FR')}
-                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                  {formats.has('video') && isSelected && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }} onClick={e => e.preventDefault()}>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)' }}>BPM</span>
+                      <input
+                        type="number" min={1} step={1}
+                        value={videoBpm[v.id] ?? ''}
+                        onChange={e => setBpm(v.id, e.target.value)}
+                        placeholder="—"
+                        aria-label={`BPM cible ${v.original_name}`}
+                        className="input input-sm"
+                        style={{ width: 80, fontFamily: 'monospace', textAlign: 'center' }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                </label>
+
+                {v.adapted_preview && isSelected && (
+                  <div style={{ padding: '6px 14px 8px 42px', borderTop: '1px solid var(--border-c)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--adapted, hsl(160 60% 50%))' }}>Aperçu sauvegardé</span>
+                    {previewMatchesBpm && <span className="badge badge-adapted" style={{ fontSize: 9 }}>✓ sera réutilisé</span>}
+                    <button className="btn btn-ghost btn-xs" onClick={() => void downloadSavedPreview(v.id)} style={{ marginLeft: 'auto' }}>
+                      <Icon.Download /> Télécharger
+                    </button>
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
 
         {noneSelected && (
-          <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: 6, background: 'rgba(233,69,96,0.07)', border: '1px solid rgba(233,69,96,0.2)', fontSize: '0.78rem', color: 'var(--color-accent, #e94560)' }}>
+          <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 6, background: 'hsl(var(--danger)/0.07)', border: '1px solid hsl(var(--danger)/0.2)', fontSize: 12, color: 'var(--danger-c)' }}>
             Sélectionnez au moins une vidéo pour exporter.
           </div>
         )}
       </div>
 
-      {/* ── Formats ── */}
-      <div style={panel}>
-        <span style={sectionLabel}>2 — Formats d'export</span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+      {/* Step 2 — Formats */}
+      <div className="card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span className="badge badge-primary">2</span>
+          <span className="text-h3">Formats d'export</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {FORMAT_OPTIONS.map(fmt => {
             const active = formats.has(fmt.value)
             return (
-              <label
-                key={fmt.value}
-                style={{
-                  display: 'flex', flexDirection: 'column', gap: '0.3rem',
-                  padding: '0.85rem 1rem', borderRadius: 8, cursor: 'pointer',
-                  border: `1px solid ${active ? 'var(--color-accent, #e94560)' : 'rgba(255,255,255,0.08)'}`,
-                  background: active ? 'rgba(233,69,96,0.08)' : 'rgba(0,0,0,0.15)',
-                  transition: 'border-color 0.15s, background 0.15s',
-                  userSelect: 'none',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    type="checkbox"
-                    aria-label={fmt.label}
-                    checked={active}
-                    onChange={() => toggleFormat(fmt.value)}
-                    style={{ accentColor: 'var(--color-accent, #e94560)', width: 14, height: 14 }}
-                  />
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: active ? 'var(--color-accent, #e94560)' : 'var(--color-text, #cdd6f4)' }}>
-                    {fmt.icon} {fmt.label}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted, #8892b0)', paddingLeft: '1.3rem' }}>
-                  {fmt.desc}
-                </span>
+              <label key={fmt.value} style={{
+                display: 'flex', flexDirection: 'column', gap: 3, padding: '12px 16px',
+                borderRadius: 8, cursor: 'pointer',
+                background: active ? 'var(--ac-muted)' : 'var(--elevated)',
+                border: `1.5px solid ${active ? 'var(--border-ac)' : 'var(--border-c)'}`,
+                transition: 'all 0.15s', minWidth: 140,
+              }}>
+                <input
+                  type="checkbox"
+                  aria-label={fmt.label}
+                  checked={active}
+                  onChange={() => toggleFormat(fmt.value)}
+                  style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+                />
+                <span style={{ fontWeight: 600, fontSize: 13, color: active ? 'var(--ac)' : 'var(--fg)' }}>{fmt.label}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{fmt.desc}</span>
               </label>
             )
           })}
         </div>
 
         {formats.has('video') && (
-          <div style={{ marginTop: '1rem', padding: '0.65rem 0.9rem', borderRadius: 6, background: 'rgba(100,255,218,0.05)', border: '1px solid rgba(100,255,218,0.15)', fontSize: '0.78rem', color: 'var(--color-text-muted, #8892b0)' }}>
-            Si une vidéo adaptée a déjà été sauvegardée, son BPM est prérempli et cette version sera réutilisée automatiquement. Sans preview sauvegardé ni BPM, un clip brut sera inclus.
+          <div className="fade-up" style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'hsl(var(--adapted-preview,160 60% 50%)/0.06)', border: '1px solid hsl(var(--adapted-preview,160 60% 50%)/0.2)', fontSize: 12, color: 'var(--text-2)' }}>
+            Si une vidéo adaptée a déjà été sauvegardée, son BPM est prérempli et sera réutilisée automatiquement.
           </div>
         )}
       </div>
 
-      {/* ── Contenu prévu ── */}
-      {(selectedIds.size > 0 || noneSelected) && formats.size > 0 && (
-        <div style={panel}>
-          <span style={sectionLabel}>3 — Contenu du ZIP</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            {videoList.map(v => {
-              const stem = v.original_name.replace(/\.[^.]+$/, '')
-              return (
-                <div key={v.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted, #8892b0)', marginBottom: '0.1rem' }}>
-                    {v.original_name}
+      {/* Step 3 — Contenu du ZIP */}
+      {formats.size > 0 && (
+        <div className="card" style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span className="badge badge-primary">3</span>
+            <span className="text-h3">Contenu du ZIP</span>
+          </div>
+          {zipFiles.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Sélectionnez des vidéos et formats ci-dessus.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {zipFiles.map((f, i) => (
+                <div key={i} className="fade-up" style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '7px 10px', borderRadius: 6,
+                  background: 'var(--elevated)', border: '1px solid var(--border-c)',
+                  animationDelay: `${i * 40}ms`,
+                }}>
+                  <span style={{ fontSize: 11, color: f.type === 'video' ? 'var(--adapted, hsl(160 60% 50%))' : 'var(--ac)', fontFamily: 'monospace', width: 40 }}>
+                    {f.type.toUpperCase()}
                   </span>
-                  {formats.has('json') && (
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <span style={fileEntry}>📄 {stem}_annotations.json</span>
-                      <span style={fileEntry}>📊 {stem}_statistics.json</span>
-                    </div>
-                  )}
-                  {formats.has('csv') && (
-                    <span style={fileEntry}>📊 {stem}_annotations.csv</span>
-                  )}
-                  {formats.has('video') && (
-                    <span style={fileEntry}>
-                      🎬 {stem}_adapted.mp4
-                      {videoBpm[v.id] ? <span style={{ color: 'var(--color-accent, #e94560)', marginLeft: 6 }}>@ {videoBpm[v.id]} BPM</span> : <span style={{ color: 'var(--color-text-muted, #8892b0)', marginLeft: 6 }}>(clip brut)</span>}
+                  <span style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.name}
+                  </span>
+                  {f.type === 'video' && (
+                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'monospace', flexShrink: 0 }}>
+                      {(f as { bpm?: string }).bpm ? `@ ${(f as { bpm?: string }).bpm} BPM` : '(clip brut)'}
                     </span>
                   )}
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Erreur / succès ── */}
+      {/* Erreur */}
       {error && (
         <div role="alert" style={{
-          display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
-          padding: '0.75rem 1rem', marginBottom: '1.25rem',
-          background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)',
-          borderRadius: 7, fontSize: '0.82rem', color: 'var(--color-danger, #ff6b6b)',
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+          padding: '10px 14px', borderRadius: 7,
+          background: 'hsl(var(--danger)/0.08)', border: '1px solid hsl(var(--danger)/0.25)',
+          fontSize: 13, color: 'var(--danger-c)',
         }}>
-          <span>⚠</span><span>{error}</span>
+          <span style={{ flexShrink: 0, marginTop: 1 }}>
+            <Icon.AlertTriangle />
+          </span>
+          <span>{error}</span>
         </div>
       )}
 
+      {/* Queued banner */}
       {queued && (
         <div style={{
-          padding: '0.75rem 1rem', marginBottom: '1.25rem',
-          background: 'rgba(100,255,218,0.06)', border: '1px solid rgba(100,255,218,0.2)',
-          borderRadius: 7, fontSize: '0.82rem', color: '#64ffda',
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          padding: '10px 14px', borderRadius: 7,
+          background: 'hsl(var(--success,158 64% 38%)/0.06)', border: '1px solid hsl(var(--success,158 64% 38%)/0.2)',
+          fontSize: 13, color: 'var(--success-c, hsl(158 64% 50%))',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span>⚙️</span>
+          <Icon.Check />
           <span>Export lancé en arrière-plan — vous pouvez continuer à annoter. Le téléchargement démarrera automatiquement.</span>
         </div>
       )}
 
       {/* Progressbar */}
       {loading && (
-        <div
-          role="progressbar"
-          aria-label="Export en cours"
-          style={{
-            height: 3, borderRadius: 2, marginBottom: '1.25rem',
-            background: 'var(--color-border, #2a2a4a)',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{
-            height: '100%', width: '40%',
-            background: 'var(--color-accent, #e94560)',
-            borderRadius: 2,
-            animation: 'slide 1.2s ease-in-out infinite',
-          }} />
+        <div role="progressbar" aria-label="Export en cours" style={{ height: 3, borderRadius: 2, background: 'var(--border-c)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: '40%', background: 'var(--ac)', borderRadius: 2, animation: 'slide 1.2s ease-in-out infinite' }} />
         </div>
       )}
 
-      {/* ── Actions ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          onClick={handleExport}
-          disabled={!canExport}
-          aria-label="Exporter"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
-            padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 700,
-            background: canExport ? 'var(--color-accent, #e94560)' : 'rgba(233,69,96,0.3)',
-            border: 'none', borderRadius: 8,
-            color: '#fff',
-            cursor: canExport ? 'pointer' : 'not-allowed',
-            transition: 'opacity 0.15s',
-          }}
-        >
-          {loading ? <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> Export…</> : <>⬇ Exporter le projet</>}
+      {/* CTA */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <button className="btn btn-primary" disabled={!canExport} onClick={handleExport} aria-label="Exporter" style={{ minWidth: 160 }}>
+          {loading ? <><Spinner size={13} /> Export…</> : <><Icon.Export /> Exporter le projet</>}
         </button>
       </div>
 
       <style>{`
-        @keyframes slide {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(350%); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
+        @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
       `}</style>
     </div>
   )
-}
-
-const fileEntry: React.CSSProperties = {
-  fontSize: '0.78rem',
-  color: 'var(--color-text-muted, #8892b0)',
-  fontFamily: 'JetBrains Mono, monospace',
 }
 
 export default ExportPage
