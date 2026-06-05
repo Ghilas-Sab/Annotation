@@ -6,6 +6,12 @@ class AssemblageClipRequest(BaseModel):
     video_id: str
     order: int
     source_type: str = "original"
+    trim_start: float = 0.0
+    trim_end: float = 0.0
+    fade_in: bool = False
+    fade_out: bool = False
+    fade_in_duration_s: float = 0.5
+    fade_out_duration_s: float = 0.5
 
 
 class AssemblageExportRequest(BaseModel):

@@ -1,6 +1,7 @@
 import { forwardRef, useState } from 'react'
 import { Annotation } from '../../types/annotation'
 import { frameToTimestamp } from '../../utils/frameUtils'
+import { Icon } from '../ui'
 
 interface AnnotationItemProps {
   annotation: Annotation
@@ -8,6 +9,7 @@ interface AnnotationItemProps {
   totalFrames: number
   active?: boolean
   selected?: boolean
+  idx?: number
   onSeek: (frame: number) => void
   onSelect?: (id: string) => void
   onUpdate: (id: string, frame: number, label: string) => void
@@ -15,12 +17,16 @@ interface AnnotationItemProps {
 }
 
 export const AnnotationItem = forwardRef<HTMLDivElement, AnnotationItemProps>(({
-  annotation, fps, totalFrames, active = false, selected = false, onSeek, onSelect, onUpdate, onDelete,
+  annotation, fps, totalFrames, active = false, selected = false, idx = 0, onSeek, onSelect, onUpdate, onDelete,
 }, ref) => {
   const [editingLabel, setEditingLabel] = useState(false)
   const [editingFrame, setEditingFrame] = useState(false)
   const [label, setLabel] = useState(annotation.label)
   const [frameInput, setFrameInput] = useState(String(annotation.frame_number))
+  const [hov, setHov] = useState(false)
+
+  const catColor = annotation.category?.color ?? '#9CA3AF'
+  const isHighlighted = selected || active
 
   const saveLabel = () => {
     setEditingLabel(false)
@@ -34,57 +40,70 @@ export const AnnotationItem = forwardRef<HTMLDivElement, AnnotationItemProps>(({
     onUpdate(annotation.id, f, annotation.label)
   }
 
-  const badgeColor = annotation.category?.color ?? '#9CA3AF'
-
   return (
     <div
       ref={ref}
       data-testid="annotation-item"
       tabIndex={0}
-      onClick={(e) => {
-        e.currentTarget.focus()
-        onSelect?.(annotation.id)
-      }}
-      onKeyDown={(e) => {
-        const tag = (e.target as HTMLElement).tagName
-        if (editingFrame || editingLabel || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag)) return
-      }}
+      onClick={(e) => { e.currentTarget.focus(); onSelect?.(annotation.id) }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.4rem 0.6rem',
-        borderBottom: '1px solid var(--color-surface, #2a2a3e)',
-        fontSize: '0.82rem',
-        background: selected ? 'var(--ac-muted)' : active ? 'hsl(var(--accent) / 0.08)' : 'transparent',
-        outline: selected ? '1px solid var(--border-ac)' : active ? '1px solid hsl(var(--accent) / 0.25)' : 'none',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer',
+        background: selected ? 'var(--ac-muted)' : active ? `${catColor}14` : hov ? 'var(--elevated)' : 'transparent',
+        borderLeft: `2px solid ${selected ? 'var(--ac)' : active ? catColor : 'transparent'}`,
+        outline: selected ? '1px solid var(--border-ac)' : active ? `1px solid ${catColor}40` : 'none',
+        transition: 'all 0.12s', minHeight: 36,
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          width: 10,
-          color: active ? 'var(--ac)' : 'transparent',
-          fontSize: 11,
-          flexShrink: 0,
-        }}
-      >
-        ▶
+      {/* Index */}
+      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text-3)', width: 16, textAlign: 'right', flexShrink: 0 }}>
+        {String(idx + 1).padStart(2, '0')}
       </span>
-      {/* Badge catégorie */}
+
+      {/* Category dot */}
       <span
         data-testid="category-badge"
         title={annotation.category?.name ?? 'Par défaut'}
-        style={{
-          display: 'inline-block',
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          backgroundColor: badgeColor,
-          flexShrink: 0,
-        }}
+        style={{ width: 6, height: 6, borderRadius: '50%', background: catColor, flexShrink: 0, display: 'inline-block' }}
       />
-      {/* Frame number — cliquable pour seek, double-clic pour éditer */}
+
+      {/* Timestamp + label column */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'monospace', fontSize: 11.5,
+          color: isHighlighted ? 'var(--fg)' : 'var(--text-2)',
+          fontWeight: isHighlighted ? 600 : 400,
+        }}>
+          {frameToTimestamp(annotation.frame_number, fps)}
+        </div>
+        {editingLabel ? (
+          <input
+            value={label}
+            autoFocus
+            placeholder="label..."
+            onChange={e => setLabel(e.target.value)}
+            onBlur={saveLabel}
+            onKeyDown={e => { if (e.key === 'Enter') saveLabel(); if (e.key === 'Escape') { setLabel(annotation.label); setEditingLabel(false) } }}
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: '0.82rem', width: '100%' }}
+          />
+        ) : (
+          <div
+            onDoubleClick={() => setEditingLabel(true)}
+            title="Double-clic pour modifier le label"
+            style={{
+              fontSize: 10, color: 'var(--text-3)',
+              fontStyle: label ? 'normal' : 'italic',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {label || 'sans label'}
+          </div>
+        )}
+      </div>
+
+      {/* Frame number */}
       {editingFrame ? (
         <input
           value={frameInput}
@@ -94,69 +113,38 @@ export const AnnotationItem = forwardRef<HTMLDivElement, AnnotationItemProps>(({
           autoFocus
           onChange={e => setFrameInput(e.target.value)}
           onBlur={saveFrame}
-          onKeyDown={e => { if (e.key === 'Enter') saveFrame(); if (e.key === 'Escape') { setFrameInput(String(annotation.frame_number)); setEditingFrame(false) } }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') saveFrame()
+            if (e.key === 'Escape') { setFrameInput(String(annotation.frame_number)); setEditingFrame(false) }
+          }}
           style={{ width: '5ch', fontSize: '0.8rem', textAlign: 'center' }}
         />
       ) : (
         <span
-          onClick={() => {
-            onSelect?.(annotation.id)
-            onSeek(annotation.frame_number)
-          }}
+          onClick={() => { onSelect?.(annotation.id); onSeek(annotation.frame_number) }}
           onDoubleClick={() => setEditingFrame(true)}
           title="Clic : aller à cette frame — Double-clic : modifier la frame"
-          style={{ minWidth: '4ch', color: 'var(--color-accent, #e94560)', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}
+          style={{ fontFamily: 'monospace', fontSize: 9.5, color: 'var(--text-3)', flexShrink: 0, cursor: 'pointer' }}
         >
           {annotation.frame_number}
         </span>
       )}
 
-      {/* Timestamp */}
-      <span style={{ minWidth: '7ch', color: 'var(--color-text-muted, #888)', fontSize: '0.72rem' }}>
-        {frameToTimestamp(annotation.frame_number, fps)}
-      </span>
-
-      {/* Label — double-clic pour éditer */}
-      {editingLabel ? (
-        <input
-          value={label}
-          autoFocus
-          placeholder="label..."
-          onChange={e => setLabel(e.target.value)}
-          onBlur={saveLabel}
-          onKeyDown={e => { if (e.key === 'Enter') saveLabel(); if (e.key === 'Escape') { setLabel(annotation.label); setEditingLabel(false) } }}
-          onClick={e => e.stopPropagation()}
-          style={{ flex: 1, fontSize: '0.82rem' }}
-        />
-      ) : (
-        <span
-          onDoubleClick={() => setEditingLabel(true)}
-          title="Double-clic pour modifier le label"
-          style={{
-            flex: 1,
-            color: label ? 'var(--color-text, #e0e0e0)' : 'var(--color-text-muted, #888)',
-            fontStyle: label ? 'normal' : 'italic',
-            cursor: 'text',
-            minWidth: '3ch',
-            padding: '2px 4px',
-            borderRadius: 3,
-            border: '1px solid transparent',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
-        >
-          {label || 'sans label'}
-        </span>
-      )}
-
-      {/* Bouton supprimer */}
+      {/* Delete button */}
       <button
         aria-label="Supprimer"
         onClick={e => { e.stopPropagation(); onDelete(annotation.id) }}
         title="Supprimer cette annotation"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger, #e94560)', fontSize: '0.9rem', lineHeight: 1, padding: '2px 4px', flexShrink: 0 }}
+        style={{
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: 'var(--text-3)', padding: '2px 3px', borderRadius: 4,
+          display: 'flex', flexShrink: 0, opacity: hov ? 1 : 0.25,
+          transition: 'opacity 0.1s, color 0.1s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger-c)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
       >
-        🗑
+        <Icon.Trash />
       </button>
     </div>
   )

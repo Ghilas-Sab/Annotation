@@ -4,6 +4,12 @@ export interface AssemblageClipRequest {
   video_id: string
   order: number
   source_type: 'original' | 'adapted'
+  trim_start?: number
+  trim_end?: number
+  fade_in?: boolean
+  fade_out?: boolean
+  fade_in_duration_s?: number
+  fade_out_duration_s?: number
 }
 
 export interface AssemblageExportRequest {

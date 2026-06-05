@@ -122,7 +122,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onAnnotate, onDelete, onSt
           {annotationCount >= 2 && (
             <div className="tooltip-wrap">
               <button className="btn btn-ghost btn-sm btn-icon" aria-label="Adapter le BPM" onClick={() => setShowPreviewPanel(v => !v)}>
-                <Icon.Waveform />
+                <Icon.Eye />
               </button>
               <span className="tooltip">Adapter le BPM</span>
             </div>

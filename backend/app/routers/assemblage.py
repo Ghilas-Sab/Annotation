@@ -53,9 +53,19 @@ async def export_assemblage(
             if not filepath or not os.path.exists(filepath):
                 raise HTTPException(status_code=404, detail=f"Video file missing: {clip_req.video_id}")
 
+        db_duration = float(video.get("duration_seconds") or 0)
+        trim_start = clip_req.trim_start or 0.0
+        trim_end = clip_req.trim_end if clip_req.trim_end > 0 else 0.0
+        effective_duration = (trim_end - trim_start) if trim_end > 0 else (db_duration - trim_start)
         clips_paths.append({
             "path": filepath,
-            "duration": float(video.get("duration_seconds") or 0),
+            "duration": max(0.0, effective_duration),
+            "trimStart": trim_start,
+            "trimEnd": trim_end,
+            "fadeIn": clip_req.fade_in,
+            "fadeOut": clip_req.fade_out,
+            "fadeInDurationS": clip_req.fade_in_duration_s,
+            "fadeOutDurationS": clip_req.fade_out_duration_s,
         })
 
     job = job_manager.create_job(label="assemblage-export")

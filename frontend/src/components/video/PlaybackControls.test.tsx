@@ -36,15 +36,15 @@ describe('PlaybackControls', () => {
     expect(screen.getByRole('button', { name: /^play$/i })).toBeInTheDocument()
   })
 
-  test('affiche ▶ Play quand isPlaying = false', () => {
+  test('affiche le bouton play (icône) quand isPlaying = false', () => {
     render(<PlaybackControls videoRef={makeVideoRef()} />)
-    expect(screen.getByText(/▶ Play/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^play$/i })).toBeInTheDocument()
   })
 
-  test('affiche ⏸ Pause quand isPlaying = true', () => {
+  test('affiche le bouton pause (icône) quand isPlaying = true', () => {
     useVideoStore.setState({ isPlaying: true })
     render(<PlaybackControls videoRef={makeVideoRef({ paused: false })} />)
-    expect(screen.getByText(/⏸ Pause/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^pause$/i })).toBeInTheDocument()
   })
 
   test('affiche les 3 boutons de vitesse (0.5x, 1x, 2x)', () => {
@@ -123,16 +123,16 @@ describe('PlaybackControls', () => {
     useVideoStore.setState({ playbackRate: 1 })
     render(<PlaybackControls videoRef={makeVideoRef()} />)
     const btn1x = screen.getByRole('button', { name: /vitesse 1x/i })
-    expect(btn1x.className).toContain('btn-primary')
+    expect(btn1x).toHaveStyle({ background: 'var(--ac-muted)', color: 'var(--ac)' })
   })
 
-  test('les autres boutons vitesse ont btn-secondary', () => {
+  test('les autres boutons vitesse sont neutres', () => {
     useVideoStore.setState({ playbackRate: 1 })
     render(<PlaybackControls videoRef={makeVideoRef()} />)
     const btn05 = screen.getByRole('button', { name: /vitesse 0\.5x/i })
     const btn2x = screen.getByRole('button', { name: /vitesse 2x/i })
-    expect(btn05.className).toContain('btn-secondary')
-    expect(btn2x.className).toContain('btn-secondary')
+    expect(btn05).toHaveStyle({ background: 'transparent', color: 'var(--text-2)' })
+    expect(btn2x).toHaveStyle({ background: 'transparent', color: 'var(--text-2)' })
   })
 })
 
@@ -196,10 +196,9 @@ describe('PlaybackControls — navigation buttons (S6.4)', () => {
     expect(annotateFn).toHaveBeenCalledWith(42)
   })
 
-  test('? button opens KeyboardShortcutsModal', async () => {
+  test('le bouton raccourcis n’est pas rendu dans la barre de lecture compacte', async () => {
     render(<PlaybackControls {...defaultNavProps} onSeek={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /raccourcis/i }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /raccourcis/i })).not.toBeInTheDocument()
   })
 
   test('keyboard shortcuts still work after adding buttons (ArrowRight)', () => {
@@ -225,45 +224,94 @@ describe('PlaybackControls — navigation buttons (S6.4)', () => {
     expect(annotateFn).not.toHaveBeenCalled()
   })
 
-  test('all 10 control buttons are rendered', () => {
+  test('all compact control buttons are rendered', () => {
     render(<PlaybackControls {...defaultNavProps} onSeek={vi.fn()} onAnnotate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /frame précédente/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /frame suivante/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /-5 frames/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /\+5 frames/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /annotation précédente/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /annotation suivante/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /saut intelligent précédent/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /saut intelligent suivant/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /début vidéo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /fin vidéo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /annoter/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /raccourcis/i })).toBeInTheDocument()
   })
 
-  test('début vidéo button shows ⏮ icon', () => {
+  test('début vidéo button is rendered', () => {
     render(<PlaybackControls {...defaultNavProps} />)
-    expect(screen.getByRole('button', { name: /début vidéo/i })).toHaveTextContent('⏮')
+    expect(screen.getByRole('button', { name: /début vidéo/i })).toBeInTheDocument()
   })
 
-  test('fin vidéo button shows ⏭ icon', () => {
+  test('fin vidéo button is rendered', () => {
     render(<PlaybackControls {...defaultNavProps} />)
-    expect(screen.getByRole('button', { name: /fin vidéo/i })).toHaveTextContent('⏭')
+    expect(screen.getByRole('button', { name: /fin vidéo/i })).toBeInTheDocument()
   })
 
-  test('annotation précédente button has accent color style', () => {
+  test('saut intelligent précédent button uses smart jump style', () => {
     render(<PlaybackControls {...defaultNavProps} />)
-    expect(screen.getByRole('button', { name: /annotation précédente/i })).toHaveStyle({ color: '#FFD700' })
+    expect(screen.getByRole('button', { name: /saut intelligent précédent/i }).className).toContain('playback-smart-jump-btn')
   })
 
-  test('annotation suivante button has accent color style', () => {
+  test('saut intelligent suivant button uses smart jump style', () => {
     render(<PlaybackControls {...defaultNavProps} />)
-    expect(screen.getByRole('button', { name: /annotation suivante/i })).toHaveStyle({ color: '#FFD700' })
+    expect(screen.getByRole('button', { name: /saut intelligent suivant/i }).className).toContain('playback-smart-jump-btn')
   })
 
-  test('button order is preserved', () => {
+  test('button order matches compact transport design', () => {
     render(<PlaybackControls {...defaultNavProps} />)
     const labels = screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))
-    expect(labels.indexOf('début vidéo')).toBeLessThan(labels.indexOf('annotation précédente'))
-    expect(labels.indexOf('annotation précédente')).toBeLessThan(labels.indexOf('annotation suivante'))
-    expect(labels.indexOf('annotation suivante')).toBeLessThan(labels.indexOf('fin vidéo'))
+    expect(labels.indexOf('saut intelligent précédent')).toBeLessThan(labels.indexOf('play'))
+    expect(labels.indexOf('play')).toBeLessThan(labels.indexOf('saut intelligent suivant'))
+    expect(labels.indexOf('saut intelligent suivant')).toBeLessThan(labels.indexOf('frame suivante'))
+    expect(labels.indexOf('fin vidéo')).toBeLessThan(labels.indexOf('annoter'))
+  })
+
+  test('prédire annotation suivante — 0 annotations : avance du pas fallback', () => {
+    const seekFn = vi.fn()
+    render(<PlaybackControls {...defaultNavProps} annotations={[]} onSeek={seekFn} />)
+    fireEvent.click(screen.getByRole('button', { name: /saut intelligent suivant/i }))
+    expect(seekFn).toHaveBeenCalledWith(20)
+  })
+
+  test('prédire annotation suivante — 1 annotation : avance du pas fallback', () => {
+    const seekFn = vi.fn()
+    const ann = [{ id: '1', frame_number: 50, label: 'a', timestamp_ms: 0, video_id: 'v', created_at: '' }]
+    render(<PlaybackControls {...defaultNavProps} fps={25} totalFrames={500} annotations={ann} onSeek={seekFn} />)
+    fireEvent.click(screen.getByRole('button', { name: /saut intelligent suivant/i }))
+    expect(seekFn).toHaveBeenCalledWith(20)
+  })
+
+  test('prédire annotation suivante — avant deux annotations précédentes : avance du pas fallback', () => {
+    const seekFn = vi.fn()
+    const ann = [
+      { id: '1', frame_number: 10, label: 'a', timestamp_ms: 0, video_id: 'v', created_at: '' },
+      { id: '2', frame_number: 40, label: 'b', timestamp_ms: 0, video_id: 'v', created_at: '' },
+    ]
+    render(<PlaybackControls {...defaultNavProps} annotations={ann} onSeek={seekFn} />)
+    fireEvent.click(screen.getByRole('button', { name: /saut intelligent suivant/i }))
+    expect(seekFn).toHaveBeenCalledWith(20)
+  })
+
+  test('prédire annotation suivante — utilise le même pas que Ctrl+→', () => {
+    const seekFn = vi.fn()
+    const ann = [
+      { id: '1', frame_number: 0, label: 'a', timestamp_ms: 0, video_id: 'v', created_at: '' },
+      { id: '2', frame_number: 30, label: 'b', timestamp_ms: 0, video_id: 'v', created_at: '' },
+      { id: '3', frame_number: 50, label: 'c', timestamp_ms: 0, video_id: 'v', created_at: '' },
+    ]
+    render(<PlaybackControls {...defaultNavProps} currentFrame={50} annotations={ann} onSeek={seekFn} />)
+    fireEvent.click(screen.getByRole('button', { name: /saut intelligent suivant/i }))
+    expect(seekFn).toHaveBeenCalledWith(70)
+  })
+
+  test('prédire annotation suivante — depuis position arbitraire : avance avec le pas local', () => {
+    const seekFn = vi.fn()
+    const ann = [
+      { id: '1', frame_number: 0, label: 'a', timestamp_ms: 0, video_id: 'v', created_at: '' },
+      { id: '2', frame_number: 15, label: 'b', timestamp_ms: 0, video_id: 'v', created_at: '' },
+    ]
+    render(<PlaybackControls {...defaultNavProps} currentFrame={100} annotations={ann} onSeek={seekFn} />)
+    fireEvent.click(screen.getByRole('button', { name: /saut intelligent suivant/i }))
+    expect(seekFn).toHaveBeenCalledWith(115)
   })
 })

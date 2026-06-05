@@ -20,9 +20,16 @@ import {
 import { deleteAudioTrackBlob, saveAudioTrackBlob } from '../utils/audioPersistence'
 import { blurNonTextFocus, isTextEditingTarget } from '../utils/keyboardTargets'
 import ExportPanel from '../components/assemblage/ExportPanel'
-import { Logo, ThemeToggle, Icon, Spinner } from '../components/ui'
+import { Logo, ThemeToggle, Icon, Spinner, EmptyState } from '../components/ui'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+
+const CLIP_PANEL_COLORS = [
+  'hsl(240,65%,55%)', 'hsl(188,65%,42%)', 'hsl(280,60%,55%)',
+  'hsl(38,80%,50%)',  'hsl(158,55%,42%)', 'hsl(0,65%,52%)',
+]
+const getClipPanelColor = (clip: AssemblageClip, index: number): string =>
+  clip.sourceType === 'adapted' ? 'hsl(350,85%,60%)' : CLIP_PANEL_COLORS[index % CLIP_PANEL_COLORS.length]
 
 interface AssemblagePageProps {
   project?: Project
@@ -89,30 +96,8 @@ const panelSection: React.CSSProperties = { padding: '0.85rem' }
 const panelSectionHeader: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   marginBottom: '0.55rem',
-  fontSize: '0.68rem', fontWeight: 700,
-  textTransform: 'uppercase', letterSpacing: '0.1em',
-  color: 'var(--color-text-muted, #8892b0)',
 }
 
-const smallAddBtn: React.CSSProperties = {
-  fontSize: '0.68rem', padding: '0.15rem 0.45rem', borderRadius: 4,
-  border: '1px solid rgba(255,255,255,0.14)',
-  background: 'rgba(255,255,255,0.06)',
-  color: 'var(--color-text, #e8ecf8)', cursor: 'pointer',
-}
-
-const rowItem: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '0.45rem',
-  padding: '0.4rem 0.5rem', borderRadius: 6,
-  transition: 'background 0.1s',
-}
-
-const deleteBtn: React.CSSProperties = {
-  flexShrink: 0, border: 'none', background: 'rgba(255,255,255,0.07)',
-  color: 'rgba(255,255,255,0.4)', borderRadius: 999, width: 18, height: 18,
-  fontSize: '0.55rem', cursor: 'pointer', lineHeight: 1, padding: 0,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-}
 
 const reorderClipBtn: React.CSSProperties = {
   flexShrink: 0,
@@ -131,11 +116,6 @@ const reorderClipBtn: React.CSSProperties = {
   justifyContent: 'center',
 }
 
-const navBtn: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
-  color: 'var(--color-text-muted, #8892b0)', borderRadius: 6,
-  padding: '0.25rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem',
-}
 
 const divider: React.CSSProperties = { height: 1, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }
 
@@ -941,23 +921,28 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
         }}>
           {clips.length === 0 ? (
             /* État vide */
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '2rem', textAlign: 'center' }}>
-              <div style={{ color: 'var(--text-3)', fontSize: 48, opacity: 0.25 }}><Icon.Film /></div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 6 }}>
-                  Ajoutez des vidéos pour commencer l&apos;assemblage
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                  Importez des clips via le panneau à droite.
-                </div>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowImportModal(true)}
-              >
-                <Icon.Plus /> Ajouter des vidéos
-              </button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <EmptyState
+                icon={
+                  <svg width="80" height="48" viewBox="0 0 80 48" fill="none">
+                    {[0, 12, 24, 36, 48, 60, 68].map((x, idx) => (
+                      <React.Fragment key={idx}>
+                        <rect x={x} y="4" width="10" height="40" rx="2" fill="var(--border-c)" />
+                        <rect x={x + 1} y="8" width="2" height="6" rx="1" fill="var(--border-strong, rgba(255,255,255,0.2))" />
+                        <rect x={x + 1} y="34" width="2" height="6" rx="1" fill="var(--border-strong, rgba(255,255,255,0.2))" />
+                      </React.Fragment>
+                    ))}
+                    <rect x="0" y="20" width="80" height="8" rx="4" fill="var(--ac)" opacity="0.2" />
+                  </svg>
+                }
+                title="Ajoutez des vidéos pour commencer l'assemblage"
+                description="Importez des clips depuis votre projet pour créer un assemblage."
+                action={
+                  <button type="button" className="btn btn-primary" onClick={() => setShowImportModal(true)}>
+                    <Icon.Plus /> Ajouter des vidéos
+                  </button>
+                }
+              />
             </div>
           ) : (
             <>
@@ -1020,44 +1005,86 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                 )}
               </div>
 
-              {/* Barre info clip + navigation */}
+              {/* Barre progression séquence */}
               <div style={{
-                flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.6rem',
-                padding: '0.26rem 0.65rem',
-                borderTop: '1px solid rgba(255,255,255,0.07)',
+                flexShrink: 0, height: 28,
+                borderTop: '1px solid var(--border-c)',
                 background: 'rgba(8,12,28,0.95)',
+                display: 'flex', alignItems: 'center', padding: '0 8px', gap: 2,
               }}>
-                {/* Barre de progression séquence */}
-                <div style={{ display: 'flex', height: 4, flex: 1, borderRadius: 999, overflow: 'hidden', background: 'rgba(255,255,255,0.07)', gap: 1 }}>
-                  {clips.map((clip, i) => {
-                    const pct = totalDuration > 0 ? (clip.duration / totalDuration) * 100 : 100 / clips.length
-                    return (
-                      <div
-                        key={clip.id}
-                        style={{
-                          width: `${pct}%`, height: '100%',
-                          background: i < currentClipIndex
-                            ? 'rgba(255,255,255,0.3)'
-                            : i === currentClipIndex
-                              ? 'var(--color-accent, #e94560)'
-                              : 'rgba(255,255,255,0.1)',
-                          cursor: 'pointer', transition: 'background 0.2s',
-                        }}
-                        onClick={() => goToClip(i)}
-                      />
-                    )
-                  })}
-                </div>
+                {clips.map((clip, i) => {
+                  const color = getClipPanelColor(clip, i)
+                  const isActive = i === currentClipIndex
+                  return (
+                    <div
+                      key={clip.id}
+                      onClick={() => goToClip(i)}
+                      title={clip.name}
+                      style={{
+                        height: 14, borderRadius: 3, cursor: 'pointer',
+                        background: isActive ? color : `${color}44`,
+                        border: `1px solid ${isActive ? color : `${color}55`}`,
+                        flex: clip.duration > 0 ? clip.duration : 1,
+                        minWidth: 20,
+                        transition: 'all 0.2s',
+                        boxShadow: isActive ? `0 0 8px ${color}55` : 'none',
+                      }}
+                    />
+                  )
+                })}
+              </div>
 
-                {/* Nom + position clip */}
-                <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 70 }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#e8ecf8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
+              {/* Contrôles lecture */}
+              <div style={{
+                flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '0.6rem', padding: '6px 12px',
+                borderTop: '1px solid var(--border-c)',
+                background: 'var(--card-bg, rgba(8,12,28,0.98))',
+              }}>
+                {/* Nom + position */}
+                <div style={{ minWidth: 80, maxWidth: 140 }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {currentClip?.name}
                   </div>
-                  <div style={{ fontSize: '0.58rem', color: 'var(--color-text-muted, #8892b0)' }}>
+                  <div style={{ fontSize: '0.58rem', color: 'var(--text-2)' }}>
                     {currentClipIndex + 1}/{clips.length}
                     {currentClip && ` · ${fmtTime(currentClip.duration)}`}
                   </div>
+                </div>
+
+                {/* Navigation + Play global (centré) */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => goToClip(currentClipIndex - 1)}
+                    disabled={currentClipIndex === 0}
+                  >
+                    <Icon.SkipBack />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={isPlaying ? 'Pause' : 'Lecture'}
+                    onClick={handleGlobalPlayPause}
+                    className="btn btn-sm"
+                    style={{
+                      width: 36, borderRadius: 8,
+                      background: isPlaying ? 'var(--ac, #e94560)' : 'var(--elevated)',
+                      color: isPlaying ? '#fff' : 'var(--fg)',
+                      border: `1px solid ${isPlaying ? 'var(--ac, #e94560)' : 'var(--border-c)'}`,
+                    }}
+                  >
+                    {isPlaying ? <Icon.Pause /> : <Icon.Play />}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => goToClip(currentClipIndex + 1)}
+                    disabled={currentClipIndex === clips.length - 1}
+                  >
+                    <Icon.SkipFwd />
+                  </button>
                 </div>
 
                 {/* Volume vidéo */}
@@ -1078,101 +1105,60 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                     aria-label="Volume vidéo"
                   />
                 </div>
-
-                {/* Navigation + Play global */}
-                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => goToClip(currentClipIndex - 1)}
-                    disabled={currentClipIndex === 0}
-                    style={{ ...navBtn, opacity: currentClipIndex === 0 ? 0.3 : 1 }}
-                  >◀</button>
-
-                  <button
-                    type="button"
-                    aria-label={isPlaying ? 'Pause' : 'Lecture'}
-                    onClick={handleGlobalPlayPause}
-                    style={{
-                      border: '1px solid rgba(233,69,96,0.5)',
-                      background: isPlaying ? 'rgba(233,69,96,0.2)' : 'rgba(233,69,96,0.1)',
-                      color: '#e94560', borderRadius: 999,
-                      width: 28, height: 28, fontSize: '0.8rem',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {isPlaying ? '⏸' : '▶'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => goToClip(currentClipIndex + 1)}
-                    disabled={currentClipIndex === clips.length - 1}
-                    style={{ ...navBtn, opacity: currentClipIndex === clips.length - 1 ? 0.3 : 1 }}
-                  >▶
-                  </button>
-                </div>
               </div>
             </>
           )}
         </div>
 
         {/* ── Panneau droite ─────────────────────────────────────────────── */}
-        <div className="panel-right" style={{ width: 240 }}>
+        <div className="panel-right" style={{ width: 260 }}>
 
           {/* Section Vidéos */}
           <div style={panelSection}>
             <div style={panelSectionHeader}>
-              <span>🎬 Vidéos</span>
-              <button type="button" style={smallAddBtn} onClick={() => setShowImportModal(true)}>
-                + Ajouter
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon.Film />
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Vidéos</span>
+              </div>
+              <button type="button" className="btn btn-ghost btn-xs btn-icon" aria-label="Importer des vidéos" onClick={() => setShowImportModal(true)}>
+                <Icon.Plus />
               </button>
             </div>
 
             {clips.length === 0 ? (
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-3)' }}>
                 Aucun clip
               </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {clips.map((clip, i) => {
                   const isActive = i === currentClipIndex
                   const activeFadeCount = Number(!!clip.fadeIn) + Number(!!clip.fadeOut)
                   const fadeInDuration = getClipFadeInDuration(clip)
                   const fadeOutDuration = getClipFadeOutDuration(clip)
+                  const clipColor = getClipPanelColor(clip, i)
                   return (
                     <div
                       key={clip.id}
                       onClick={() => goToClip(i)}
                       style={{
-                        ...rowItem,
-                        flexDirection: 'column', alignItems: 'stretch', gap: 0,
-                        padding: '0.4rem 0.5rem',
-                        background: isActive ? 'rgba(233,69,96,0.13)' : 'rgba(255,255,255,0.03)',
-                        border: isActive
-                          ? '1px solid rgba(233,69,96,0.35)'
-                          : '1px solid rgba(255,255,255,0.05)',
-                        cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', cursor: 'pointer',
+                        background: isActive ? `${clipColor}14` : 'transparent',
+                        borderLeft: `2px solid ${isActive ? clipColor : 'transparent'}`,
+                        transition: 'all 0.12s',
                       }}
                     >
                       {/* Ligne principale */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                        <span style={{
-                          flexShrink: 0, width: 18, height: 18, borderRadius: 999,
-                          background: isActive ? 'var(--color-accent, #e94560)' : 'rgba(255,255,255,0.1)',
-                          color: '#fff', fontSize: '0.58rem', fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {isActive ? '▶' : i + 1}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: clipColor, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.75rem', fontWeight: isActive ? 700 : 400, color: isActive ? '#e8ecf8' : '#b0bcd4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? 'var(--fg)' : 'var(--text-2)' }}>
                             {clip.name}
                           </div>
-                          <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-                            {fmtTime(clip.duration)}
+                          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                            <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'monospace' }}>{fmtTime(clip.duration)}</span>
                             {clip.sourceType === 'adapted' && (
-                              <span style={{ marginLeft: 4, color: '#f43f5e', fontWeight: 700 }}>ADAPTÉ</span>
+                              <span className="badge badge-adapted" style={{ fontSize: 9 }}>Adapté</span>
                             )}
                           </div>
                         </div>
@@ -1200,11 +1186,11 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
                         </div>
                         <button
                           type="button"
+                          className="btn btn-ghost btn-xs btn-icon"
                           aria-label={`Supprimer ${clip.name}`}
                           onClick={(e) => { e.stopPropagation(); removeClip(clip.id) }}
-                          style={deleteBtn}
                         >
-                          ✕
+                          <Icon.Trash />
                         </button>
                       </div>
 
@@ -1321,47 +1307,54 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           {/* Section Musique */}
           <div style={panelSection}>
             <div style={panelSectionHeader}>
-              <span>🎵 Musique</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon.Music />
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Musique</span>
+              </div>
               <button
                 type="button"
-                style={smallAddBtn}
+                className="btn btn-ghost btn-xs btn-icon"
+                aria-label="Importer une piste"
+                title="Importer une piste"
                 onClick={() => audioInputRef.current?.click()}
               >
-                + Importer une piste
+                <Icon.Plus />
               </button>
             </div>
 
             {audioTracks.length === 0 ? (
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
-                Aucune piste
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-3)' }}>
+                Aucune piste audio
               </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {audioTracks.map((track) => (
                   <div
                     key={track.id}
                     style={{
-                      ...rowItem,
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px',
                       background: 'rgba(100,255,218,0.04)',
                       border: '1px solid rgba(100,255,218,0.14)',
+                      borderRadius: 6,
                     }}
                   >
-                    <span style={{ flexShrink: 0, fontSize: '0.75rem' }}>♪</span>
+                    <div style={{ color: '#64ffda', flexShrink: 0 }}><Icon.Music /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64ffda', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: '#64ffda', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {track.name}
                       </div>
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-2)', marginTop: 1 }}>
                         {track.duration > 0 ? fmtTime(track.duration) : '—'}
                       </div>
                     </div>
                     <button
                       type="button"
+                      className="btn btn-ghost btn-xs btn-icon"
                       aria-label={`Supprimer ${track.name}`}
                       onClick={() => handleRemoveAudioTrack(track.id)}
-                      style={deleteBtn}
                     >
-                      ✕
+                      <Icon.Trash />
                     </button>
                   </div>
                 ))}
@@ -1374,7 +1367,10 @@ const AssemblagePage: React.FC<AssemblagePageProps> = ({
           {/* Section Infos */}
           <div style={panelSection}>
             <div style={panelSectionHeader}>
-              <span>📊 Infos</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon.Stats />
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Infos</span>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               {([
