@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { AssemblageClip, AudioTrack } from '../../stores/assemblageStore'
+import {
+  getClipTrimEnd,
+  getClipFadeInDuration,
+  getClipFadeOutDuration,
+} from '../../stores/assemblageStore'
 import { startAssemblageExport, getAssemblageDownloadUrl } from '../../api/assemblage'
 import { getJobStatus, type JobStatus } from '../../api/exports'
 
@@ -188,7 +193,13 @@ export default function ExportPanel({ clips, audioTracks, onClose }: ExportPanel
         video_id: c.videoId,
         order: i,
         source_type: c.sourceType ?? 'original',
-      } as const))
+        trim_start: c.trimStart ?? 0,
+        trim_end: getClipTrimEnd(c),
+        fade_in: c.fadeIn ?? false,
+        fade_out: c.fadeOut ?? false,
+        fade_in_duration_s: getClipFadeInDuration(c),
+        fade_out_duration_s: getClipFadeOutDuration(c),
+      }))
       const withMusic = includeMusic && audioTracks.length > 0
 
       let audioBlob: Blob | null = null

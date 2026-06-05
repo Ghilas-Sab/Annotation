@@ -177,15 +177,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--color-text-muted, #888)', marginTop: '0.1rem' }}>
             <span>Frame {currentFrame}</span>
-            <span>
-              <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>←→</kbd> frame
-              &nbsp;
-              <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>Shift</kbd> ±5
-              &nbsp;
-              <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>Espace</kbd> annoter
-              &nbsp;
-              <kbd style={{ padding: '0 3px', border: '1px solid #555', borderRadius: 2, fontSize: '0.7rem' }}>P</kbd> play
-            </span>
             <span>/ {totalFrames}</span>
           </div>
         </div>

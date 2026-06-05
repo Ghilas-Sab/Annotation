@@ -123,14 +123,20 @@ def mix_audio_with_video(video_path: str, audio_path: str, output_path: str) -> 
 
     - Si la vidéo a déjà de l'audio : le remplace par la musique.
     - Si la vidéo est video-only : ajoute directement la musique.
-    La durée est celle du plus court des deux streams (-shortest).
+    La durée de sortie est TOUJOURS celle de la vidéo :
+    - Si la musique est plus courte → silence après la fin de la musique.
+    - Si la musique est plus longue → tronquée à la fin de la vidéo.
     """
+    # apad étend la musique avec du silence si elle est plus courte que la vidéo.
+    # -shortest arrête ensuite à la fin du flux le plus court, qui sera la vidéo
+    # puisque l'audio est padded indéfiniment.
     cmd = [
         "ffmpeg", "-y",
         "-i", video_path,
         "-i", audio_path,
+        "-filter_complex", "[1:a]apad[aout]",
         "-map", "0:v",
-        "-map", "1:a",
+        "-map", "[aout]",
         "-c:v", "copy",
         "-c:a", "aac",
         "-shortest",
@@ -201,16 +207,23 @@ def assemble_videos(
             return f"[{i}:a]"
         return f"[{null_audio_map[i]}:a]"
 
-    # Labels vidéo avec scale + fade + format=yuv420p (compatibilité libx264)
+    # Labels vidéo avec trim + scale + fade + format=yuv420p (compatibilité libx264)
     def _build_video_labels(clips: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
         labels: list[str] = []
         filters: list[str] = []
         is_single = len(clips) == 1
         for i, clip in enumerate(clips):
+            trim_start = float(clip.get("trimStart") or 0)
+            trim_end = float(clip.get("trimEnd") or 0)
+            if trim_start > 0 or trim_end > 0:
+                eff_end = trim_end if trim_end > 0 else trim_start + _clip_duration(clip)
+                trim_filter = f"trim=start={trim_start:.4f}:end={eff_end:.4f},setpts=PTS-STARTPTS"
+            else:
+                trim_filter = ""
             clip_filter = build_clip_filter(clip)
             sc = clip.get("_scale", "")
             # format=yuv420p garantit la compatibilité libx264 quel que soit le format source
-            chain = ",".join(f for f in [sc, clip_filter, "format=yuv420p"] if f)
+            chain = ",".join(f for f in [trim_filter, sc, clip_filter, "format=yuv420p"] if f)
             # Pour un seul clip, on sort directement en [v] → pas de concat nécessaire
             label = "[v]" if is_single else f"[vs{i}]"
             filters.append(f"[{i}:v]{chain}{label}")
@@ -219,18 +232,45 @@ def assemble_videos(
 
     video_labels, filter_parts = _build_video_labels(augmented)
 
+    # Labels audio avec atrim quand le clip est trimmé et a de l'audio réel
+    audio_trim_filter_labels: dict[int, str] = {}
+    for i, clip in enumerate(augmented):
+        trim_start = float(clip.get("trimStart") or 0)
+        trim_end = float(clip.get("trimEnd") or 0)
+        if has_audio_list[i] and (trim_start > 0 or trim_end > 0):
+            eff_end = trim_end if trim_end > 0 else trim_start + _clip_duration(clip)
+            label = f"[at{i}]"
+            filter_parts.append(
+                f"[{i}:a]atrim=start={trim_start:.4f}:end={eff_end:.4f},asetpts=PTS-STARTPTS{label}"
+            )
+            audio_trim_filter_labels[i] = label
+
+    def trimmed_audio_ref(i: int) -> str:
+        """Label audio pour usage dans filter_complex (avec crochets)."""
+        if i in audio_trim_filter_labels:
+            return audio_trim_filter_labels[i]
+        return audio_ref(i)
+
+    def trimmed_audio_map(i: int) -> str:
+        """Spécificateur audio pour argument -map."""
+        if i in audio_trim_filter_labels:
+            return audio_trim_filter_labels[i]  # filter output → avec crochets
+        if has_audio_list[i]:
+            return f"{i}:a"  # stream specifier → sans crochets
+        return f"{null_audio_map[i]}:a"
+
     if n == 1 or not use_transitions:
         if n == 1:
             # Clip unique : [v] déjà produit, pas de concat — évite le bug concat=n=1
             filter_complex = ";".join(filter_parts)
             map_args = ["-map", "[v]"]
             if has_audio_list[0]:
-                map_args += ["-map", "0:a"]
+                map_args += ["-map", trimmed_audio_map(0)]
                 codec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23", "-c:a", "aac"]
             else:
                 codec_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
         elif any_has_audio:
-            concat_in = "".join(f"{video_labels[i]}{audio_ref(i)}" for i in range(n))
+            concat_in = "".join(f"{video_labels[i]}{trimmed_audio_ref(i)}" for i in range(n))
             filter_parts.append(f"{concat_in}concat=n={n}:v=1:a=1[v][a]")
             filter_complex = ";".join(filter_parts)
             map_args = ["-map", "[v]", "-map", "[a]"]
@@ -256,10 +296,10 @@ def assemble_videos(
             cumulative += augmented[i - 1]["duration"]
 
         if any_has_audio:
-            prev_a = audio_ref(0)
+            prev_a = trimmed_audio_ref(0)
             for i in range(1, n):
                 label = f"[a{i}]" if i < n - 1 else "[aout]"
-                filter_parts.append(f"{prev_a}{audio_ref(i)}acrossfade=d={d}{label}")
+                filter_parts.append(f"{prev_a}{trimmed_audio_ref(i)}acrossfade=d={d}{label}")
                 prev_a = label
             filter_complex = ";".join(filter_parts)
             map_args = ["-map", "[vout]", "-map", "[aout]"]

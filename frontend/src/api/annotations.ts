@@ -48,7 +48,11 @@ export function useCreateAnnotation(videoId: string) {
       if (!res.ok) throw new Error('Erreur création annotation')
       return res.json() as Promise<Annotation>
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
+      // Synchronous cache update so subsequent reads see the new annotation immediately
+      qc.setQueryData<Annotation[]>(['annotations', videoId], (old) =>
+        old ? [...old, created] : [created]
+      )
       qc.invalidateQueries({ queryKey: ['annotations', videoId] })
       qc.invalidateQueries({ queryKey: ['project'] })
       qc.invalidateQueries({ queryKey: ['statistics', videoId] })

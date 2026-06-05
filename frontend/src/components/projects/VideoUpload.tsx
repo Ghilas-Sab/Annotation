@@ -85,7 +85,14 @@ const VideoUpload: React.FC<VideoUploadProps> = ({ projectId, onUpload }) => {
           accept="video/*"
         />
 
-        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📁</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <circle cx="28" cy="28" r="24" fill="var(--color-accent)" fillOpacity="0.08" stroke="var(--color-accent)" strokeOpacity="0.25" strokeWidth="1.5" />
+            <path d="M28 37V23" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+            <path d="M22 29l6-6 6 6" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M19 39h18" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
         <p style={{ margin: 0, color: 'var(--color-text)' }}>
           {uploadMutation.isPending
             ? 'Téléchargement en cours...'

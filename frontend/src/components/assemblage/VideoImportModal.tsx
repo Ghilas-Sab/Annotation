@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import type { Project, Video } from '../../types/project'
+import { Icon } from '../ui'
 
 interface VideoImportModalProps {
   project: Project
@@ -99,14 +100,9 @@ const VideoImportModal: React.FC<VideoImportModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Fermer"
-            style={{
-              background: 'transparent', border: 'none',
-              color: 'var(--color-text-muted, #8892b0)',
-              fontSize: '1.2rem', lineHeight: 1, padding: '0.2rem 0.4rem',
-              borderRadius: 4, cursor: 'pointer',
-            }}
+            className="btn btn-ghost btn-sm btn-icon"
           >
-            ✕
+            <Icon.X />
           </button>
         </div>
 
@@ -265,26 +261,13 @@ const VideoImportModal: React.FC<VideoImportModalProps> = ({
           background: 'rgba(0,0,0,0.15)',
           flexShrink: 0,
         }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '0.5rem 1.1rem', fontSize: '0.85rem', fontWeight: 500,
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 7, color: 'var(--color-text-muted, #8892b0)', cursor: 'pointer',
-            }}
-          >
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             Annuler
           </button>
           <button
             onClick={handleConfirm}
             disabled={selectedIds.size === 0}
-            style={{
-              padding: '0.5rem 1.3rem', fontSize: '0.85rem', fontWeight: 700,
-              background: selectedIds.size > 0 ? 'var(--color-accent, #e94560)' : 'rgba(233,69,96,0.3)',
-              border: 'none', borderRadius: 7, color: '#fff',
-              cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
-              transition: 'opacity 0.15s',
-            }}
+            className="btn btn-primary btn-sm"
           >
             Ajouter la sélection
           </button>

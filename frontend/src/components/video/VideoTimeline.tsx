@@ -104,19 +104,24 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
     if (!ctx) return
     const { width, height } = canvas
 
+    // Read CSS theme vars at draw time
+    const rootStyles = getComputedStyle(document.documentElement)
+    const timelineTrack = `hsl(${rootStyles.getPropertyValue('--timeline-track').trim() || '228 14% 12%'})`
+    const timelinePlayhead = `hsl(${rootStyles.getPropertyValue('--timeline-playhead').trim() || '0 0% 92%'})`
+
     ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#1a1a2e'
+    ctx.fillStyle = timelineTrack
     ctx.fillRect(0, 0, width, height)
 
-    // Zone hors plage (trim) en grisé
+    // Trim zones (dimmed overlay)
     if (startFrame > 0) {
       const trimX = frameToX(startFrame, width)
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'
       ctx.fillRect(0, 0, trimX, height)
     }
     if (rangeEnd < totalFrames) {
       const trimX = frameToX(rangeEnd, width)
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'
       ctx.fillRect(trimX, 0, width - trimX, height)
     }
 
@@ -126,7 +131,7 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
     const framesPerPixel = (viewRange.end - viewRange.start) / width
 
     if (framesPerPixel > 2 && visibleAnnotations.length > width / 3) {
-      // Mode densité — heatmap
+      // Density mode — heatmap
       const density = new Uint32Array(width)
       for (const ann of visibleAnnotations) {
         const x = Math.floor(frameToX(ann.frame_number, width))
@@ -141,46 +146,70 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
         }
       }
     } else {
-      // Mode individuel — lignes + triangle
-      for (const ann of visibleAnnotations) {
-        const isDragging = dragging !== null && dragging.id === ann.id
-        const isSelected = ann.id === selectedAnnotationId
-        const displayFrame = isDragging ? dragging.frame : ann.frame_number
-        const x = frameToX(displayFrame, width)
-        const categoryColor = ann.category?.color ?? '#e94560'
-        ctx.strokeStyle = isDragging ? '#ffcc00' : isSelected ? '#4a9eff' : categoryColor
-        ctx.lineWidth = isDragging ? 3 : isSelected ? 4 : 2
+      // Individual mode — v2 style: clean vertical bars with category color
+      // Draw non-selected first, highlighted on top
+      const normal = visibleAnnotations.filter(
+        a => a.id !== selectedAnnotationId && !(dragging && dragging.id === a.id)
+      )
+      const highlighted = visibleAnnotations.filter(
+        a => a.id === selectedAnnotationId || (dragging && dragging.id === a.id)
+      )
+
+      for (const ann of normal) {
+        const x = frameToX(ann.frame_number, width)
+        const color = ann.category?.color ?? '#e94560'
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2
         ctx.beginPath()
-        ctx.moveTo(x, 8)
+        ctx.moveTo(x, 0)
         ctx.lineTo(x, height)
         ctx.stroke()
-        ctx.fillStyle = isDragging ? '#ffcc00' : isSelected ? '#4a9eff' : categoryColor
+      }
+
+      for (const ann of highlighted) {
+        const isDragging = dragging !== null && dragging.id === ann.id
+        const displayFrame = isDragging ? dragging.frame : ann.frame_number
+        const x = frameToX(displayFrame, width)
+        const color = isDragging ? '#ffcc00' : ann.category?.color ?? '#e94560'
+
+        ctx.shadowBlur = 8
+        ctx.shadowColor = color
+        ctx.strokeStyle = color
+        ctx.lineWidth = 3
         ctx.beginPath()
-        ctx.moveTo(x - 5, 0)
-        ctx.lineTo(x + 5, 0)
-        ctx.lineTo(x, 8)
-        ctx.closePath()
-        ctx.fill()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+        ctx.stroke()
+        ctx.shadowBlur = 0
+        ctx.shadowColor = 'transparent'
       }
     }
 
-    // Curseur frame courante
+    // Playhead — themed vertical line with dot at top
     const cursorX = frameToX(currentFrame, width)
     if (cursorX >= 0 && cursorX <= width) {
-      ctx.strokeStyle = '#4a9eff'
+      ctx.shadowBlur = 8
+      ctx.shadowColor = timelinePlayhead
+      ctx.strokeStyle = timelinePlayhead
       ctx.lineWidth = 2
       ctx.beginPath()
       ctx.moveTo(cursorX, 0)
       ctx.lineTo(cursorX, height)
       ctx.stroke()
+      ctx.fillStyle = timelinePlayhead
+      ctx.beginPath()
+      ctx.arc(cursorX, 5, 5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.shadowColor = 'transparent'
     }
 
-    // Indicateur zoom
+    // Zoom indicator strip at bottom
     if (isZoomed) {
-      ctx.fillStyle = 'rgba(74,158,255,0.15)'
-      ctx.fillRect(0, height - 4, width, 4)
+      ctx.fillStyle = 'rgba(74,158,255,0.2)'
+      ctx.fillRect(0, height - 3, width, 3)
     }
-  }, [currentFrame, totalFrames, annotations, dragging, viewRange, frameToX, startFrame, rangeEnd, isZoomed])
+  }, [currentFrame, totalFrames, annotations, selectedAnnotationId, dragging, viewRange, frameToX, startFrame, rangeEnd, isZoomed])
 
   useEffect(() => { draw() }, [draw])
 

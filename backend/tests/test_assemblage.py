@@ -292,3 +292,119 @@ def test_assemble_filter_complex_contains_yuv420p_multi(tmp_path, monkeypatch):
     )
     cmd_str = " ".join(cmd)
     assert "format=yuv420p" in cmd_str
+
+
+# ── Tests bug-fix : trim + fade passthrough ──────────────────────────────────
+
+def test_assemblage_clip_request_accepts_trim_fade_fields():
+    """Schema accepte les champs trim/fade avec valeurs par défaut correctes."""
+    from app.schemas.assemblage import AssemblageClipRequest
+    req = AssemblageClipRequest(
+        video_id="abc", order=0,
+        trim_start=1.5, trim_end=8.0,
+        fade_in=True, fade_out=True,
+        fade_in_duration_s=0.5, fade_out_duration_s=1.0,
+    )
+    assert req.trim_start == 1.5
+    assert req.trim_end == 8.0
+    assert req.fade_in is True
+    assert req.fade_out is True
+    assert req.fade_in_duration_s == 0.5
+    assert req.fade_out_duration_s == 1.0
+    # Valeurs par défaut
+    req2 = AssemblageClipRequest(video_id="abc", order=0)
+    assert req2.trim_start == 0.0
+    assert req2.trim_end == 0.0
+    assert req2.fade_in is False
+    assert req2.fade_out is False
+
+
+def test_assemble_trim_filter_applied_when_trimstart_set(tmp_path, monkeypatch):
+    """Clip avec trimStart > 0 → filter_complex contient trim + setpts."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    clips = [{"path": fake, "duration": 5.0, "trimStart": 2.0, "trimEnd": 7.0}]
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, clips)
+    cmd_str = " ".join(cmd)
+    assert "trim=start=2.0000:end=7.0000" in cmd_str
+    assert "setpts=PTS-STARTPTS" in cmd_str
+
+
+def test_assemble_no_trim_filter_when_no_trim(tmp_path, monkeypatch):
+    """Clip sans trim → pas de filtre trim dans la commande FFmpeg."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    clips = [{"path": fake, "duration": 5.0}]
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, clips)
+    cmd_str = " ".join(cmd)
+    assert "trim=" not in cmd_str
+
+
+def test_assemble_fade_in_applied_via_clip_dict(tmp_path, monkeypatch):
+    """Clip avec fadeIn=True passé directement → filter_complex contient fade=t=in."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    clips = [{"path": fake, "duration": 5.0, "fadeIn": True, "fadeInDurationS": 0.5}]
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, clips)
+    assert "fade=t=in" in " ".join(cmd)
+
+
+def test_assemble_fade_out_applied_via_clip_dict(tmp_path, monkeypatch):
+    """Clip avec fadeOut=True passé directement → filter_complex contient fade=t=out."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    clips = [{"path": fake, "duration": 5.0, "fadeOut": True, "fadeOutDurationS": 0.5}]
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, clips)
+    assert "fade=t=out" in " ".join(cmd)
+
+
+def test_assemble_audio_atrim_applied_when_trim_set(tmp_path, monkeypatch):
+    """Clip avec trimStart + audio réel → filter_complex contient atrim + asetpts."""
+    fake = str(tmp_path / "clip.mp4")
+    open(fake, "wb").close()
+    clips = [{"path": fake, "duration": 5.0, "trimStart": 2.0, "trimEnd": 7.0}]
+    cmd = _run_assemble_capture(monkeypatch, tmp_path, clips, has_audio=True)
+    cmd_str = " ".join(cmd)
+    assert "atrim=start=2.0000:end=7.0000" in cmd_str
+    assert "asetpts=PTS-STARTPTS" in cmd_str
+
+
+async def test_export_with_trim_fade_fields_returns_202(client, two_videos):
+    """POST /assemblage/export accepte les nouveaux champs trim/fade."""
+    config = json.dumps({
+        "clips": [{
+            "video_id": two_videos[0], "order": 0,
+            "trim_start": 0.0, "trim_end": 3.0,
+            "fade_in": True, "fade_out": False,
+            "fade_in_duration_s": 0.5,
+        }],
+        "use_transitions": False,
+        "resolution": "720p",
+    })
+    resp = await client.post("/api/v1/assemblage/export", data={"config": config})
+    assert resp.status_code == 202
+
+
+def test_mix_audio_uses_apad_to_preserve_video_duration(monkeypatch):
+    """mix_audio_with_video doit utiliser apad pour éviter que -shortest coupe
+    la vidéo quand la piste audio est plus courte que la vidéo assemblée."""
+    import subprocess
+    import app.services.assemblage_service as svc
+
+    captured: dict = {}
+
+    def mock_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    svc.mix_audio_with_video("/v/video.mp4", "/a/music.mp3", "/o/out.mp4")
+
+    cmd = captured["cmd"]
+    # Le filtre apad doit être dans le filter_complex, pas juste dans un chemin de fichier
+    fc_idx = cmd.index("-filter_complex") if "-filter_complex" in cmd else -1
+    assert fc_idx >= 0, "-filter_complex absent de la commande mix_audio"
+    filter_complex_value = cmd[fc_idx + 1]
+    assert "apad" in filter_complex_value, f"apad absent du filter_complex: {filter_complex_value}"
+    assert "-shortest" in cmd

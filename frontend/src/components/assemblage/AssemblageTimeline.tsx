@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '../ui'
 import {
   getClipEffectiveDuration,
   getClipTimelineEnd,
@@ -476,12 +477,17 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
         display: 'flex', alignItems: 'center', gap: '0.55rem',
         marginBottom: '0.35rem',
       }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted, #8892b0)', fontFamily: 'monospace', marginRight: 4 }}>
-          🎬 {fmtTime(videoDuration)}
+        <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-2)', letterSpacing: '0.03em' }}>Timeline</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', color: 'var(--text-3)', fontFamily: 'monospace' }}>
+          <Icon.Film />
+          <span>{fmtTime(videoDuration)}</span>
           {audioTracks.length > 0 && (
-            <span style={{ marginLeft: 8 }}>🎵 {fmtTime(maxAudioDuration)}</span>
+            <>
+              <Icon.Music />
+              <span>{fmtTime(maxAudioDuration)}</span>
+            </>
           )}
-        </span>
+        </div>
         <div style={{ flex: 1 }} />
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.35rem',
@@ -552,8 +558,8 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
             ×1
           </button>
         )}
-        <button type="button" onClick={zoomOut} disabled={zoom <= MIN_ZOOM} title="Dézoomer (Ctrl+molette)" style={{ ...zoomBtnStyle, opacity: zoom <= MIN_ZOOM ? 0.35 : 1 }}>−</button>
-        <button type="button" onClick={zoomIn}  disabled={zoom >= MAX_ZOOM} title="Zoomer (Ctrl+molette)" style={{ ...zoomBtnStyle, opacity: zoom >= MAX_ZOOM ? 0.35 : 1 }}>+</button>
+        <button type="button" onClick={zoomOut} disabled={zoom <= MIN_ZOOM} title="Dézoomer (Ctrl+molette)" style={{ ...zoomBtnStyle, opacity: zoom <= MIN_ZOOM ? 0.35 : 1 }}><Icon.ZoomOut /></button>
+        <button type="button" onClick={zoomIn}  disabled={zoom >= MAX_ZOOM} title="Zoomer (Ctrl+molette)" style={{ ...zoomBtnStyle, opacity: zoom >= MAX_ZOOM ? 0.35 : 1 }}><Icon.ZoomIn /></button>
       </div>
 
       {/* ── Layout principal : colonne labels fixes + zone scrollable ─────── */}
@@ -582,7 +588,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
           }}>
             <div style={{ minWidth: 0, width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.38rem', minWidth: 0 }}>
-                <span style={{ fontSize: '0.82rem', lineHeight: 1, flexShrink: 0 }}>🎬</span>
+                <Icon.Film />
                 <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#e8ecf8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Vidéo</span>
                 <span style={{ marginLeft: 'auto', fontSize: '0.56rem', color: '#5a6480', fontFamily: 'monospace' }}>
                   {videoDuration > 0 ? fmtTime(videoDuration) : ''}
@@ -610,7 +616,7 @@ const AssemblageTimeline: React.FC<AssemblageTimelineProps> = ({
               }}>
                 <div style={{ minWidth: 0, width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.38rem', minWidth: 0 }}>
-                    <span style={{ fontSize: '0.82rem', lineHeight: 1, flexShrink: 0 }}>🎵</span>
+                    <Icon.Music />
                     <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#64ffda', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Musique</span>
                   </div>
                   <div style={{ fontSize: '0.58rem', color: '#8892b0', paddingLeft: '1.52rem', lineHeight: 1.2 }}>

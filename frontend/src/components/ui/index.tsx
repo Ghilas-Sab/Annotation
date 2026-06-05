@@ -119,6 +119,7 @@ export const Icon = {
   Film: () => <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" /><path d="M5 3v10M11 3v10M1 6h14M1 10h14" stroke="currentColor" strokeWidth="1.2" opacity="0.6" /></svg>,
   AlertTriangle: () => <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2L1 14h14L8 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /><path d="M8 7v3M8 12v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>,
   Waveform: () => <svg width="14" height="14" viewBox="0 0 16 16" fill="none">{[2, 4, 6, 8, 10, 12, 14].map((x, i) => { const h = [3, 7, 10, 12, 9, 6, 4][i]; return <rect key={i} x={x - 0.8} y={8 - h / 2} width="1.6" height={h} rx="0.8" fill="currentColor" opacity="0.8" /> })}</svg>,
+  Eye: () => <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" /></svg>,
   Beep: ({ on }: { on: boolean }) => (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
       <path d="M3 6H1v4h2l4 3V3L3 6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
